@@ -1,6 +1,6 @@
 import { Analysis } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -12,6 +12,19 @@ interface ResultsPanelProps {
 export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Check if feedback already exists for this analysis
+  const { data: existingFeedback, isLoading: feedbackLoading } = useQuery({
+    queryKey: ["/api/feedback", analysis?.id],
+    queryFn: async () => {
+      if (!analysis?.id) return null;
+      const response = await fetch(`/api/feedback/${analysis.id}`);
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error('Failed to fetch feedback');
+      return response.json();
+    },
+    enabled: !!analysis?.id,
+  });
 
   const feedbackMutation = useMutation({
     mutationFn: async (isAccurate: boolean) => {
@@ -27,6 +40,7 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
         description: "Thank you for your feedback!",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/analyses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/feedback", analysis.id] });
     },
     onError: () => {
       toast({
@@ -105,24 +119,41 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
             <i className="fas fa-thumbs-up text-blue-500 mr-2"></i>
             How accurate is this analysis?
           </h4>
-          <div className="flex space-x-3">
-            <Button
-              onClick={() => feedbackMutation.mutate(true)}
-              disabled={feedbackMutation.isPending}
-              className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
-            >
-              <i className="fas fa-check mr-2"></i>
-              Accurate
-            </Button>
-            <Button
-              onClick={() => feedbackMutation.mutate(false)}
-              disabled={feedbackMutation.isPending}
-              className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-            >
-              <i className="fas fa-times mr-2"></i>
-              Not Accurate
-            </Button>
-          </div>
+          
+          {existingFeedback ? (
+            <div className="text-center">
+              <div className={`inline-flex items-center px-4 py-2 rounded-lg font-medium ${
+                existingFeedback.isAccurate 
+                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200'
+                  : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+              }`}>
+                <i className={`fas ${existingFeedback.isAccurate ? 'fa-check-circle' : 'fa-times-circle'} mr-2`}></i>
+                Feedback submitted: {existingFeedback.isAccurate ? 'Accurate' : 'Not Accurate'}
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                Thank you for your feedback!
+              </p>
+            </div>
+          ) : (
+            <div className="flex space-x-3">
+              <Button
+                onClick={() => feedbackMutation.mutate(true)}
+                disabled={feedbackMutation.isPending || feedbackLoading}
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
+              >
+                <i className="fas fa-check mr-2"></i>
+                {feedbackMutation.isPending ? 'Submitting...' : 'Accurate'}
+              </Button>
+              <Button
+                onClick={() => feedbackMutation.mutate(false)}
+                disabled={feedbackMutation.isPending || feedbackLoading}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+              >
+                <i className="fas fa-times mr-2"></i>
+                {feedbackMutation.isPending ? 'Submitting...' : 'Not Accurate'}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

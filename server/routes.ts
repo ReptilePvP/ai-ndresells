@@ -174,11 +174,35 @@ Focus on the primary product in the image.`;
   app.post("/api/feedback", async (req, res) => {
     try {
       const validatedData = insertFeedbackSchema.parse(req.body);
+      
+      // Check if feedback already exists for this analysis
+      const existingFeedback = await storage.getFeedbackByAnalysis(validatedData.analysisId);
+      if (existingFeedback) {
+        return res.status(409).json({ message: "Feedback already exists for this analysis" });
+      }
+      
       const feedback = await storage.createFeedback(validatedData);
       res.json(feedback);
     } catch (error) {
       console.error("Feedback error:", error);
       res.status(400).json({ message: "Invalid feedback data" });
+    }
+  });
+
+  // Get feedback by analysis ID
+  app.get("/api/feedback/:analysisId", async (req, res) => {
+    try {
+      const analysisId = parseInt(req.params.analysisId);
+      const feedback = await storage.getFeedbackByAnalysis(analysisId);
+      
+      if (!feedback) {
+        return res.status(404).json({ message: "Feedback not found" });
+      }
+      
+      res.json(feedback);
+    } catch (error) {
+      console.error("Get feedback error:", error);
+      res.status(500).json({ message: "Failed to fetch feedback" });
     }
   });
 
