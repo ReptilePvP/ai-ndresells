@@ -126,11 +126,22 @@ Focus on the primary product in the image.`;
       // Parse JSON response
       let analysisData;
       try {
-        // Clean the response to extract JSON
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        // Clean the response to extract JSON, removing markdown formatting
+        let cleanText = text.trim();
+        
+        // Remove markdown code blocks if present
+        if (cleanText.startsWith('```json')) {
+          cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (cleanText.startsWith('```')) {
+          cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+        
+        // Extract JSON object
+        const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
           throw new Error("No JSON found in response");
         }
+        
         analysisData = JSON.parse(jsonMatch[0]);
       } catch (parseError) {
         console.error("Failed to parse Gemini response:", text);
