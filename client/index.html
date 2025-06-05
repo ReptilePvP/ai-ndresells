@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>AI Product Analyzer - Identify & Price Any Product</title>
+    <meta name="description" content="AI-powered product analysis tool that identifies products from images and estimates pricing using Gemini 2.5 Flash. Get instant product information and market prices.">
+    <meta name="theme-color" content="#3B82F6">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ai-product-analyzer.replit.app/">
+    <meta property="og:title" content="AI Product Analyzer - Identify & Price Any Product">
+    <meta property="og:description" content="Upload any product image and get instant AI-powered analysis with pricing estimates.">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://ai-product-analyzer.replit.app/">
+    <meta property="twitter:title" content="AI Product Analyzer - Identify & Price Any Product">
+    <meta property="twitter:description" content="Upload any product image and get instant AI-powered analysis with pricing estimates.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%233B82F6'/><text x='50' y='65' text-anchor='middle' font-size='60' fill='white'>🔍</text></svg>">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- PWA Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => console.log('SW registered'))
+            .catch(registrationError => console.log('SW registration failed'));
+        });
+      }
+    </script>
+    <!-- Replit Dev Banner -->
+    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
+  </body>
+</html>
