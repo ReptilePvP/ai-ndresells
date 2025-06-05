@@ -95,19 +95,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const base64Image = imageBuffer.toString('base64');
 
       // Use Gemini to analyze the image
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
-      const prompt = `You are an expert product analyst. Analyze the uploaded image and return JSON only:
+      const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `You are an expert product analyst. Analyze the provided image to identify the specific product.
+Your goal is to return a single, valid JSON object with the following structure and content:
 {
-  "productName": "...",
-  "description": "...",
-  "averageSalePrice": "...",
-  "resellPrice": "..."
+  "productName": "string (Full product name, including brand and model, e.g., 'Sony WH-1000XM4 Wireless Noise-Cancelling Headphones')",
+  "description": "string (A detailed description of the item, its key features, and common uses. Be thorough.)",
+  "averageSalePrice": "string (Estimated average current market sale price for this product when new or in like-new condition. Provide a range if appropriate, e.g., '$250 - $300 USD'. If unknown, state 'Unknown'.)",
+  "resellPrice": "string (Estimated average resell price for this product in good used condition. Provide a range if appropriate, e.g., '$150 - $200 USD'. If unknown, state 'Unknown'.)"
 }
-No markdown or explanations.`;
+Focus on the primary product in the image.`;
 
       const result = await model.generateContent([
-        prompt,
+        {
+          text: SYSTEM_PROMPT_PRODUCT_ANALYSIS
+        },
         {
           inlineData: {
             mimeType: upload.mimeType,
