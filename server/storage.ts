@@ -1,4 +1,6 @@
 import { uploads, analyses, feedback, type Upload, type Analysis, type Feedback, type InsertUpload, type InsertAnalysis, type InsertFeedback, type AnalysisWithUpload } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Upload operations
@@ -24,110 +26,93 @@ export interface IStorage {
   }>;
 }
 
-export class MemStorage implements IStorage {
-  private uploads: Map<number, Upload>;
-  private analyses: Map<number, Analysis>;
-  private feedbacks: Map<number, Feedback>;
-  private uploadIdCounter: number;
-  private analysisIdCounter: number;
-  private feedbackIdCounter: number;
-
-  constructor() {
-    this.uploads = new Map();
-    this.analyses = new Map();
-    this.feedbacks = new Map();
-    this.uploadIdCounter = 1;
-    this.analysisIdCounter = 1;
-    this.feedbackIdCounter = 1;
-  }
-
-  async createUpload(insertUpload: InsertUpload): Promise<Upload> {
-    const id = this.uploadIdCounter++;
-    const upload: Upload = {
-      ...insertUpload,
-      id,
-      uploadedAt: new Date(),
-    };
-    this.uploads.set(id, upload);
-    return upload;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getUpload(id: number): Promise<Upload | undefined> {
-    return this.uploads.get(id);
+    const [upload] = await db.select().from(uploads).where(eq(uploads.id, id));
+    return upload || undefined;
   }
 
   async getUploadsBySession(sessionId: string): Promise<Upload[]> {
-    return Array.from(this.uploads.values()).filter(
-      (upload) => upload.sessionId === sessionId
-    );
+    return await db.select().from(uploads).where(eq(uploads.sessionId, sessionId));
+  }
+
+  async createUpload(insertUpload: InsertUpload): Promise<Upload> {
+    const [upload] = await db
+      .insert(uploads)
+      .values(insertUpload)
+      .returning();
+    return upload;
   }
 
   async createAnalysis(insertAnalysis: InsertAnalysis): Promise<Analysis> {
-    const id = this.analysisIdCounter++;
-    const analysis: Analysis = {
-      ...insertAnalysis,
-      id,
-      analyzedAt: new Date(),
-    };
-    this.analyses.set(id, analysis);
+    const [analysis] = await db
+      .insert(analyses)
+      .values(insertAnalysis)
+      .returning();
     return analysis;
   }
 
   async getAnalysis(id: number): Promise<Analysis | undefined> {
-    return this.analyses.get(id);
+    const [analysis] = await db.select().from(analyses).where(eq(analyses.id, id));
+    return analysis || undefined;
   }
 
   async getAnalysesBySession(sessionId: string): Promise<AnalysisWithUpload[]> {
-    const sessionUploads = await this.getUploadsBySession(sessionId);
-    const uploadIds = sessionUploads.map(u => u.id);
-    
-    const result: AnalysisWithUpload[] = [];
-    
-    for (const analysis of this.analyses.values()) {
-      if (uploadIds.includes(analysis.uploadId)) {
-        const upload = this.uploads.get(analysis.uploadId)!;
-        const feedback = Array.from(this.feedbacks.values()).find(f => f.analysisId === analysis.id);
-        
-        result.push({
-          ...analysis,
-          upload,
-          feedback,
-        });
-      }
-    }
-    
-    return result.sort((a, b) => b.analyzedAt.getTime() - a.analyzedAt.getTime());
+    const result = await db
+      .select({
+        analysis: analyses,
+        upload: uploads,
+        feedback: feedback,
+      })
+      .from(analyses)
+      .innerJoin(uploads, eq(analyses.uploadId, uploads.id))
+      .leftJoin(feedback, eq(feedback.analysisId, analyses.id))
+      .where(eq(uploads.sessionId, sessionId))
+      .orderBy(analyses.analyzedAt);
+
+    return result.map(row => ({
+      ...row.analysis,
+      upload: row.upload,
+      feedback: row.feedback || undefined,
+    }));
   }
 
   async getAnalysisWithUpload(analysisId: number): Promise<AnalysisWithUpload | undefined> {
-    const analysis = this.analyses.get(analysisId);
-    if (!analysis) return undefined;
-    
-    const upload = this.uploads.get(analysis.uploadId);
-    if (!upload) return undefined;
-    
-    const feedback = Array.from(this.feedbacks.values()).find(f => f.analysisId === analysisId);
-    
+    const result = await db
+      .select({
+        analysis: analyses,
+        upload: uploads,
+        feedback: feedback,
+      })
+      .from(analyses)
+      .innerJoin(uploads, eq(analyses.uploadId, uploads.id))
+      .leftJoin(feedback, eq(feedback.analysisId, analyses.id))
+      .where(eq(analyses.id, analysisId));
+
+    if (result.length === 0) return undefined;
+
+    const row = result[0];
     return {
-      ...analysis,
-      upload,
-      feedback,
+      ...row.analysis,
+      upload: row.upload,
+      feedback: row.feedback || undefined,
     };
   }
 
   async createFeedback(insertFeedback: InsertFeedback): Promise<Feedback> {
-    const id = this.feedbackIdCounter++;
-    const feedback: Feedback = {
-      ...insertFeedback,
-      id,
-      submittedAt: new Date(),
-    };
-    this.feedbacks.set(id, feedback);
-    return feedback;
+    const [newFeedback] = await db
+      .insert(feedback)
+      .values(insertFeedback)
+      .returning();
+    return newFeedback;
   }
 
   async getFeedbackByAnalysis(analysisId: number): Promise<Feedback | undefined> {
-    return Array.from(this.feedbacks.values()).find(f => f.analysisId === analysisId);
+    const [existingFeedback] = await db
+      .select()
+      .from(feedback)
+      .where(eq(feedback.analysisId, analysisId));
+    return existingFeedback || undefined;
   }
 
   async getSessionStats(sessionId: string): Promise<{
@@ -135,15 +120,15 @@ export class MemStorage implements IStorage {
     accuracyRate: number;
     totalValue: number;
   }> {
-    const analyses = await this.getAnalysesBySession(sessionId);
-    const totalAnalyses = analyses.length;
+    const analysesData = await this.getAnalysesBySession(sessionId);
+    const totalAnalyses = analysesData.length;
     
-    const feedbackCount = analyses.filter(a => a.feedback).length;
-    const accurateCount = analyses.filter(a => a.feedback?.isAccurate).length;
+    const feedbackCount = analysesData.filter(a => a.feedback).length;
+    const accurateCount = analysesData.filter(a => a.feedback?.isAccurate).length;
     const accuracyRate = feedbackCount > 0 ? (accurateCount / feedbackCount) * 100 : 0;
     
     // Calculate total value from price strings
-    const totalValue = analyses.reduce((sum, analysis) => {
+    const totalValue = analysesData.reduce((sum, analysis) => {
       const priceMatch = analysis.averageSalePrice.match(/\$?([\d,]+)/);
       const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : 0;
       return sum + price;
@@ -157,4 +142,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
