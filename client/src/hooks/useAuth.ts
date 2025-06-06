@@ -3,7 +3,7 @@ import { apiRequest } from "@/lib/queryClient";
 import type { User, LoginCredentials, RegisterData } from "@shared/schema";
 
 export function useAuth() {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<{ user: User }>({
     queryKey: ["/api/auth/me"],
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes

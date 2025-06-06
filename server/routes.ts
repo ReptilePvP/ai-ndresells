@@ -23,7 +23,7 @@ const upload = multer({
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'), false);
+      cb(null, false);
     }
   },
 });
@@ -57,11 +57,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hashedPassword = await hashPassword(validatedData.password);
       const user = await storage.createUser({ ...validatedData, password: hashedPassword });
       
-      // Set session
+      // Set session and explicitly save it
       req.session.userId = user.id;
       req.session.userRole = user.role;
       
-      res.json({ user });
+      // Force session save for mobile compatibility
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Session creation failed" });
+        }
+        
+        res.json({ user });
+      });
     } catch (error) {
       console.error("Registration error:", error);
       res.status(400).json({ message: "Invalid registration data" });
@@ -82,12 +90,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       
-      // Set session
+      // Set session and explicitly save it
       req.session.userId = user.id;
       req.session.userRole = user.role;
       
-      const { password, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
+      // Force session save for mobile compatibility
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Session creation failed" });
+        }
+        
+        const { password, ...userWithoutPassword } = user;
+        res.json({ user: userWithoutPassword });
+      });
     } catch (error) {
       console.error("Login error:", error);
       res.status(400).json({ message: "Invalid login data" });
