@@ -1,9 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Camera, X, RotateCcw, Zap, AlertCircle, Settings } from "lucide-react";
+import { Camera, X, RotateCcw, Zap, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCamera } from "@/hooks/useCamera";
 
 interface CameraCaptureProps {
   onCapture: (file: File) => void;
@@ -15,32 +14,28 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
-  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [isVideoLoading, setIsVideoLoading] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
-  const { isSupported, hasPermission, isLoading: permissionLoading, error: permissionError, requestPermission } = useCamera();
 
   const startCamera = useCallback(async () => {
     setIsVideoLoading(true);
     setVideoError(null);
     
     try {
-      // Try simpler constraints first
-      let constraints = {
+      // Check for camera support
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera not supported in this browser');
+      }
+
+      // Simple mobile-friendly constraints
+      const constraints = {
         video: {
           facingMode: facingMode
         }
       };
-
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        setHasMultipleCameras(videoDevices.length > 1);
-      } catch (e) {
-        console.warn('Could not enumerate devices:', e);
-      }
 
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       setStream(mediaStream);
@@ -48,34 +43,34 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         
-        // Simplified event handling
-        const handleLoadedData = () => {
+        // Simple event handling to avoid loops
+        videoRef.current.onloadedmetadata = () => {
           setIsVideoLoading(false);
-          videoRef.current?.play().catch(console.error);
+          videoRef.current?.play().catch(() => {
+            // Silent catch - autoplay restrictions are normal
+          });
         };
         
-        videoRef.current.addEventListener('loadeddata', handleLoadedData);
-        videoRef.current.addEventListener('canplay', handleLoadedData);
-        
-        // Auto-play fallback
-        setTimeout(() => {
-          if (videoRef.current && videoRef.current.paused) {
-            videoRef.current.play().catch(console.error);
-          }
-          setIsVideoLoading(false);
-        }, 1000);
+        // Fallback
+        setTimeout(() => setIsVideoLoading(false), 2000);
       }
     } catch (error) {
       console.error('Camera error:', error);
       setIsVideoLoading(false);
-      setVideoError('Camera access denied or unavailable');
-      toast({
-        title: "Camera Error",
-        description: "Please enable camera permissions and try again",
-        variant: "destructive",
-      });
+      
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          setVideoError('Camera permission denied. Please allow camera access.');
+        } else if (error.name === 'NotFoundError') {
+          setVideoError('No camera found on this device.');
+        } else {
+          setVideoError('Camera unavailable: ' + error.message);
+        }
+      } else {
+        setVideoError('Camera access failed');
+      }
     }
-  }, [facingMode, toast]);
+  }, [facingMode]);
 
   const stopCamera = useCallback(() => {
     if (stream) {
@@ -85,36 +80,24 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    setIsVideoLoading(true);
+    setIsVideoLoading(false);
     setVideoError(null);
   }, [stream]);
 
   const openCamera = async () => {
-    if (!isSupported) {
+    // Check for basic camera support
+    if (!navigator.mediaDevices?.getUserMedia) {
       toast({
         title: "Camera Not Supported",
-        description: "Your device doesn't support camera access.",
+        description: "Your browser doesn't support camera access.",
         variant: "destructive",
       });
       return;
     }
 
-    if (!hasPermission) {
-      const granted = await requestPermission();
-      if (!granted) {
-        return;
-      }
-    }
-
-    // Reset state when opening
-    setIsVideoLoading(true);
-    setVideoError(null);
     setIsOpen(true);
-    
-    // Small delay to ensure UI updates
-    setTimeout(() => {
-      startCamera();
-    }, 100);
+    setIsVideoLoading(true);
+    await startCamera();
   };
 
   const closeCamera = () => {
@@ -124,6 +107,10 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
 
   const switchCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+    if (stream) {
+      stopCamera();
+      setTimeout(startCamera, 100);
+    }
   };
 
   const capturePhoto = () => {
@@ -134,27 +121,6 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
     const context = canvas.getContext('2d');
 
     if (!context) return;
-
-    // Add camera flash effect
-    const flashDiv = document.createElement('div');
-    flashDiv.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: white;
-      z-index: 9999;
-      opacity: 0.8;
-      pointer-events: none;
-    `;
-    document.body.appendChild(flashDiv);
-    setTimeout(() => document.body.removeChild(flashDiv), 100);
-
-    // Haptic feedback for mobile devices
-    if ('vibrate' in navigator) {
-      navigator.vibrate(50);
-    }
 
     // Set canvas dimensions to match video
     canvas.width = video.videoWidth;
@@ -181,14 +147,6 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
     }, 'image/jpeg', 0.9);
   };
 
-  // Restart camera when facing mode changes
-  useEffect(() => {
-    if (isOpen && stream) {
-      stopCamera();
-      startCamera();
-    }
-  }, [facingMode, isOpen, stopCamera, startCamera, stream]);
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -196,50 +154,26 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
     };
   }, [stopCamera]);
 
+  // Check for multiple cameras on mount
+  useEffect(() => {
+    if (navigator.mediaDevices?.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices().then(devices => {
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setHasMultipleCameras(videoDevices.length > 1);
+      });
+    }
+  }, []);
+
   if (!isOpen) {
-    // Show error state if camera is not supported
-    if (!isSupported) {
-      return (
-        <Button
-          variant="outline"
-          className="w-full text-gray-500 cursor-not-allowed"
-          disabled
-        >
-          <AlertCircle className="mr-2 h-4 w-4" />
-          Camera Not Available
-        </Button>
-      );
-    }
-
-    // Show permission request state
-    if (permissionError) {
-      return (
-        <div className="space-y-2">
-          <Button
-            onClick={requestPermission}
-            variant="outline"
-            className="w-full"
-            disabled={permissionLoading || isAnalyzing}
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            {permissionLoading ? "Requesting..." : "Enable Camera"}
-          </Button>
-          <p className="text-xs text-red-600 dark:text-red-400 text-center">
-            {permissionError}
-          </p>
-        </div>
-      );
-    }
-
     return (
       <Button
         onClick={openCamera}
         variant="outline"
         className="w-full"
-        disabled={isAnalyzing || permissionLoading}
+        disabled={isAnalyzing}
       >
         <Camera className="mr-2 h-4 w-4" />
-        {permissionLoading ? "Loading..." : "Take Photo"}
+        Take Photo
       </Button>
     );
   }
@@ -257,7 +191,7 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
                   variant="outline"
                   size="sm"
                   onClick={switchCamera}
-                  disabled={!stream}
+                  disabled={!stream || isVideoLoading}
                 >
                   <RotateCcw className="h-4 w-4" />
                 </Button>
@@ -311,7 +245,7 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
             )}
             
             {/* Capture overlay - only show when video is ready */}
-            {!isVideoLoading && !videoError && (
+            {!isVideoLoading && !videoError && stream && (
               <div className="absolute inset-0 pointer-events-none">
                 {/* Grid lines for better composition */}
                 <div className="absolute inset-4 border-2 border-white/30 rounded-lg">
