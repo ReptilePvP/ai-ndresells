@@ -15,34 +15,63 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
   const { isSupported, hasPermission, isLoading: permissionLoading, error: permissionError, requestPermission } = useCamera();
 
   const startCamera = useCallback(async () => {
+    setIsVideoLoading(true);
+    setVideoError(null);
+    
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(device => device.kind === 'videoinput');
-      setHasMultipleCameras(videoDevices.length > 1);
-
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
+      // Try simpler constraints first
+      let constraints = {
         video: {
-          facingMode: facingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          facingMode: facingMode
         }
-      });
+      };
 
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setHasMultipleCameras(videoDevices.length > 1);
+      } catch (e) {
+        console.warn('Could not enumerate devices:', e);
+      }
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       setStream(mediaStream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        
+        // Simplified event handling
+        const handleLoadedData = () => {
+          setIsVideoLoading(false);
+          videoRef.current?.play().catch(console.error);
+        };
+        
+        videoRef.current.addEventListener('loadeddata', handleLoadedData);
+        videoRef.current.addEventListener('canplay', handleLoadedData);
+        
+        // Auto-play fallback
+        setTimeout(() => {
+          if (videoRef.current && videoRef.current.paused) {
+            videoRef.current.play().catch(console.error);
+          }
+          setIsVideoLoading(false);
+        }, 1000);
       }
     } catch (error) {
-      console.error('Error accessing camera:', error);
+      console.error('Camera error:', error);
+      setIsVideoLoading(false);
+      setVideoError('Camera access denied or unavailable');
       toast({
         title: "Camera Error",
-        description: "Unable to access camera. Please check permissions.",
+        description: "Please enable camera permissions and try again",
         variant: "destructive",
       });
     }
@@ -53,6 +82,11 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsVideoLoading(true);
+    setVideoError(null);
   }, [stream]);
 
   const openCamera = async () => {
@@ -72,8 +106,15 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
       }
     }
 
+    // Reset state when opening
+    setIsVideoLoading(true);
+    setVideoError(null);
     setIsOpen(true);
-    startCamera();
+    
+    // Small delay to ensure UI updates
+    setTimeout(() => {
+      startCamera();
+    }, 100);
   };
 
   const closeCamera = () => {
@@ -241,33 +282,63 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
               className="w-full h-full object-cover"
             />
             
-            {/* Capture overlay */}
-            <div className="absolute inset-0 pointer-events-none">
-              {/* Grid lines for better composition */}
-              <div className="absolute inset-4 border-2 border-white/30 rounded-lg">
-                <div className="absolute top-1/3 left-0 right-0 border-t border-white/20"></div>
-                <div className="absolute top-2/3 left-0 right-0 border-t border-white/20"></div>
-                <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/20"></div>
-                <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/20"></div>
+            {/* Loading overlay */}
+            {isVideoLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50">
+                <div className="text-center text-white">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                  <p className="text-sm">Starting camera...</p>
+                </div>
               </div>
-              
-              {/* Center focus indicator */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="w-16 h-16 border-2 border-white rounded-lg"></div>
+            )}
+            
+            {/* Error overlay */}
+            {videoError && (
+              <div className="absolute inset-0 flex items-center justify-center bg-red-900/50">
+                <div className="text-center text-white">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                  <p className="text-sm">{videoError}</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-2 text-white border-white hover:bg-white hover:text-red-900"
+                    onClick={startCamera}
+                  >
+                    Retry
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
+            
+            {/* Capture overlay - only show when video is ready */}
+            {!isVideoLoading && !videoError && (
+              <div className="absolute inset-0 pointer-events-none">
+                {/* Grid lines for better composition */}
+                <div className="absolute inset-4 border-2 border-white/30 rounded-lg">
+                  <div className="absolute top-1/3 left-0 right-0 border-t border-white/20"></div>
+                  <div className="absolute top-2/3 left-0 right-0 border-t border-white/20"></div>
+                  <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/20"></div>
+                  <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/20"></div>
+                </div>
+                
+                {/* Center focus indicator */}
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <div className="w-16 h-16 border-2 border-white rounded-lg"></div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Capture button */}
           <div className="flex justify-center mt-4">
             <Button
               onClick={capturePhoto}
-              disabled={!stream || isAnalyzing}
+              disabled={!stream || isAnalyzing || isVideoLoading || !!videoError}
               size="lg"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
             >
               <Zap className="mr-2 h-5 w-5" />
-              Capture & Analyze
+              {isVideoLoading ? "Loading Camera..." : "Capture & Analyze"}
             </Button>
           </div>
 
