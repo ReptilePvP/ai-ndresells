@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { UploadZone } from "@/components/upload-zone";
 import { ResultsPanel } from "@/components/results-panel";
+import { CameraCapture } from "@/components/camera-capture";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Camera } from "lucide-react";
 import { Analysis } from "@shared/schema";
 
 export default function Analyzer() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [showQuickCamera, setShowQuickCamera] = useState(false);
   const { toast } = useToast();
 
   // Get or create session ID
