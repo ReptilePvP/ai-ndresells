@@ -83,6 +83,17 @@ export function Header() {
                   History
                 </button>
               </Link>
+              {isAuthenticated && (
+                <Link href="/saved">
+                  <button className={`font-medium transition-colors ${
+                    isActive("/saved") 
+                      ? "text-blue-600 dark:text-blue-400" 
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                  }`}>
+                    Saved
+                  </button>
+                </Link>
+              )}
             </nav>
             
             <ThemeToggle />
