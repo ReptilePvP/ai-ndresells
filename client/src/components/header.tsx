@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AuthDialog } from "./auth-dialog";
 import { useAuth, useLogout } from "@/hooks/useAuth";
+import ndLogoPath from "@assets/nd logo.png";
 
 export function Header() {
   const [location] = useLocation();
@@ -39,14 +40,16 @@ export function Header() {
         <div className="flex justify-between items-center h-16">
           <Link href="/">
             <div className="flex items-center space-x-3 cursor-pointer">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <i className="fas fa-search text-white text-sm"></i>
-              </div>
+              <img 
+                src={ndLogoPath} 
+                alt="ND Resells Logo" 
+                className="w-10 h-10 object-contain"
+              />
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  AI Product Analyzer
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
+                  ND Resells
                 </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Identify & Price Any Product</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">AI Product Analysis & Pricing</p>
               </div>
             </div>
           </Link>

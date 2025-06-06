@@ -98,9 +98,9 @@ export default function Analyzer() {
         {/* Upload Section */}
         <div className="space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-2xl font-bold mb-6 flex items-center">
-              <i className="fas fa-cloud-upload-alt text-blue-500 mr-3"></i>
-              Upload Product Image
+            <h2 className="text-2xl font-bold mb-6 flex items-center bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
+              <i className="fas fa-camera text-blue-500 mr-3"></i>
+              Product Analysis
             </h2>
             
             <UploadZone onFileSelect={handleFileSelect} isLoading={isLoading} />
@@ -108,24 +108,24 @@ export default function Analyzer() {
             <Button
               onClick={handleAnalyze}
               disabled={!selectedFile || isLoading}
-              className="w-full mt-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold"
+              className="w-full mt-6 bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white font-semibold"
               size="lg"
             >
-              <i className="fas fa-magic mr-2"></i>
-              {isLoading ? "Analyzing..." : "Analyze Product"}
+              <i className="fas fa-search-dollar mr-2"></i>
+              {isLoading ? "Analyzing Product..." : "Get Price Analysis"}
             </Button>
           </div>
           
           {/* Quick Tips */}
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+          <div className="bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
             <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center">
               <i className="fas fa-lightbulb mr-2"></i>
-              Tips for Best Results
+              Tips for Accurate Pricing
             </h3>
             <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
               <li className="flex items-start">
                 <i className="fas fa-check-circle text-emerald-500 mr-2 mt-0.5 text-xs"></i>
-                Use well-lit, clear photos
+                Capture clear product details and brand logos
               </li>
               <li className="flex items-start">
                 <i className="fas fa-check-circle text-emerald-500 mr-2 mt-0.5 text-xs"></i>

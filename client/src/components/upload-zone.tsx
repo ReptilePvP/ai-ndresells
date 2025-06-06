@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import cameraIconPath from "@assets/image.jpg";
 
 interface UploadZoneProps {
   onFileSelect: (file: File) => void;
@@ -80,23 +81,34 @@ export function UploadZone({ onFileSelect, isLoading }: UploadZoneProps) {
         }`}
       >
         <div className="space-y-4">
-          <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center transition-colors ${
+          <div className={`w-20 h-20 mx-auto rounded-xl flex items-center justify-center transition-all duration-300 ${
             isDragOver 
-              ? "bg-blue-100 dark:bg-blue-900/40" 
-              : "bg-blue-50 dark:bg-blue-900/20 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40"
+              ? "bg-gradient-to-br from-blue-100 to-green-100 dark:from-blue-900/40 dark:to-green-900/40 scale-105" 
+              : "bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 hover:scale-105"
           }`}>
-            <i className="fas fa-image text-blue-500 text-2xl"></i>
+            <img 
+              src={cameraIconPath} 
+              alt="Upload Camera Icon" 
+              className="w-12 h-12 object-contain opacity-80"
+            />
           </div>
           <div>
             <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-              Drop your image here or click to browse
+              Drop your product image here or click to browse
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              AI will analyze and price your product instantly
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               Supports JPG, PNG, WEBP up to 10MB
             </p>
           </div>
-          <Button type="button" disabled={isLoading}>
-            Choose File
+          <Button 
+            type="button" 
+            disabled={isLoading}
+            className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
+          >
+            {isLoading ? "Analyzing..." : "Choose Product Image"}
           </Button>
         </div>
       </div>
