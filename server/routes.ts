@@ -6,15 +6,14 @@ import { hashPassword, verifyPassword, requireAuth, requireAdmin, optionalAuth }
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(
-  process.env.GEMINI_API_KEY || 
-  process.env.GOOGLE_API_KEY || 
-  process.env.GOOGLE_GEMINI_API_KEY || 
-  ""
-);
+const apiKey = process.env.GEMINI_API_KEY || 
+               process.env.GOOGLE_API_KEY || 
+               process.env.GOOGLE_GEMINI_API_KEY || 
+               "";
+const genAI = new GoogleGenAI({ apiKey });
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
