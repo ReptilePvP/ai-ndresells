@@ -5,7 +5,7 @@ import {
   type SavedAnalysis, type InsertSavedAnalysis
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, count, avg, sum, desc, gte } from "drizzle-orm";
+import { eq, count, avg, sum, desc, gte, and } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -222,6 +222,61 @@ export class DatabaseStorage implements IStorage {
       .from(feedback)
       .where(eq(feedback.analysisId, analysisId));
     return existingFeedback || undefined;
+  }
+
+  // Saved analyses operations
+  async saveAnalysis(userId: number, analysisId: number): Promise<SavedAnalysis> {
+    const [saved] = await db
+      .insert(savedAnalyses)
+      .values({ userId, analysisId })
+      .returning();
+    return saved;
+  }
+
+  async unsaveAnalysis(userId: number, analysisId: number): Promise<void> {
+    await db
+      .delete(savedAnalyses)
+      .where(
+        and(
+          eq(savedAnalyses.userId, userId),
+          eq(savedAnalyses.analysisId, analysisId)
+        )
+      );
+  }
+
+  async getSavedAnalyses(userId: number): Promise<AnalysisWithUpload[]> {
+    const result = await db
+      .select({
+        analysis: analyses,
+        upload: uploads,
+        feedback: feedback,
+      })
+      .from(savedAnalyses)
+      .innerJoin(analyses, eq(savedAnalyses.analysisId, analyses.id))
+      .innerJoin(uploads, eq(analyses.uploadId, uploads.id))
+      .leftJoin(feedback, eq(feedback.analysisId, analyses.id))
+      .where(eq(savedAnalyses.userId, userId))
+      .orderBy(desc(savedAnalyses.savedAt));
+
+    return result.map(row => ({
+      ...row.analysis,
+      upload: row.upload,
+      feedback: row.feedback || undefined,
+      isSaved: true,
+    }));
+  }
+
+  async isAnalysisSaved(userId: number, analysisId: number): Promise<boolean> {
+    const [saved] = await db
+      .select()
+      .from(savedAnalyses)
+      .where(
+        and(
+          eq(savedAnalyses.userId, userId),
+          eq(savedAnalyses.analysisId, analysisId)
+        )
+      );
+    return !!saved;
   }
 
   async getSessionStats(sessionId: string): Promise<{

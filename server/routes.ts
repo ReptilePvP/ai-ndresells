@@ -312,6 +312,66 @@ Utilize web search capabilities if available to gather accurate information for 
     }
   });
 
+  // Save analysis endpoint
+  app.post("/api/save/:analysisId", requireAuth, async (req, res) => {
+    try {
+      const analysisId = parseInt(req.params.analysisId);
+      const user = (req as any).user;
+      
+      // Check if already saved
+      const isAlreadySaved = await storage.isAnalysisSaved(user.id, analysisId);
+      if (isAlreadySaved) {
+        return res.status(409).json({ message: "Analysis already saved" });
+      }
+      
+      const saved = await storage.saveAnalysis(user.id, analysisId);
+      res.json(saved);
+    } catch (error) {
+      console.error("Save analysis error:", error);
+      res.status(500).json({ message: "Failed to save analysis" });
+    }
+  });
+
+  // Unsave analysis endpoint
+  app.delete("/api/save/:analysisId", requireAuth, async (req, res) => {
+    try {
+      const analysisId = parseInt(req.params.analysisId);
+      const user = (req as any).user;
+      
+      await storage.unsaveAnalysis(user.id, analysisId);
+      res.json({ message: "Analysis unsaved successfully" });
+    } catch (error) {
+      console.error("Unsave analysis error:", error);
+      res.status(500).json({ message: "Failed to unsave analysis" });
+    }
+  });
+
+  // Get saved analyses
+  app.get("/api/saved", requireAuth, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const savedAnalyses = await storage.getSavedAnalyses(user.id);
+      res.json(savedAnalyses);
+    } catch (error) {
+      console.error("Get saved analyses error:", error);
+      res.status(500).json({ message: "Failed to fetch saved analyses" });
+    }
+  });
+
+  // Check if analysis is saved
+  app.get("/api/save/check/:analysisId", requireAuth, async (req, res) => {
+    try {
+      const analysisId = parseInt(req.params.analysisId);
+      const user = (req as any).user;
+      
+      const isSaved = await storage.isAnalysisSaved(user.id, analysisId);
+      res.json({ isSaved });
+    } catch (error) {
+      console.error("Check saved analysis error:", error);
+      res.status(500).json({ message: "Failed to check if analysis is saved" });
+    }
+  });
+
   // Get analyses (session-based for guests, user-based for authenticated users)
   app.get("/api/analyses", optionalAuth, async (req, res) => {
     try {
