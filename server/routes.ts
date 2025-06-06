@@ -6,6 +6,7 @@ import { hashPassword, verifyPassword, requireAuth, requireAdmin, optionalAuth }
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
+import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
 
 // Initialize Gemini AI
@@ -304,6 +305,33 @@ Focus on the primary product in the image. Ensure all pricing data and the refer
         return res.status(500).json({ message: "Failed to parse AI response" });
       }
 
+      // Download and store reference image if provided
+      let localReferenceImageUrl = null;
+      if (analysisData.referenceImageUrl) {
+        try {
+          const response = await fetch(analysisData.referenceImageUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+          });
+          
+          if (response.ok) {
+            const imageBuffer = await response.arrayBuffer();
+            const imageHash = crypto.createHash('md5').update(Buffer.from(imageBuffer)).digest('hex');
+            const extension = analysisData.referenceImageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+            const referenceImagePath = path.join(uploadDir, `ref_${imageHash}.${extension}`);
+            
+            await fs.writeFile(referenceImagePath, Buffer.from(imageBuffer));
+            localReferenceImageUrl = `ref_${imageHash}.${extension}`;
+            console.log('Reference image downloaded and stored:', localReferenceImageUrl);
+          } else {
+            console.log('Failed to download reference image:', response.status);
+          }
+        } catch (error) {
+          console.error('Error downloading reference image:', error);
+        }
+      }
+
       // Validate and create analysis
       const analysisInput = {
         uploadId,
@@ -311,7 +339,7 @@ Focus on the primary product in the image. Ensure all pricing data and the refer
         description: analysisData.description || "No description available",
         averageSalePrice: analysisData.averageSalePrice || "Price not available",
         resellPrice: analysisData.resellPrice || "Resell price not available",
-        referenceImageUrl: analysisData.referenceImageUrl || null,
+        referenceImageUrl: localReferenceImageUrl,
         confidence: 0.85, // Default confidence
       };
 

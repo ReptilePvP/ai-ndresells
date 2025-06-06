@@ -99,7 +99,7 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Reference Match</h3>
             <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
               <img
-                src={analysis.referenceImageUrl}
+                src={`/api/image/${analysis.referenceImageUrl}`}
                 alt="Reference product match"
                 className="w-full max-w-sm h-48 object-contain rounded-lg mx-auto block"
                 onLoad={() => console.log('Reference image loaded:', analysis.referenceImageUrl)}
