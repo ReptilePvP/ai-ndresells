@@ -57,6 +57,13 @@ export const feedback = pgTable("feedback", {
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),
 });
 
+export const savedAnalyses = pgTable("saved_analyses", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  analysisId: integer("analysis_id").references(() => analyses.id).notNull(),
+  savedAt: timestamp("saved_at").defaultNow().notNull(),
+});
+
 // Schema validation for user registration and authentication
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -92,6 +99,11 @@ export const insertFeedbackSchema = createInsertSchema(feedback).omit({
   submittedAt: true,
 });
 
+export const insertSavedAnalysisSchema = createInsertSchema(savedAnalyses).omit({
+  id: true,
+  savedAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginCredentials = z.infer<typeof loginSchema>;
@@ -104,9 +116,13 @@ export type Analysis = typeof analyses.$inferSelect;
 export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 export type Feedback = typeof feedback.$inferSelect;
 
+export type InsertSavedAnalysis = z.infer<typeof insertSavedAnalysisSchema>;
+export type SavedAnalysis = typeof savedAnalyses.$inferSelect;
+
 export type AnalysisWithUpload = Analysis & {
   upload: Upload;
   feedback?: Feedback;
+  isSaved?: boolean;
 };
 
 export type UserWithoutPassword = Omit<User, 'password'>;

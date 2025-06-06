@@ -1,7 +1,8 @@
 import { 
-  uploads, analyses, feedback, users,
+  uploads, analyses, feedback, users, savedAnalyses,
   type Upload, type Analysis, type Feedback, type User, type UserWithoutPassword, type AnalysisWithUpload,
-  type InsertUpload, type InsertAnalysis, type InsertFeedback, type InsertUser, type RegisterData
+  type InsertUpload, type InsertAnalysis, type InsertFeedback, type InsertUser, type RegisterData,
+  type SavedAnalysis, type InsertSavedAnalysis
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, count, avg, sum, desc, gte } from "drizzle-orm";
@@ -31,6 +32,12 @@ export interface IStorage {
   // Feedback operations
   createFeedback(feedback: InsertFeedback): Promise<Feedback>;
   getFeedbackByAnalysis(analysisId: number): Promise<Feedback | undefined>;
+
+  // Saved analyses operations
+  saveAnalysis(userId: number, analysisId: number): Promise<SavedAnalysis>;
+  unsaveAnalysis(userId: number, analysisId: number): Promise<void>;
+  getSavedAnalyses(userId: number): Promise<AnalysisWithUpload[]>;
+  isAnalysisSaved(userId: number, analysisId: number): Promise<boolean>;
 
   // Stats
   getSessionStats(sessionId: string): Promise<{
