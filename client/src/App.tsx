@@ -9,6 +9,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import Analyzer from "@/pages/analyzer";
 import Dashboard from "@/pages/dashboard";
 import History from "@/pages/history";
+import AdminDiagnostics from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/" component={Analyzer} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/history" component={History} />
+      <Route path="/admin" component={AdminDiagnostics} />
       <Route component={NotFound} />
     </Switch>
   );
