@@ -228,27 +228,32 @@ Your goal is to return a single object with the following structure and content:
 Focus on the primary product in the image. If multiple distinct products are clearly identifiable as primary, you may focus on the most prominent one.
 Utilize web search capabilities if available to gather accurate information for pricing and product details.`;
 
-      const result = await genAI.models.generateContent(
-        GEMINI_MODEL,
-        {
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: SYSTEM_PROMPT_PRODUCT_ANALYSIS },
-                {
-                  inlineData: {
-                    mimeType: upload.mimeType,
-                    data: base64Image,
-                  },
+      const result = await genAI.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: SYSTEM_PROMPT_PRODUCT_ANALYSIS },
+              {
+                inlineData: {
+                  mimeType: upload.mimeType,
+                  data: base64Image,
                 },
-              ],
-            },
-          ],
-        }
-      );
+              },
+            ],
+          },
+        ],
+      });
 
-      const text = result.candidates[0].content.parts[0].text;
+      if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+        throw new Error("Invalid response structure from AI model");
+      }
+
+      const text = result.candidates[0].content.parts?.[0]?.text;
+      if (!text) {
+        throw new Error("No text content in AI response");
+      }
 
       // Parse JSON response
       let analysisData;
