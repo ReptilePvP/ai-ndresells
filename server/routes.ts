@@ -37,6 +37,98 @@ const genAI = new GoogleGenerativeAI(
 );
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication routes
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const validatedData = registerSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingEmail = await storage.getUserByEmail(validatedData.email);
+      if (existingEmail) {
+        return res.status(409).json({ message: "Email already registered" });
+      }
+      
+      const existingUsername = await storage.getUserByUsername(validatedData.username);
+      if (existingUsername) {
+        return res.status(409).json({ message: "Username already taken" });
+      }
+      
+      // Hash password and create user
+      const hashedPassword = await hashPassword(validatedData.password);
+      const user = await storage.createUser({ ...validatedData, password: hashedPassword });
+      
+      // Set session
+      req.session.userId = user.id;
+      req.session.userRole = user.role;
+      
+      res.json({ user });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(400).json({ message: "Invalid registration data" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const validatedData = loginSchema.parse(req.body);
+      
+      const user = await storage.getUserByEmail(validatedData.email);
+      if (!user || !user.isActive) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      const isValidPassword = await verifyPassword(validatedData.password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Set session
+      req.session.userId = user.id;
+      req.session.userRole = user.role;
+      
+      const { password, ...userWithoutPassword } = user;
+      res.json({ user: userWithoutPassword });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(400).json({ message: "Invalid login data" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Could not log out" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  app.get("/api/auth/me", requireAuth, async (req, res) => {
+    const user = (req as any).user;
+    const { password, ...userWithoutPassword } = user;
+    res.json({ user: userWithoutPassword });
+  });
+
+  // Admin routes
+  app.get("/api/admin/stats", requireAdmin, async (req, res) => {
+    try {
+      const stats = await storage.getSystemStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Admin stats error:", error);
+      res.status(500).json({ message: "Failed to fetch system stats" });
+    }
+  });
+
+  app.get("/api/admin/users", requireAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Admin users error:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
   // Generate session ID for new sessions
   app.get("/api/session", (req, res) => {
     const sessionId = req.sessionID || Math.random().toString(36).substring(7);
@@ -44,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload image endpoint
-  app.post("/api/upload", upload.single('image'), async (req, res) => {
+  app.post("/api/upload", optionalAuth, upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No image file provided" });
@@ -55,7 +147,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Session ID is required" });
       }
 
+      const user = (req as any).user;
       const uploadData = {
+        userId: user?.id || null,
         sessionId,
         filename: req.file.filename,
         originalName: req.file.originalname,
