@@ -215,7 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const base64Image = imageBuffer.toString('base64');
 
       // Use Gemini to analyze the image
-      const GEMINI_MODEL = 'gemini-2.0-flash-exp';
+      const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 
       const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `You are an expert product analyst. Analyze the provided image to identify the specific product.
 Your goal is to return a single object with the following structure and content:
