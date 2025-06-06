@@ -28,6 +28,20 @@ interface User {
   createdAt: string;
 }
 
+interface UploadWithAnalyses {
+  id: number;
+  userId?: number;
+  sessionId: string;
+  filename: string;
+  originalName: string;
+  filePath: string;
+  mimeType: string;
+  fileSize: number;
+  uploadedAt: string;
+  analyses: any[];
+  user?: User;
+}
+
 export default function AdminDiagnostics() {
   const { user, isAdmin, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -39,6 +53,11 @@ export default function AdminDiagnostics() {
 
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
+    enabled: isAdmin,
+  });
+
+  const { data: uploads, isLoading: uploadsLoading } = useQuery<UploadWithAnalyses[]>({
+    queryKey: ["/api/admin/uploads"],
     enabled: isAdmin,
   });
 
@@ -227,57 +246,179 @@ export default function AdminDiagnostics() {
       </div>
 
       {/* User Management */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>User Management</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {usersLoading ? (
+              <div className="text-center py-4">Loading users...</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2">User</th>
+                      <th className="text-left py-2">Role</th>
+                      <th className="text-left py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users?.slice(0, 5).map((user) => (
+                      <tr key={user.id} className="border-b">
+                        <td className="py-2">
+                          <div>
+                            <div className="font-medium text-sm">
+                              {user.firstName || user.lastName 
+                                ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
+                                : user.username
+                              }
+                            </div>
+                            <div className="text-gray-500 text-xs">{user.email}</div>
+                          </div>
+                        </td>
+                        <td className="py-2">
+                          <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className="text-xs">
+                            {user.role}
+                          </Badge>
+                        </td>
+                        <td className="py-2">
+                          <Badge variant={user.isActive ? 'default' : 'secondary'} className="text-xs">
+                            {user.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {users && users.length > 5 && (
+                  <div className="text-center text-sm text-gray-500 mt-2">
+                    and {users.length - 5} more users...
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Uploads</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {uploadsLoading ? (
+              <div className="text-center py-4">Loading uploads...</div>
+            ) : (
+              <div className="space-y-3">
+                {uploads?.slice(0, 5).map((upload) => (
+                  <div key={upload.id} className="border-b pb-2 last:border-b-0">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">{upload.originalName}</div>
+                        <div className="text-xs text-gray-500">
+                          {upload.user ? (
+                            `${upload.user.firstName || upload.user.username} • ${new Date(upload.uploadedAt).toLocaleDateString()}`
+                          ) : (
+                            `Guest • ${new Date(upload.uploadedAt).toLocaleDateString()}`
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="secondary" className="text-xs">
+                          {upload.analyses.length} analysis{upload.analyses.length !== 1 ? 'es' : ''}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {uploads && uploads.length > 5 && (
+                  <div className="text-center text-sm text-gray-500 mt-2">
+                    and {uploads.length - 5} more uploads...
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* All Uploads Management */}
       <Card>
         <CardHeader>
-          <CardTitle>User Management</CardTitle>
+          <CardTitle>All System Uploads</CardTitle>
         </CardHeader>
         <CardContent>
-          {usersLoading ? (
-            <div className="text-center py-4">Loading users...</div>
+          {uploadsLoading ? (
+            <div className="text-center py-4">Loading all uploads...</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
+                    <th className="text-left py-2">File</th>
                     <th className="text-left py-2">User</th>
-                    <th className="text-left py-2">Email</th>
-                    <th className="text-left py-2">Role</th>
-                    <th className="text-left py-2">Status</th>
-                    <th className="text-left py-2">Created</th>
+                    <th className="text-left py-2">Size</th>
+                    <th className="text-left py-2">Analyses</th>
+                    <th className="text-left py-2">Uploaded</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users?.map((user) => (
-                    <tr key={user.id} className="border-b">
+                  {uploads?.map((upload) => (
+                    <tr key={upload.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="py-2">
                         <div>
-                          <div className="font-medium">
-                            {user.firstName || user.lastName 
-                              ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
-                              : user.username
-                            }
-                          </div>
-                          <div className="text-gray-500 text-xs">@{user.username}</div>
+                          <div className="font-medium">{upload.originalName}</div>
+                          <div className="text-gray-500 text-xs">{upload.mimeType}</div>
                         </div>
                       </td>
-                      <td className="py-2">{user.email}</td>
                       <td className="py-2">
-                        <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
-                          {user.role}
-                        </Badge>
+                        {upload.user ? (
+                          <div>
+                            <div className="font-medium">
+                              {upload.user.firstName || upload.user.lastName 
+                                ? `${upload.user.firstName || ''} ${upload.user.lastName || ''}`.trim()
+                                : upload.user.username
+                              }
+                            </div>
+                            <div className="text-gray-500 text-xs">{upload.user.email}</div>
+                          </div>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">Guest</Badge>
+                        )}
                       </td>
                       <td className="py-2">
-                        <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                          {user.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
+                        {(upload.fileSize / 1024 / 1024).toFixed(2)} MB
                       </td>
                       <td className="py-2">
-                        {new Date(user.createdAt).toLocaleDateString()}
+                        <div className="flex flex-col space-y-1">
+                          <Badge variant="outline" className="text-xs w-fit">
+                            {upload.analyses.length} analysis{upload.analyses.length !== 1 ? 'es' : ''}
+                          </Badge>
+                          {upload.analyses.length > 0 && (
+                            <div className="text-xs text-gray-500">
+                              Latest: {upload.analyses[0]?.productName || 'Unknown'}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2">
+                        <div className="text-sm">
+                          {new Date(upload.uploadedAt).toLocaleDateString()}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(upload.uploadedAt).toLocaleTimeString()}
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              {!uploads || uploads.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No uploads found in the system.
+                </div>
+              )}
             </div>
           )}
         </CardContent>

@@ -129,6 +129,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch users" });
     }
   });
+
+  app.get("/api/admin/uploads", requireAdmin, async (req, res) => {
+    try {
+      const uploads = await storage.getAllUploadsWithAnalyses();
+      res.json(uploads);
+    } catch (error) {
+      console.error("Admin uploads error:", error);
+      res.status(500).json({ message: "Failed to fetch uploads" });
+    }
+  });
   // Generate session ID for new sessions
   app.get("/api/session", (req, res) => {
     const sessionId = req.sessionID || Math.random().toString(36).substring(7);

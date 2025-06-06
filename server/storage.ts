@@ -50,6 +50,7 @@ export interface IStorage {
       last7Days: number;
     };
   }>;
+  getAllUploadsWithAnalyses(): Promise<(Upload & { analyses: AnalysisWithUpload[]; user?: UserWithoutPassword })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -287,6 +288,55 @@ export class DatabaseStorage implements IStorage {
         last7Days: last7DaysResult.count,
       },
     };
+  }
+
+  async getAllUploadsWithAnalyses(): Promise<(Upload & { analyses: AnalysisWithUpload[]; user?: UserWithoutPassword })[]> {
+    // Get all uploads with their associated analyses
+    const uploadsWithAnalyses = await db
+      .select({
+        upload: uploads,
+        analysis: analyses,
+        feedback: feedback,
+        user: users,
+      })
+      .from(uploads)
+      .leftJoin(analyses, eq(uploads.id, analyses.uploadId))
+      .leftJoin(feedback, eq(analyses.id, feedback.analysisId))
+      .leftJoin(users, eq(uploads.userId, users.id))
+      .orderBy(desc(uploads.uploadedAt));
+
+    // Group by upload ID and aggregate analyses
+    const uploadMap = new Map<number, Upload & { analyses: AnalysisWithUpload[]; user?: UserWithoutPassword }>();
+
+    for (const row of uploadsWithAnalyses) {
+      const uploadId = row.upload.id;
+      
+      if (!uploadMap.has(uploadId)) {
+        let userWithoutPassword: UserWithoutPassword | undefined = undefined;
+        if (row.user) {
+          const { password, ...userWithoutPass } = row.user;
+          userWithoutPassword = userWithoutPass;
+        }
+        uploadMap.set(uploadId, {
+          ...row.upload,
+          analyses: [],
+          user: userWithoutPassword,
+        });
+      }
+
+      const uploadData = uploadMap.get(uploadId)!;
+      
+      if (row.analysis) {
+        const analysisWithUpload: AnalysisWithUpload = {
+          ...row.analysis,
+          upload: row.upload,
+          feedback: row.feedback || undefined,
+        };
+        uploadData.analyses.push(analysisWithUpload);
+      }
+    }
+
+    return Array.from(uploadMap.values());
   }
 }
 
