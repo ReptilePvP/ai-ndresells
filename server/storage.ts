@@ -39,6 +39,9 @@ export interface IStorage {
   getSavedAnalyses(userId: number): Promise<AnalysisWithUpload[]>;
   isAnalysisSaved(userId: number, analysisId: number): Promise<boolean>;
 
+  // History management
+  clearUserHistory(userId: number, timeframe: string): Promise<number>;
+
   // Stats
   getSessionStats(sessionId: string): Promise<{
     totalAnalyses: number;
@@ -399,6 +402,84 @@ export class DatabaseStorage implements IStorage {
     }
 
     return Array.from(uploadMap.values());
+  }
+
+  async clearUserHistory(userId: number, timeframe: string): Promise<number> {
+    const now = new Date();
+    let cutoffDate: Date;
+
+    // Calculate cutoff date based on timeframe
+    switch (timeframe) {
+      case '24h':
+        cutoffDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case '7d':
+        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30d':
+        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'all':
+        cutoffDate = new Date(0); // Unix epoch - effectively all time
+        break;
+      default:
+        throw new Error('Invalid timeframe specified');
+    }
+
+    // Get user's uploads that match the timeframe
+    const uploadsToDelete = await db
+      .select({ id: uploads.id })
+      .from(uploads)
+      .where(
+        and(
+          eq(uploads.userId, userId),
+          gte(uploads.uploadedAt, cutoffDate)
+        )
+      );
+
+    if (uploadsToDelete.length === 0) {
+      return 0;
+    }
+
+    const uploadIds = uploadsToDelete.map(u => u.id);
+
+    // Get analyses for these uploads
+    const analysesToDelete = await db
+      .select({ id: analyses.id })
+      .from(analyses)
+      .where(
+        eq(analyses.uploadId, uploadIds[0]) // We'll use a more comprehensive approach
+      );
+
+    // Delete in proper order to maintain referential integrity
+    // 1. Delete saved analyses references
+    if (analysesToDelete.length > 0) {
+      const analysisIds = analysesToDelete.map(a => a.id);
+      await db.delete(savedAnalyses).where(
+        eq(savedAnalyses.analysisId, analysisIds[0]) // We'll need to handle multiple IDs
+      );
+    }
+
+    // 2. Delete feedback
+    for (const uploadId of uploadIds) {
+      const uploadAnalyses = await db
+        .select({ id: analyses.id })
+        .from(analyses)
+        .where(eq(analyses.uploadId, uploadId));
+      
+      for (const analysis of uploadAnalyses) {
+        await db.delete(feedback).where(eq(feedback.analysisId, analysis.id));
+        await db.delete(savedAnalyses).where(eq(savedAnalyses.analysisId, analysis.id));
+      }
+      
+      // 3. Delete analyses
+      await db.delete(analyses).where(eq(analyses.uploadId, uploadId));
+      
+      // 4. Delete uploads
+      await db.delete(uploads).where(eq(uploads.id, uploadId));
+    }
+
+    return uploadIds.length;
   }
 }
 

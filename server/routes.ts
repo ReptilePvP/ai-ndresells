@@ -486,6 +486,28 @@ Utilize web search capabilities if available to gather accurate information for 
     }
   });
 
+  // Clear user history with time-based options
+  app.delete("/api/history/clear", requireAuth, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { timeframe } = req.body;
+
+      if (!timeframe) {
+        return res.status(400).json({ message: "Timeframe is required" });
+      }
+
+      const deletedCount = await storage.clearUserHistory(user.id, timeframe);
+      
+      res.json({ 
+        message: "History cleared successfully",
+        deletedCount 
+      });
+    } catch (error) {
+      console.error("Clear history error:", error);
+      res.status(500).json({ message: "Failed to clear history" });
+    }
+  });
+
   // Serve uploaded images
   app.get("/api/image/:filename", async (req, res) => {
     try {
