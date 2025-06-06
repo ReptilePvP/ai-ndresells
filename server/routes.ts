@@ -330,31 +330,7 @@ Focus on the primary product in the image. Ensure all pricing data and the refer
             localReferenceImageUrl = `ref_${imageHash}.${extension}`;
             console.log('Reference image downloaded and stored:', localReferenceImageUrl);
           } else {
-            console.log('Web image failed, generating AI reference image');
-            // Generate reference image using Gemini
-            const imagePrompt = `Generate a high-quality product image of: ${analysisData.productName}. Style: clean product photography, white background, professional lighting, centered composition.`;
-            
-            try {
-              const imageResult = await genAI.models.generateImages({
-                model: 'imagen-3.0-generate-001',
-                prompt: imagePrompt,
-                numberOfImages: 1,
-                aspectRatio: '1:1'
-              });
-              
-              if (imageResult.images && imageResult.images[0]) {
-                const generatedImageData = imageResult.images[0].bytesBase64Encoded;
-                const imageBuffer = Buffer.from(generatedImageData, 'base64');
-                const imageHash = crypto.createHash('md5').update(imageBuffer).digest('hex');
-                const referenceImagePath = path.join(uploadDir, `ref_generated_${imageHash}.jpg`);
-                
-                await fs.writeFile(referenceImagePath, imageBuffer);
-                localReferenceImageUrl = `ref_generated_${imageHash}.jpg`;
-                console.log('Generated AI reference image:', localReferenceImageUrl);
-              }
-            } catch (genError) {
-              console.error('Failed to generate AI reference image:', genError);
-            }
+            console.log('Failed to download reference image:', response.status);
           }
         } catch (error) {
           console.error('Error with reference image:', error);
