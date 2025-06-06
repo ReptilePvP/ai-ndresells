@@ -9,11 +9,13 @@ export function useAuth() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  const user = data?.user;
+
   return {
-    user: data?.user,
+    user,
     isLoading,
-    isAuthenticated: !!data?.user,
-    isAdmin: data?.user?.role === 'admin',
+    isAuthenticated: !!user,
+    isAdmin: user?.role === 'admin',
     error,
   };
 }

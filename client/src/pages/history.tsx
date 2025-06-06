@@ -2,9 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { AnalysisCard } from "@/components/analysis-card";
 import { AnalysisWithUpload } from "@shared/schema";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function History() {
   const [filter, setFilter] = useState<'all' | 'accurate' | 'inaccurate'>('all');
+  const { isAuthenticated } = useAuth();
 
   const getSessionId = () => {
     let sessionId = localStorage.getItem('sessionId');
@@ -16,7 +18,16 @@ export default function History() {
   };
 
   const { data: analyses = [], isLoading } = useQuery<AnalysisWithUpload[]>({
-    queryKey: ["/api/analyses", getSessionId()],
+    queryKey: ["/api/analyses"],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (!isAuthenticated) {
+        params.append('sessionId', getSessionId());
+      }
+      const response = await fetch(`/api/analyses?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch analyses');
+      return response.json();
+    },
   });
 
   const filteredAnalyses = analyses.filter(analysis => {

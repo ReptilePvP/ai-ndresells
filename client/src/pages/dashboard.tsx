@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { AnalysisCard } from "@/components/analysis-card";
 import { AnalysisWithUpload } from "@shared/schema";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Dashboard() {
+  const { isAuthenticated } = useAuth();
+  
   const getSessionId = () => {
     let sessionId = localStorage.getItem('sessionId');
     if (!sessionId) {
@@ -13,11 +16,29 @@ export default function Dashboard() {
   };
 
   const { data: analyses = [], isLoading } = useQuery<AnalysisWithUpload[]>({
-    queryKey: ["/api/analyses", getSessionId()],
+    queryKey: ["/api/analyses"],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (!isAuthenticated) {
+        params.append('sessionId', getSessionId());
+      }
+      const response = await fetch(`/api/analyses?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch analyses');
+      return response.json();
+    },
   });
 
   const { data: stats } = useQuery({
-    queryKey: ["/api/stats", getSessionId()],
+    queryKey: ["/api/stats"],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (!isAuthenticated) {
+        params.append('sessionId', getSessionId());
+      }
+      const response = await fetch(`/api/stats?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      return response.json();
+    },
   });
 
   const recentAnalyses = analyses.slice(0, 6);
