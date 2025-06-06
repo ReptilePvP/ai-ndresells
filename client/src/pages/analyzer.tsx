@@ -161,6 +161,45 @@ export default function Analyzer() {
           )}
         </div>
       </div>
+
+      {/* Floating Action Button for Quick Camera Access */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {!showQuickCamera ? (
+          <Button
+            onClick={() => setShowQuickCamera(true)}
+            className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 shadow-lg hover:shadow-xl transition-all duration-200 text-white"
+            size="sm"
+            disabled={isLoading}
+          >
+            <Camera className="h-6 w-6" />
+          </Button>
+        ) : (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 w-80 max-w-[calc(100vw-3rem)]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Quick Camera</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowQuickCamera(false)}
+                className="h-8 w-8 p-0"
+              >
+                ×
+              </Button>
+            </div>
+            <CameraCapture 
+              onCapture={(file) => {
+                handleFileSelect(file);
+                setShowQuickCamera(false);
+                // Auto-analyze when capturing from quick camera
+                setTimeout(() => {
+                  uploadMutation.mutate(file);
+                }, 100);
+              }} 
+              isAnalyzing={isLoading} 
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

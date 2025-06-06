@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Camera, X, RotateCcw, Zap } from "lucide-react";
+import { Camera, X, RotateCcw, Zap, AlertCircle, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCamera } from "@/hooks/useCamera";
 
 interface CameraCaptureProps {
   onCapture: (file: File) => void;
@@ -17,6 +18,7 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
+  const { isSupported, hasPermission, isLoading: permissionLoading, error: permissionError, requestPermission } = useCamera();
 
   const startCamera = useCallback(async () => {
     try {
@@ -53,7 +55,23 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
     }
   }, [stream]);
 
-  const openCamera = () => {
+  const openCamera = async () => {
+    if (!isSupported) {
+      toast({
+        title: "Camera Not Supported",
+        description: "Your device doesn't support camera access.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!hasPermission) {
+      const granted = await requestPermission();
+      if (!granted) {
+        return;
+      }
+    }
+
     setIsOpen(true);
     startCamera();
   };
@@ -76,6 +94,27 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
 
     if (!context) return;
 
+    // Add camera flash effect
+    const flashDiv = document.createElement('div');
+    flashDiv.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: white;
+      z-index: 9999;
+      opacity: 0.8;
+      pointer-events: none;
+    `;
+    document.body.appendChild(flashDiv);
+    setTimeout(() => document.body.removeChild(flashDiv), 100);
+
+    // Haptic feedback for mobile devices
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
+
     // Set canvas dimensions to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -89,6 +128,12 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
         const file = new File([blob], `camera-capture-${Date.now()}.jpg`, {
           type: 'image/jpeg',
         });
+        
+        toast({
+          title: "Photo Captured",
+          description: "Analyzing your product...",
+        });
+        
         onCapture(file);
         closeCamera();
       }
@@ -111,15 +156,49 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
   }, [stopCamera]);
 
   if (!isOpen) {
+    // Show error state if camera is not supported
+    if (!isSupported) {
+      return (
+        <Button
+          variant="outline"
+          className="w-full text-gray-500 cursor-not-allowed"
+          disabled
+        >
+          <AlertCircle className="mr-2 h-4 w-4" />
+          Camera Not Available
+        </Button>
+      );
+    }
+
+    // Show permission request state
+    if (permissionError) {
+      return (
+        <div className="space-y-2">
+          <Button
+            onClick={requestPermission}
+            variant="outline"
+            className="w-full"
+            disabled={permissionLoading || isAnalyzing}
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            {permissionLoading ? "Requesting..." : "Enable Camera"}
+          </Button>
+          <p className="text-xs text-red-600 dark:text-red-400 text-center">
+            {permissionError}
+          </p>
+        </div>
+      );
+    }
+
     return (
       <Button
         onClick={openCamera}
         variant="outline"
         className="w-full"
-        disabled={isAnalyzing}
+        disabled={isAnalyzing || permissionLoading}
       >
         <Camera className="mr-2 h-4 w-4" />
-        Take Photo
+        {permissionLoading ? "Loading..." : "Take Photo"}
       </Button>
     );
   }
