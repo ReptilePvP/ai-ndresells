@@ -242,7 +242,12 @@ Search Strategy:
 - Search for "[brand] [model] images" to find reference photos
 - Look for high-quality product images from retailers like Amazon, eBay, Best Buy, etc.
 
-CRITICAL: You MUST include a valid referenceImageUrl in your response. Search for product images and select a clear, high-quality image URL that shows the same or very similar product. Do not return empty or null for referenceImageUrl.
+CRITICAL: You MUST include a valid referenceImageUrl in your response. Prioritize these reliable image sources:
+1. Amazon product images (amazon.com/images/)
+2. eBay listing images (ebayimg.com)
+3. Direct manufacturer images
+4. Major retailer images (target.com, walmart.com, bestbuy.com)
+Select a clear, high-quality image URL that shows the same or very similar product. Test the URL accessibility before including it.
 
 Focus on the primary product in the image. Ensure all pricing data and the reference image come from your web search results, not estimates.`;
 
@@ -305,7 +310,7 @@ Focus on the primary product in the image. Ensure all pricing data and the refer
         return res.status(500).json({ message: "Failed to parse AI response" });
       }
 
-      // Download and store reference image if provided
+      // Generate reference image using AI if web image fails
       let localReferenceImageUrl = null;
       if (analysisData.referenceImageUrl) {
         try {
@@ -325,10 +330,34 @@ Focus on the primary product in the image. Ensure all pricing data and the refer
             localReferenceImageUrl = `ref_${imageHash}.${extension}`;
             console.log('Reference image downloaded and stored:', localReferenceImageUrl);
           } else {
-            console.log('Failed to download reference image:', response.status);
+            console.log('Web image failed, generating AI reference image');
+            // Generate reference image using Gemini
+            const imagePrompt = `Generate a high-quality product image of: ${analysisData.productName}. Style: clean product photography, white background, professional lighting, centered composition.`;
+            
+            try {
+              const imageResult = await genAI.models.generateImages({
+                model: 'imagen-3.0-generate-001',
+                prompt: imagePrompt,
+                numberOfImages: 1,
+                aspectRatio: '1:1'
+              });
+              
+              if (imageResult.images && imageResult.images[0]) {
+                const generatedImageData = imageResult.images[0].bytesBase64Encoded;
+                const imageBuffer = Buffer.from(generatedImageData, 'base64');
+                const imageHash = crypto.createHash('md5').update(imageBuffer).digest('hex');
+                const referenceImagePath = path.join(uploadDir, `ref_generated_${imageHash}.jpg`);
+                
+                await fs.writeFile(referenceImagePath, imageBuffer);
+                localReferenceImageUrl = `ref_generated_${imageHash}.jpg`;
+                console.log('Generated AI reference image:', localReferenceImageUrl);
+              }
+            } catch (genError) {
+              console.error('Failed to generate AI reference image:', genError);
+            }
           }
         } catch (error) {
-          console.error('Error downloading reference image:', error);
+          console.error('Error with reference image:', error);
         }
       }
 
