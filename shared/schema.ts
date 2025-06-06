@@ -46,6 +46,7 @@ export const analyses = pgTable("analyses", {
   description: text("description").notNull(),
   averageSalePrice: text("average_sale_price").notNull(),
   resellPrice: text("resell_price").notNull(),
+  referenceImageUrl: text("reference_image_url"),
   confidence: real("confidence"),
   analyzedAt: timestamp("analyzed_at").defaultNow().notNull(),
 });

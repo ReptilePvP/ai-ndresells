@@ -230,7 +230,8 @@ Your goal is to return a single object with the following structure and content:
   "productName": "string (Full product name, including brand and model, e.g., 'Sony WH-1000XM4 Wireless Noise-Cancelling Headphones')",
   "description": "string (A detailed description of the item, its key features, and common uses. Be thorough.)",
   "averageSalePrice": "string (Current market retail price for this product when new. Use search results from retailers. Provide a range if appropriate, e.g., '$250 - $300 USD')",
-  "resellPrice": "string (Current used/resell market price based on recent sold listings from eBay, Facebook Marketplace, etc. Provide a range if appropriate, e.g., '$150 - $200 USD')"
+  "resellPrice": "string (Current used/resell market price based on recent sold listings from eBay, Facebook Marketplace, etc. Provide a range if appropriate, e.g., '$150 - $200 USD')",
+  "referenceImageUrl": "string (URL of a high-quality reference image from your search results that closely matches the identified product. This should be from a retailer or marketplace listing.)"
 }
 
 Search Strategy:
@@ -305,6 +306,7 @@ Focus on the primary product in the image. Ensure all pricing data comes from yo
         description: analysisData.description || "No description available",
         averageSalePrice: analysisData.averageSalePrice || "Price not available",
         resellPrice: analysisData.resellPrice || "Resell price not available",
+        referenceImageUrl: analysisData.referenceImageUrl || null,
         confidence: 0.85, // Default confidence
       };
 

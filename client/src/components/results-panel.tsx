@@ -93,6 +93,25 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
             {analysis.description}
           </p>
         </div>
+
+        {analysis.referenceImageUrl && (
+          <div className="border-l-4 border-indigo-500 pl-4">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Reference Match</h3>
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+              <img
+                src={analysis.referenceImageUrl}
+                alt="Reference product match"
+                className="w-full max-w-sm h-48 object-contain rounded-lg mx-auto"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 text-center">
+                Closest match found in search results
+              </p>
+            </div>
+          </div>
+        )}
         
         <div className="grid md:grid-cols-2 gap-4">
           <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
