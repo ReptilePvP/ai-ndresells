@@ -101,8 +101,10 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
               <img
                 src={analysis.referenceImageUrl}
                 alt="Reference product match"
-                className="w-full max-w-sm h-48 object-contain rounded-lg mx-auto"
+                className="w-full max-w-sm h-48 object-contain rounded-lg mx-auto block"
+                onLoad={() => console.log('Reference image loaded:', analysis.referenceImageUrl)}
                 onError={(e) => {
+                  console.error('Reference image failed to load:', analysis.referenceImageUrl);
                   e.currentTarget.style.display = 'none';
                 }}
               />
@@ -110,6 +112,13 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
                 Closest match found in search results
               </p>
             </div>
+          </div>
+        )}
+        
+        {/* Debug: Show reference URL */}
+        {analysis.referenceImageUrl && (
+          <div className="text-xs text-gray-500 p-2 bg-gray-100 dark:bg-gray-800 rounded">
+            Debug - Reference URL: {analysis.referenceImageUrl}
           </div>
         )}
         
