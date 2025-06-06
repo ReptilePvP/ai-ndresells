@@ -113,6 +113,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(uploads).where(eq(uploads.sessionId, sessionId));
   }
 
+  async getUploadsByUser(userId: number): Promise<Upload[]> {
+    return await db.select().from(uploads).where(eq(uploads.userId, userId));
+  }
+
   async createUpload(insertUpload: InsertUpload): Promise<Upload> {
     const [upload] = await db
       .insert(uploads)
@@ -145,7 +149,27 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(uploads, eq(analyses.uploadId, uploads.id))
       .leftJoin(feedback, eq(feedback.analysisId, analyses.id))
       .where(eq(uploads.sessionId, sessionId))
-      .orderBy(analyses.analyzedAt);
+      .orderBy(desc(analyses.analyzedAt));
+
+    return result.map(row => ({
+      ...row.analysis,
+      upload: row.upload,
+      feedback: row.feedback || undefined,
+    }));
+  }
+
+  async getAnalysesByUser(userId: number): Promise<AnalysisWithUpload[]> {
+    const result = await db
+      .select({
+        analysis: analyses,
+        upload: uploads,
+        feedback: feedback,
+      })
+      .from(analyses)
+      .innerJoin(uploads, eq(analyses.uploadId, uploads.id))
+      .leftJoin(feedback, eq(feedback.analysisId, analyses.id))
+      .where(eq(uploads.userId, userId))
+      .orderBy(desc(analyses.analyzedAt));
 
     return result.map(row => ({
       ...row.analysis,
@@ -215,6 +239,53 @@ export class DatabaseStorage implements IStorage {
       totalAnalyses,
       accuracyRate: Math.round(accuracyRate),
       totalValue,
+    };
+  }
+
+  async getSystemStats(): Promise<{
+    totalUsers: number;
+    totalAnalyses: number;
+    totalUploads: number;
+    averageAccuracy: number;
+    recentActivity: {
+      last24Hours: number;
+      last7Days: number;
+    };
+  }> {
+    const now = new Date();
+    const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Get total counts
+    const [totalUsersResult] = await db.select({ count: count() }).from(users);
+    const [totalAnalysesResult] = await db.select({ count: count() }).from(analyses);
+    const [totalUploadsResult] = await db.select({ count: count() }).from(uploads);
+
+    // Get recent activity
+    const [last24HoursResult] = await db
+      .select({ count: count() })
+      .from(analyses)
+      .where(gte(analyses.analyzedAt, last24Hours));
+
+    const [last7DaysResult] = await db
+      .select({ count: count() })
+      .from(analyses)
+      .where(gte(analyses.analyzedAt, last7Days));
+
+    // Calculate average accuracy
+    const allFeedback = await db.select().from(feedback);
+    const accurateCount = allFeedback.filter(f => f.isAccurate).length;
+    const averageAccuracy = allFeedback.length > 0 ? (accurateCount / allFeedback.length) * 100 : 0;
+
+    return {
+      totalUsers: totalUsersResult.count,
+      totalAnalyses: totalAnalysesResult.count,
+      totalUploads: totalUploadsResult.count,
+      averageAccuracy: Math.round(averageAccuracy),
+      recentActivity: {
+        last24Hours: last24HoursResult.count,
+        last7Days: last7DaysResult.count,
+      },
     };
   }
 }

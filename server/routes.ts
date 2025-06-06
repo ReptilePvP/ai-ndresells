@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUploadSchema, insertAnalysisSchema, insertFeedbackSchema } from "@shared/schema";
+import { insertUploadSchema, insertAnalysisSchema, insertFeedbackSchema, loginSchema, registerSchema } from "@shared/schema";
+import { hashPassword, verifyPassword, requireAuth, requireAdmin, optionalAuth } from "./auth";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
