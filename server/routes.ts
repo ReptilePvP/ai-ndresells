@@ -271,6 +271,26 @@ This prompt should always be followed when analyzing product images for resale. 
             role: "user",
             parts: [
               { text: SYSTEM_PROMPT_PRODUCT_ANALYSIS },
+              { text: `Please analyze this product image and provide detailed resale information.
+
+Your task:
+- Identify the specific product shown in the image (brand, model, version).
+- Look up verified information online to determine:
+  • The product's name and description
+  • Current retail price (brand new)
+  • Current resale value (used/sold listings)
+  • A matching high-quality product image from a trusted source
+
+Only return your answer in the following JSON format:
+{
+  "productName": "...",
+  "description": "...",
+  "averageSalePrice": "...",
+  "resellPrice": "...",
+  "referenceImageUrl": "..."
+}
+
+Be accurate, concise, and use real data from Google Search and trusted sites like Amazon, eBay, Walmart, Best Buy, etc.` },
               {
                 inlineData: {
                   mimeType: upload.mimeType,
