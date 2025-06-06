@@ -218,38 +218,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use Gemini to analyze the image
       const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 
-      const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `You are an expert product analyst with web search capabilities. Analyze the provided image to identify the specific product and use Google Search to gather current market data.
+      const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `
+You are an expert product research analyst. Your task is to analyze the provided image to accurately identify the product, then perform real-time research using Google Search to return verified, up-to-date resale intelligence.
 
-IMPORTANT: Use the Google Search tool to find:
-1. Exact product identification and model numbers
-2. Current retail prices from major retailers
-3. Recent sold listings on marketplaces like eBay, Amazon, Facebook Marketplace
-4. Product reviews and specifications
+GOAL:
+Return a structured JSON object with detailed and factual data for resale evaluation.
 
-Your goal is to return a single object with the following structure and content:
+ALWAYS follow this output structure:
 {
-  "productName": "string (Full product name, including brand and model, e.g., 'Sony WH-1000XM4 Wireless Noise-Cancelling Headphones')",
-  "description": "string (A detailed description of the item, its key features, and common uses. Be thorough.)",
-  "averageSalePrice": "string (Current market retail price for this product when new. Use search results from retailers. Provide a range if appropriate, e.g., '$250 - $300 USD')",
-  "resellPrice": "string (Current used/resell market price based on recent sold listings from eBay, Facebook Marketplace, etc. Provide a range if appropriate, e.g., '$150 - $200 USD')",
-  "referenceImageUrl": "string (URL of a high-quality reference image from your search results that closely matches the identified product. This should be from a retailer or marketplace listing.)"
+  "productName": "string (Full name including brand and model. E.g., 'Sony WH-1000XM4 Wireless Noise-Cancelling Headphones')",
+  "description": "string (A rich, detailed product description covering features, specs, and common use cases. Write it like an Amazon product summary.)",
+  "averageSalePrice": "string (Retail pricing range for NEW condition items from major stores like Amazon, Walmart, Best Buy. E.g., '$249 - $299 USD')",
+  "resellPrice": "string (Recently SOLD listing prices for USED condition, based on eBay, Facebook Marketplace, Mercari, etc. Give a range like '$150 - $200 USD')",
+  "referenceImageUrl": "string (URL to a high-quality matching product image from a trusted site like amazon.com/images/, ebayimg.com, walmart.com, or bestbuy.com)"
 }
 
-Search Strategy:
-- First identify the product from the image (brand, model, key features)
-- Search for "[brand] [model] price" on retail sites to get current pricing
-- Search for "[brand] [model] sold listings eBay" for resell data
-- Search for "[brand] [model] images" to find reference photos
-- Look for high-quality product images from retailers like Amazon, eBay, Best Buy, etc.
+STEP-BY-STEP STRATEGY:
+1. VISUAL IDENTITY:
+  - Extract brand name, product type, and possible model number from the image.
+  - Look for visual clues (logos, packaging, labels, colors, patterns).
 
-CRITICAL: You MUST include a valid referenceImageUrl in your response. Prioritize these reliable image sources:
-1. Amazon product images (amazon.com/images/)
-2. eBay listing images (ebayimg.com)
-3. Direct manufacturer images
-4. Major retailer images (target.com, walmart.com, bestbuy.com)
-Select a clear, high-quality image URL that shows the same or very similar product. Test the URL accessibility before including it.
+2. PRODUCT CONFIRMATION:
+  - Use Google Search to confirm identification (e.g., '[visual details] site:amazon.com').
 
-Focus on the primary product in the image. Ensure all pricing data and the reference image come from your web search results, not estimates.`;
+3. PRICING RESEARCH:
+  - Find current NEW prices from retailers using '[brand model] site:amazon.com OR site:walmart.com'.
+  - Find SOLD prices for USED items using 'site:ebay.com "[brand model]" sold'.
+
+4. REFERENCE IMAGE:
+  - Find a clear, accurate product image from Amazon, eBay, or other major retail sources.
+  - Prioritize URLs ending in jpg/png from:
+    • amazon.com/images/
+    • i.ebayimg.com
+    • bestbuy.com
+    • walmartimages.com
+
+RULES:
+- All data MUST be derived from actual search results — do NOT guess or fabricate.
+- Only include ONE product in your analysis (the most prominent item in the image).
+- If multiple possible matches exist, pick the one with the strongest visual and data alignment.
+
+IF IN DOUBT:
+Be conservative — prefer slightly generic but accurate identification over uncertain specifics.
+
+This prompt should always be followed when analyzing product images for resale. Respond only with the completed JSON object.
+`;
 
       const result = await genAI.models.generateContent({
         model: GEMINI_MODEL,
