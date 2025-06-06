@@ -236,11 +236,14 @@ Your goal is to return a single object with the following structure and content:
 
 Search Strategy:
 - First identify the product from the image (brand, model, key features)
-- Search for "[brand] [model] price" on retail sites
+- Search for "[brand] [model] price" on retail sites to get current pricing
 - Search for "[brand] [model] sold listings eBay" for resell data
-- Search for "[brand] [model] Facebook Marketplace" for local market data
+- Search for "[brand] [model] images" to find reference photos
+- Look for high-quality product images from retailers like Amazon, eBay, Best Buy, etc.
 
-Focus on the primary product in the image. Ensure all pricing data comes from your web search results, not estimates.`;
+CRITICAL: You MUST include a valid referenceImageUrl in your response. Search for product images and select a clear, high-quality image URL that shows the same or very similar product. Do not return empty or null for referenceImageUrl.
+
+Focus on the primary product in the image. Ensure all pricing data and the reference image come from your web search results, not estimates.`;
 
       const result = await genAI.models.generateContent({
         model: GEMINI_MODEL,
@@ -294,8 +297,10 @@ Focus on the primary product in the image. Ensure all pricing data comes from yo
         }
         
         analysisData = JSON.parse(jsonMatch[0]);
+        console.log("Parsed analysis data:", JSON.stringify(analysisData, null, 2));
       } catch (parseError) {
         console.error("Failed to parse Gemini response:", text);
+        console.error("Raw response text:", text);
         return res.status(500).json({ message: "Failed to parse AI response" });
       }
 
