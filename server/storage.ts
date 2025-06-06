@@ -1,17 +1,31 @@
-import { uploads, analyses, feedback, type Upload, type Analysis, type Feedback, type InsertUpload, type InsertAnalysis, type InsertFeedback, type AnalysisWithUpload } from "@shared/schema";
+import { 
+  uploads, analyses, feedback, users,
+  type Upload, type Analysis, type Feedback, type User, type UserWithoutPassword, type AnalysisWithUpload,
+  type InsertUpload, type InsertAnalysis, type InsertFeedback, type InsertUser, type RegisterData
+} from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, count, avg, sum, desc, gte } from "drizzle-orm";
 
 export interface IStorage {
+  // User operations
+  getUserById(id: number): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(userData: RegisterData & { password: string }): Promise<UserWithoutPassword>;
+  updateUser(id: number, userData: Partial<InsertUser>): Promise<UserWithoutPassword | undefined>;
+  getAllUsers(): Promise<UserWithoutPassword[]>;
+
   // Upload operations
   createUpload(upload: InsertUpload): Promise<Upload>;
   getUpload(id: number): Promise<Upload | undefined>;
   getUploadsBySession(sessionId: string): Promise<Upload[]>;
+  getUploadsByUser(userId: number): Promise<Upload[]>;
 
   // Analysis operations
   createAnalysis(analysis: InsertAnalysis): Promise<Analysis>;
   getAnalysis(id: number): Promise<Analysis | undefined>;
   getAnalysesBySession(sessionId: string): Promise<AnalysisWithUpload[]>;
+  getAnalysesByUser(userId: number): Promise<AnalysisWithUpload[]>;
   getAnalysisWithUpload(analysisId: number): Promise<AnalysisWithUpload | undefined>;
 
   // Feedback operations
@@ -24,9 +38,72 @@ export interface IStorage {
     accuracyRate: number;
     totalValue: number;
   }>;
+
+  // Admin diagnostics
+  getSystemStats(): Promise<{
+    totalUsers: number;
+    totalAnalyses: number;
+    totalUploads: number;
+    averageAccuracy: number;
+    recentActivity: {
+      last24Hours: number;
+      last7Days: number;
+    };
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // User operations
+  async getUserById(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(userData: RegisterData & { password: string }): Promise<UserWithoutPassword> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...userData,
+        role: 'user',
+        isActive: true,
+      })
+      .returning();
+    
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
+
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<UserWithoutPassword | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ ...userData, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    
+    if (!user) return undefined;
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
+
+  async getAllUsers(): Promise<UserWithoutPassword[]> {
+    const allUsers = await db.select().from(users);
+    return allUsers.map(user => {
+      const { password, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    });
+  }
+
+  // Upload operations
   async getUpload(id: number): Promise<Upload | undefined> {
     const [upload] = await db.select().from(uploads).where(eq(uploads.id, id));
     return upload || undefined;
