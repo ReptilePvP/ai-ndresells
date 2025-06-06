@@ -217,16 +217,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use Gemini to analyze the image
       const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 
-      const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `You are an expert product analyst. Analyze the provided image to identify the specific product.
+      const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `You are an expert product analyst with web search capabilities. Analyze the provided image to identify the specific product and use Google Search to gather current market data.
+
+IMPORTANT: Use the Google Search tool to find:
+1. Exact product identification and model numbers
+2. Current retail prices from major retailers
+3. Recent sold listings on marketplaces like eBay, Amazon, Facebook Marketplace
+4. Product reviews and specifications
+
 Your goal is to return a single object with the following structure and content:
 {
   "productName": "string (Full product name, including brand and model, e.g., 'Sony WH-1000XM4 Wireless Noise-Cancelling Headphones')",
   "description": "string (A detailed description of the item, its key features, and common uses. Be thorough.)",
-  "averageSalePrice": "string (Estimated average current market sale price for this product when new or in like-new condition. Provide a range if appropriate, e.g., '$250 - $300 USD'. If unknown, state 'Unknown'.)",
-  "resellPrice": "string (Estimated average resell price for this product in good used condition. Provide a range if appropriate, e.g., '$150 - $200 USD'. If unknown, state 'Unknown'.)"
+  "averageSalePrice": "string (Current market retail price for this product when new. Use search results from retailers. Provide a range if appropriate, e.g., '$250 - $300 USD')",
+  "resellPrice": "string (Current used/resell market price based on recent sold listings from eBay, Facebook Marketplace, etc. Provide a range if appropriate, e.g., '$150 - $200 USD')"
 }
-Focus on the primary product in the image. If multiple distinct products are clearly identifiable as primary, you may focus on the most prominent one.
-Utilize web search capabilities if available to gather accurate information for pricing and product details.`;
+
+Search Strategy:
+- First identify the product from the image (brand, model, key features)
+- Search for "[brand] [model] price" on retail sites
+- Search for "[brand] [model] sold listings eBay" for resell data
+- Search for "[brand] [model] Facebook Marketplace" for local market data
+
+Focus on the primary product in the image. Ensure all pricing data comes from your web search results, not estimates.`;
 
       const result = await genAI.models.generateContent({
         model: GEMINI_MODEL,
@@ -244,7 +257,12 @@ Utilize web search capabilities if available to gather accurate information for 
             ],
           },
         ],
-      });
+        tools: [
+          {
+            googleSearch: {}
+          }
+        ]
+      } as any);
 
       if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
         throw new Error("Invalid response structure from AI model");
