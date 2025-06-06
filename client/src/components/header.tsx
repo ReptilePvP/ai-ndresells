@@ -39,17 +39,17 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link href="/">
-            <div className="flex items-center space-x-3 cursor-pointer">
+            <div className="flex items-center space-x-2 cursor-pointer">
               <img 
                 src={ndLogoPath} 
                 alt="ND Resells Logo" 
-                className="w-10 h-10 object-contain"
+                className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
               />
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
                   ND Resells
                 </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">AI Product Analysis & Pricing</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">AI Product Analysis & Pricing</p>
               </div>
             </div>
           </Link>

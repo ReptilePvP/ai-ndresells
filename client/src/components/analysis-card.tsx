@@ -40,7 +40,7 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
         </div>
       </div>
       
-      <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1 truncate">
+      <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1 leading-tight">
         {analysis.productName}
       </h3>
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">

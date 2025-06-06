@@ -116,17 +116,17 @@ export default function Dashboard() {
 
       {/* Analysis Section */}
       <section>
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-3xl font-bold flex items-center">
-            <i className="fas fa-chart-line text-blue-500 mr-3"></i>
-            Your Analyses
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+          <h2 className="text-2xl sm:text-3xl font-bold flex items-center">
+            <i className="fas fa-chart-line text-blue-500 mr-2 sm:mr-3"></i>
+            <span className="truncate">Your Analyses</span>
           </h2>
           
           {/* Tab Navigation */}
-          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 w-full sm:w-auto">
             <button
               onClick={() => setActiveTab('recent')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all ${
                 activeTab === 'recent'
                   ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
@@ -137,7 +137,7 @@ export default function Dashboard() {
             {isAuthenticated && (
               <button
                 onClick={() => setActiveTab('saved')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all ${
                   activeTab === 'saved'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
@@ -151,7 +151,7 @@ export default function Dashboard() {
         </div>
         
         {displayAnalyses.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {displayAnalyses.map((analysis) => (
               <AnalysisCard key={analysis.id} analysis={analysis} />
             ))}
