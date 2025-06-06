@@ -204,14 +204,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
       const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `You are an expert product analyst. Analyze the provided image to identify the specific product.
-Your goal is to return a single, valid JSON object with the following structure and content:
+Your goal is to return a single object with the following structure and content:
 {
   "productName": "string (Full product name, including brand and model, e.g., 'Sony WH-1000XM4 Wireless Noise-Cancelling Headphones')",
   "description": "string (A detailed description of the item, its key features, and common uses. Be thorough.)",
   "averageSalePrice": "string (Estimated average current market sale price for this product when new or in like-new condition. Provide a range if appropriate, e.g., '$250 - $300 USD'. If unknown, state 'Unknown'.)",
   "resellPrice": "string (Estimated average resell price for this product in good used condition. Provide a range if appropriate, e.g., '$150 - $200 USD'. If unknown, state 'Unknown'.)"
 }
-Focus on the primary product in the image.`;
+Focus on the primary product in the image. If multiple distinct products are clearly identifiable as primary, you may focus on the most prominent one.
+Utilize web search capabilities if available to gather accurate information for pricing and product details.`;
 
       const result = await model.generateContent([
         {
