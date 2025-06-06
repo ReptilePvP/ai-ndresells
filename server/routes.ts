@@ -8,6 +8,14 @@ import path from "path";
 import fs from "fs/promises";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// Initialize Gemini AI
+const genAI = new GoogleGenerativeAI(
+  process.env.GEMINI_API_KEY || 
+  process.env.GOOGLE_API_KEY || 
+  process.env.GOOGLE_GEMINI_API_KEY || 
+  ""
+);
+
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
 
@@ -27,14 +35,6 @@ const upload = multer({
     }
   },
 });
-
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(
-  process.env.GEMINI_API_KEY || 
-  process.env.GOOGLE_API_KEY || 
-  process.env.GOOGLE_GEMINI_API_KEY || 
-  ""
-);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
