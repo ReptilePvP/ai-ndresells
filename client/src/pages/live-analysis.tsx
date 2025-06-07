@@ -4,20 +4,32 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, VideoOff, Loader2, Camera, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCamera } from "@/hooks/useCamera";
 import { Link } from "wouter";
 
 export function LiveAnalysisPage() {
   const [isActive, setIsActive] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastAnalysis, setLastAnalysis] = useState<string>("");
   const [analysisCount, setAnalysisCount] = useState(0);
-  const [videoPlaying, setVideoPlaying] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // Use the camera hook for clean camera management
+  const { 
+    videoRef, 
+    stream, 
+    error: cameraError, 
+    isLoading: cameraLoading, 
+    isPlaying, 
+    startCamera, 
+    stopCamera, 
+    playVideo 
+  } = useCamera({
+    facingMode: 'environment',
+    width: 1920,
+    height: 1080
+  });
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -33,7 +45,7 @@ export function LiveAnalysisPage() {
   };
 
   const startFrameCapture = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current || !stream) return;
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -41,11 +53,7 @@ export function LiveAnalysisPage() {
     
     if (!ctx) return;
     
-    console.log('Starting frame capture with video dimensions:', {
-      videoWidth: video.videoWidth,
-      videoHeight: video.videoHeight,
-      readyState: video.readyState
-    });
+    console.log('Starting frame capture');
     
     // Set canvas dimensions to match video
     canvas.width = video.videoWidth || 640;
@@ -61,7 +69,7 @@ export function LiveAnalysisPage() {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({
             type: 'video_frame',
-            data: frameData.split(',')[1], // Remove data URL prefix
+            data: frameData.split(',')[1],
             timestamp: Date.now()
           }));
         }
@@ -78,218 +86,13 @@ export function LiveAnalysisPage() {
   };
 
   const startLiveAnalysis = async () => {
-    setIsConnecting(true);
-    setError(null);
     setConnectionStatus('connecting');
     
     try {
-      // Get camera stream with progressive fallback
-      let stream;
-      const streamConfigs = [
-        // High quality rear camera
-        {
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1920, max: 1920 },
-            height: { ideal: 1080, max: 1080 }
-          }
-        },
-        // Standard rear camera
-        {
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        },
-        // Any camera with quality
-        {
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        },
-        // Basic camera fallback
-        {
-          video: true
-        }
-      ];
-
-      for (let i = 0; i < streamConfigs.length; i++) {
-        try {
-          console.log(`Attempting camera config ${i + 1}:`, streamConfigs[i]);
-          stream = await navigator.mediaDevices.getUserMedia(streamConfigs[i]);
-          console.log('Camera stream obtained successfully with config', i + 1);
-          break;
-        } catch (err) {
-          console.warn(`Camera config ${i + 1} failed:`, err);
-          if (i === streamConfigs.length - 1) {
-            throw err; // Re-throw the last error if all configs fail
-          }
-        }
-      }
-
-      if (!stream) {
-        throw new Error('Failed to obtain camera stream with any configuration');
-      }
+      // Start camera
+      await startCamera();
       
-      setVideoStream(stream);
-      
-      // Set up video element with additional attributes
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.muted = true;
-        videoRef.current.playsInline = true;
-        videoRef.current.autoplay = true;
-        videoRef.current.controls = false;
-        
-        // Force video dimensions
-        videoRef.current.style.width = '100%';
-        videoRef.current.style.height = '100%';
-        videoRef.current.style.objectFit = 'cover';
-        
-        console.log('Video element setup complete:', {
-          srcObject: !!videoRef.current.srcObject,
-          muted: videoRef.current.muted,
-          playsInline: videoRef.current.playsInline,
-          autoplay: videoRef.current.autoplay,
-          readyState: videoRef.current.readyState,
-          streamTracks: stream.getTracks().length,
-          streamActive: stream.active,
-          videoTracks: stream.getVideoTracks().map(track => ({
-            id: track.id,
-            label: track.label,
-            enabled: track.enabled,
-            readyState: track.readyState
-          }))
-        });
-
-        // Force video to load and play with multiple attempts
-        const forceVideoDisplay = async () => {
-          if (!videoRef.current) return;
-          
-          try {
-            // Ensure stream is attached
-            videoRef.current.srcObject = stream;
-            videoRef.current.load();
-            
-            // Wait for metadata and force play
-            await videoRef.current.play();
-            console.log('Video forced to play successfully');
-            setVideoPlaying(true);
-          } catch (error) {
-            console.error('Force play failed:', error);
-            // Try again after a short delay
-            setTimeout(async () => {
-              if (videoRef.current) {
-                try {
-                  await videoRef.current.play();
-                  setVideoPlaying(true);
-                } catch (e) {
-                  console.error('Retry play failed:', e);
-                }
-              }
-            }, 1000);
-          }
-        };
-        
-        // Try immediately and with delays
-        forceVideoDisplay();
-        setTimeout(forceVideoDisplay, 200);
-        setTimeout(forceVideoDisplay, 1000);
-        
-        // Wait for video to be ready with better error handling
-        await new Promise((resolve, reject) => {
-          if (!videoRef.current) return reject(new Error('Video element not found'));
-          
-          let resolved = false;
-          
-          const handleSuccess = () => {
-            if (!resolved) {
-              resolved = true;
-              console.log('Video successfully started');
-              setVideoPlaying(true);
-              resolve(void 0);
-            }
-          };
-          
-          const handleError = (error: any) => {
-            if (!resolved) {
-              resolved = true;
-              console.error('Video error:', error);
-              reject(error);
-            }
-          };
-          
-          videoRef.current.onloadedmetadata = () => {
-            console.log('Video metadata loaded', {
-              videoWidth: videoRef.current?.videoWidth,
-              videoHeight: videoRef.current?.videoHeight,
-              duration: videoRef.current?.duration
-            });
-          };
-          
-          videoRef.current.oncanplay = () => {
-            console.log('Video can play');
-            if (videoRef.current) {
-              videoRef.current.play()
-                .then(() => {
-                  console.log('Video play() successful');
-                  handleSuccess();
-                })
-                .catch(handleError);
-            }
-          };
-          
-          videoRef.current.onplaying = () => {
-            console.log('Video is playing');
-            handleSuccess();
-            // Start frame capture once video is playing
-            startFrameCapture();
-          };
-          
-          videoRef.current.onerror = (e) => {
-            console.error('Video element error:', e);
-            handleError(new Error('Video playback failed'));
-          };
-          
-          // Force play after a short delay to ensure stream is ready
-          setTimeout(() => {
-            if (!resolved && videoRef.current) {
-              console.log('Forced play attempt after delay');
-              videoRef.current.play()
-                .then(() => {
-                  console.log('Delayed play successful');
-                  handleSuccess();
-                })
-                .catch(handleError);
-            }
-          }, 500);
-          
-          // Timeout after 10 seconds
-          setTimeout(() => {
-            if (!resolved) {
-              console.error('Video setup timeout - check console for errors');
-              handleError(new Error('Video setup timeout - camera stream may not be compatible'));
-            }
-          }, 10000);
-        });
-        
-        console.log('Video stream started successfully:', {
-          videoWidth: videoRef.current.videoWidth,
-          videoHeight: videoRef.current.videoHeight,
-          readyState: videoRef.current.readyState,
-          srcObject: !!videoRef.current.srcObject,
-          streamActive: stream.active,
-          tracks: stream.getTracks().map(track => ({
-            kind: track.kind,
-            enabled: track.enabled,
-            readyState: track.readyState
-          }))
-        });
-      }
-      
-      // Connect to WebSocket for live analysis
+      // Set up WebSocket connection
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = `${protocol}//${window.location.host}/api/live`;
       const ws = new WebSocket(wsUrl);
@@ -297,31 +100,13 @@ export function LiveAnalysisPage() {
       
       ws.onopen = () => {
         console.log("WebSocket connected for live analysis");
-        setIsConnecting(false);
-        setIsActive(true);
         setConnectionStatus('connected');
+        setIsActive(true);
         
-        // Send setup configuration for Gemini Live
-        const setupConfig = {
-          type: 'setup',
-          config: {
-            model: 'models/gemini-2.0-flash-exp',
-            responseModalities: ['TEXT'],
-            systemPrompt: `You are an expert product analyst for resale market evaluation. When analyzing products:
-
-1. IDENTIFY the product name, brand, and model when visible
-2. ASSESS the condition and any visible defects
-3. PROVIDE quick market insights for resale value
-4. RESPOND with concise, actionable information
-
-Focus on real-time identification and pricing guidance for resellers.`
-          }
-        };
-        
-        ws.send(JSON.stringify(setupConfig));
-        
-        // Start periodic frame capture and analysis
-        intervalRef.current = setInterval(analyzeCurrentFrame, 3000);
+        // Start frame capture once video is playing
+        if (isPlaying) {
+          startFrameCapture();
+        }
         
         toast({
           title: "Live Analysis Started",
@@ -351,9 +136,12 @@ Focus on real-time identification and pricing guidance for resellers.`
       
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
-        setError("Connection to analysis service failed");
-        setIsConnecting(false);
         setConnectionStatus('disconnected');
+        toast({
+          title: "Connection Error",
+          description: "Failed to connect to analysis service",
+          variant: "destructive"
+        });
       };
       
       ws.onclose = () => {
@@ -362,38 +150,20 @@ Focus on real-time identification and pricing guidance for resellers.`
         setConnectionStatus('disconnected');
       };
       
-    } catch (err) {
-      setIsConnecting(false);
+    } catch (error) {
       setConnectionStatus('disconnected');
-      let errorMsg = 'Failed to start live analysis';
-      
-      if (err instanceof Error) {
-        if (err.name === 'NotAllowedError') {
-          errorMsg = 'Camera permission denied. Please allow camera access and try again.';
-        } else if (err.name === 'NotFoundError') {
-          errorMsg = 'No camera found on this device.';
-        } else if (err.name === 'NotReadableError') {
-          errorMsg = 'Camera is being used by another application.';
-        } else if (err.name === 'OverconstrainedError') {
-          errorMsg = 'Camera constraints not supported. Trying with basic settings...';
-        } else {
-          errorMsg = err.message;
-        }
-      }
-      
-      setError(errorMsg);
-      console.error('Live analysis error:', err);
+      console.error('Live analysis error:', error);
       
       toast({
-        title: "Camera Error",
-        description: errorMsg,
+        title: "Setup Error",
+        description: cameraError || "Failed to start live analysis",
         variant: "destructive",
       });
     }
   };
 
   const analyzeCurrentFrame = () => {
-    if (!videoRef.current || !canvasRef.current || !videoStream || !wsRef.current || isAnalyzing) {
+    if (!videoRef.current || !canvasRef.current || !stream || !wsRef.current || isAnalyzing) {
       return;
     }
 
@@ -432,32 +202,19 @@ Focus on real-time identification and pricing guidance for resellers.`
     // Stop frame capture
     stopFrameCapture();
     
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    
+    // Close WebSocket
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
     
-    if (videoStream) {
-      videoStream.getTracks().forEach(track => track.stop());
-      setVideoStream(null);
-    }
-    
-    // Clear video element
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
+    // Stop camera
+    stopCamera();
     
     setIsActive(false);
     setIsAnalyzing(false);
     setLastAnalysis("");
     setAnalysisCount(0);
-    setError(null);
-    setVideoPlaying(false);
     setConnectionStatus('disconnected');
     
     toast({
@@ -465,6 +222,13 @@ Focus on real-time identification and pricing guidance for resellers.`
       description: "Real-time analysis disconnected",
     });
   };
+
+  // Start frame capture when video starts playing
+  useEffect(() => {
+    if (isPlaying && connectionStatus === 'connected') {
+      startFrameCapture();
+    }
+  }, [isPlaying, connectionStatus]);
 
   useEffect(() => {
     return () => {
@@ -484,222 +248,191 @@ Focus on real-time identification and pricing guidance for resellers.`
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Live Product Analysis</h1>
-            <p className="text-gray-600 dark:text-gray-400">Real-time AI-powered product identification</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Live Analysis</h1>
+            <p className="text-gray-600 dark:text-gray-400">Real-time product identification through camera</p>
           </div>
         </div>
 
         {/* Status Bar */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Badge variant={connectionStatus === 'connected' ? 'default' : connectionStatus === 'connecting' ? 'secondary' : 'outline'}>
-                  <div className={`w-2 h-2 rounded-full mr-2 ${
-                    connectionStatus === 'connected' ? 'bg-green-500 animate-pulse' : 
-                    connectionStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : 
-                    'bg-gray-400'
-                  }`}></div>
-                  {connectionStatus === 'connected' ? 'Connected' : 
-                   connectionStatus === 'connecting' ? 'Connecting...' : 
-                   'Disconnected'}
-                </Badge>
-                {analysisCount > 0 && (
-                  <Badge variant="outline">
-                    {analysisCount} scans completed
-                  </Badge>
-                )}
-              </div>
-              {isActive && (
-                <Button variant="destructive" size="sm" onClick={stopLiveAnalysis}>
-                  <VideoOff className="h-4 w-4 mr-2" />
-                  Stop Analysis
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Main Content */}
-        {!isActive && !isConnecting && !error && (
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader className="text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/40 dark:to-purple-900/40 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Camera className="w-10 h-10 text-blue-600" />
-              </div>
-              <CardTitle className="text-2xl">Start Live Analysis</CardTitle>
-              <p className="text-gray-600 dark:text-gray-400">
-                Use your camera to get real-time AI analysis of products. Point your camera at any item to identify it and get instant market insights.
-              </p>
-            </CardHeader>
-            <CardContent className="text-center">
+        <div className="flex items-center justify-between mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+          <div className="flex items-center gap-4">
+            <Badge variant={connectionStatus === 'connected' ? 'default' : 'secondary'}>
+              {connectionStatus === 'connected' && <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />}
+              {connectionStatus.charAt(0).toUpperCase() + connectionStatus.slice(1)}
+            </Badge>
+            
+            {analysisCount > 0 && (
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {analysisCount} analysis{analysisCount !== 1 ? 'es' : ''} completed
+              </span>
+            )}
+          </div>
+          
+          <div className="flex gap-2">
+            {!isActive ? (
               <Button 
-                onClick={startLiveAnalysis}
-                size="lg"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                onClick={startLiveAnalysis} 
+                disabled={cameraLoading}
+                className="bg-green-600 hover:bg-green-700"
               >
-                <Eye className="mr-2 h-5 w-5" />
+                {cameraLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Camera className="h-4 w-4 mr-2" />
+                )}
                 Start Live Analysis
               </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {isConnecting && (
-          <Card className="max-w-2xl mx-auto">
-            <CardContent className="p-8 text-center">
-              <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-600 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Starting Live Analysis</h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Connecting to camera and AI analysis service...
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {error && (
-          <Card className="max-w-2xl mx-auto border-red-200 dark:border-red-800">
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/40 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <VideoOff className="w-8 h-8 text-red-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-red-700 dark:text-red-400 mb-2">Camera Access Required</h3>
-              <p className="text-red-600 dark:text-red-400 mb-6">
-                {error}
-              </p>
-              <Button 
-                onClick={() => {
-                  setError(null);
-                  startLiveAnalysis();
-                }}
-                variant="outline"
-                className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400"
-              >
-                Try Again
+            ) : (
+              <Button onClick={stopLiveAnalysis} variant="destructive">
+                <VideoOff className="h-4 w-4 mr-2" />
+                Stop Analysis
               </Button>
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </div>
+        </div>
 
-        {isActive && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Video Feed */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                    Live Camera Feed
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden">
-                    {/* Debug background pattern - only show when video isn't playing */}
-                    {(!videoPlaying || !videoStream) && (
-                      <div className="absolute inset-0 bg-gray-800 z-5 flex items-center justify-center">
-                        <div className="text-center">
-                          <Eye className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                          <span className="text-gray-300 text-sm block mb-2">
-                            {videoStream ? 'Starting video feed...' : 'Connecting to camera...'}
-                          </span>
-                          {videoStream && !videoPlaying && (
-                            <button 
-                              onClick={() => {
-                                if (videoRef.current && videoStream) {
-                                  console.log('Manual video play attempt with stream:', videoStream.getTracks());
-                                  videoRef.current.srcObject = videoStream;
-                                  videoRef.current.play()
-                                    .then(() => {
-                                      console.log('Manual play successful');
-                                      setVideoPlaying(true);
-                                    })
-                                    .catch(err => console.error('Manual play failed:', err));
-                                }
-                              }}
-                              className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                            >
-                              Start Video Feed
-                            </button>
-                          )}
-                        </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Camera Feed */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5" />
+                  Live Camera Feed
+                  {isPlaying && (
+                    <Badge variant="outline" className="text-green-600 border-green-600">
+                      Live Analysis Ready
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden">
+                  {/* Error State */}
+                  {cameraError && (
+                    <div className="absolute inset-0 bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+                      <div className="text-center">
+                        <VideoOff className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                        <p className="text-red-600 dark:text-red-400 text-sm">{cameraError}</p>
+                        <Button 
+                          onClick={() => startCamera()} 
+                          size="sm" 
+                          className="mt-2"
+                        >
+                          Retry Camera
+                        </Button>
                       </div>
-                    )}
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="relative z-10 w-full h-full object-cover"
-                      style={{ minHeight: '400px' }}
-                    />
-                    {/* Hidden canvas for frame capture */}
-                    <canvas
-                      ref={canvasRef}
-                      className="hidden"
-                      width="640"
-                      height="480"
-                    />
-                    
-                    {/* Analysis Status Overlay */}
+                    </div>
+                  )}
+
+                  {/* Loading State */}
+                  {cameraLoading && !cameraError && (
+                    <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                      <div className="text-center">
+                        <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-2 animate-spin" />
+                        <span className="text-gray-300 text-sm">Connecting to camera...</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Video Not Playing State */}
+                  {stream && !isPlaying && !cameraError && !cameraLoading && (
+                    <div className="absolute inset-0 bg-gray-800 z-5 flex items-center justify-center">
+                      <div className="text-center">
+                        <Eye className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <span className="text-gray-300 text-sm block mb-2">Camera ready</span>
+                        <Button 
+                          onClick={playVideo}
+                          className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                        >
+                          Start Video Feed
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Video Element */}
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="relative z-10 w-full h-full object-cover"
+                    style={{ minHeight: '400px' }}
+                  />
+                  
+                  {/* Hidden canvas for frame capture */}
+                  <canvas
+                    ref={canvasRef}
+                    className="hidden"
+                    width="640"
+                    height="480"
+                  />
+                  
+                  {/* Analysis Status Overlay */}
+                  {isActive && (
                     <div className="absolute top-4 left-4 right-4 z-20">
                       <div className="bg-black/70 text-white px-3 py-2 rounded-lg text-sm">
                         {isAnalyzing ? (
                           <div className="flex items-center gap-2">
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>Analyzing...</span>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Analyzing frame...
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                            <span>Live Analysis Ready</span>
+                          <div className="flex items-center justify-between">
+                            <span>Live analysis active</span>
+                            <Button 
+                              onClick={analyzeCurrentFrame}
+                              size="sm"
+                              disabled={isAnalyzing}
+                              className="text-xs h-6"
+                            >
+                              Analyze Now
+                            </Button>
                           </div>
                         )}
                       </div>
                     </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-                    {/* Last Analysis Result */}
-                    {lastAnalysis && (
-                      <div className="absolute bottom-4 left-4 right-4 z-20">
-                        <div className="bg-blue-600/90 text-white px-3 py-2 rounded-lg text-sm">
-                          <strong>Detected:</strong> {lastAnalysis}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Analysis Panel */}
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Analysis Results</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-center py-6">
-                    <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Eye className="w-8 h-8 text-blue-600" />
+          {/* Analysis Results */}
+          <div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Analysis Results</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {lastAnalysis ? (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Latest Detection</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded">
+                        {lastAnalysis}
+                      </p>
                     </div>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm">
+                    
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        Total Analyses: {analysisCount}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Eye className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">
                       Point your camera at products for instant AI identification. Results will appear here.
                     </p>
                   </div>
-                  
-                  {lastAnalysis && (
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                      <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Latest Detection</h4>
-                      <p className="text-blue-800 dark:text-blue-200">{lastAnalysis}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        )}
-
-        {/* Hidden canvas for frame capture */}
-        <canvas ref={canvasRef} className="hidden" />
+        </div>
       </div>
     </div>
   );

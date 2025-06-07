@@ -1,103 +1,165 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from "react";
 
-interface CameraSupport {
-  isSupported: boolean;
-  hasPermission: boolean;
-  isLoading: boolean;
-  error: string | null;
-  requestPermission: () => Promise<boolean>;
+interface CameraConfig {
+  video?: MediaTrackConstraints | boolean;
+  facingMode?: 'user' | 'environment';
+  width?: number;
+  height?: number;
 }
 
-export function useCamera(): CameraSupport {
-  const [isSupported, setIsSupported] = useState(false);
-  const [hasPermission, setHasPermission] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+export function useCamera(config?: CameraConfig) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  useEffect(() => {
-    checkCameraSupport();
-  }, []);
-
-  const checkCameraSupport = async () => {
+  const startCamera = async (customConfig?: CameraConfig) => {
     setIsLoading(true);
     setError(null);
-
+    
     try {
-      // Check if MediaDevices API is supported
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setIsSupported(false);
-        setError('Camera not supported in this browser');
-        return;
+      // Stop existing stream if any
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
       }
 
-      setIsSupported(true);
+      const finalConfig = { ...config, ...customConfig };
+      
+      // Progressive fallback configurations
+      const streamConfigs = [
+        // High quality with specified facing mode
+        {
+          video: {
+            facingMode: finalConfig.facingMode || 'environment',
+            width: { ideal: finalConfig.width || 1920, max: 1920 },
+            height: { ideal: finalConfig.height || 1080, max: 1080 }
+          }
+        },
+        // Standard quality with facing mode
+        {
+          video: {
+            facingMode: finalConfig.facingMode || 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        },
+        // Any camera with quality
+        {
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        },
+        // Basic fallback
+        {
+          video: true
+        }
+      ];
 
-      // Check current permission status
-      if (navigator.permissions) {
-        const permission = await navigator.permissions.query({ name: 'camera' as PermissionName });
-        if (permission.state === 'granted') {
-          setHasPermission(true);
-        } else if (permission.state === 'denied') {
-          setHasPermission(false);
-          setError('Camera permission denied');
+      let mediaStream: MediaStream | null = null;
+      
+      for (let i = 0; i < streamConfigs.length; i++) {
+        try {
+          console.log(`Attempting camera config ${i + 1}:`, streamConfigs[i]);
+          mediaStream = await navigator.mediaDevices.getUserMedia(streamConfigs[i]);
+          console.log(`Camera stream obtained with config ${i + 1}`);
+          break;
+        } catch (err) {
+          console.warn(`Camera config ${i + 1} failed:`, err);
+          if (i === streamConfigs.length - 1) {
+            throw err;
+          }
         }
       }
-    } catch (err) {
-      console.error('Error checking camera support:', err);
-      setError('Unable to check camera support');
+
+      if (!mediaStream) {
+        throw new Error('Failed to obtain camera stream');
+      }
+
+      setStream(mediaStream);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.muted = true;
+        videoRef.current.playsInline = true;
+        videoRef.current.autoplay = true;
+        
+        // Force video to play and display
+        try {
+          await videoRef.current.play();
+          setIsPlaying(true);
+          console.log('Video playing successfully');
+        } catch (playError) {
+          console.warn('Auto-play failed, will require user interaction:', playError);
+        }
+      }
+      
+    } catch (err: any) {
+      let errorMessage = 'Failed to access camera';
+      
+      if (err.name === 'NotAllowedError') {
+        errorMessage = 'Camera permission denied. Please allow camera access and try again.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'No camera found on this device.';
+      } else if (err.name === 'NotReadableError') {
+        errorMessage = 'Camera is being used by another application.';
+      } else if (err.name === 'OverconstrainedError') {
+        errorMessage = 'Camera constraints not supported.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      console.error('Camera error:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const requestPermission = async (): Promise<boolean> => {
-    if (!isSupported) {
-      setError('Camera not supported');
-      return false;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' }
-      });
-      
-      // Stop the stream immediately as we just needed permission
+  const stopCamera = () => {
+    if (stream) {
       stream.getTracks().forEach(track => track.stop());
-      
-      setHasPermission(true);
-      return true;
-    } catch (err) {
-      console.error('Error requesting camera permission:', err);
-      setHasPermission(false);
-      
-      if (err instanceof Error) {
-        if (err.name === 'NotAllowedError') {
-          setError('Camera permission denied. Please enable camera access in your browser settings.');
-        } else if (err.name === 'NotFoundError') {
-          setError('No camera found on this device.');
-        } else if (err.name === 'NotSupportedError') {
-          setError('Camera not supported on this device.');
-        } else {
-          setError('Unable to access camera. Please try again.');
-        }
-      } else {
-        setError('Unknown camera error occurred.');
-      }
-      
-      return false;
-    } finally {
-      setIsLoading(false);
+      setStream(null);
     }
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
+    setIsPlaying(false);
+    setError(null);
+    console.log('Camera stopped');
   };
 
-  return {
-    isSupported,
-    hasPermission,
-    isLoading,
-    error,
-    requestPermission,
+  const playVideo = async () => {
+    if (videoRef.current && stream) {
+      try {
+        await videoRef.current.play();
+        setIsPlaying(true);
+        return true;
+      } catch (error) {
+        console.error('Manual play failed:', error);
+        return false;
+      }
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  return { 
+    videoRef, 
+    stream, 
+    error, 
+    isLoading, 
+    isPlaying,
+    startCamera, 
+    stopCamera,
+    playVideo
   };
 }
