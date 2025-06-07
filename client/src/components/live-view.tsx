@@ -99,7 +99,8 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
+        
+        const activateVideo = () => {
           setIsConnecting(false);
           setIsActive(true);
           
@@ -111,6 +112,17 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
             description: "AI is now analyzing your camera feed in real-time",
           });
         };
+
+        // Multiple event listeners for better compatibility
+        videoRef.current.onloadedmetadata = activateVideo;
+        videoRef.current.oncanplay = activateVideo;
+        
+        // Fallback timeout in case events don't fire
+        setTimeout(() => {
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            activateVideo();
+          }
+        }, 2000);
       }
     } catch (err) {
       setIsConnecting(false);

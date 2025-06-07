@@ -235,14 +235,42 @@ If no clear product is visible, return: {"productName": "No product detected", "
         }],
       } as any);
 
-      const response = result.response;
-      let analysisText = response.text();
-      
-      // Clean and parse the response
-      analysisText = analysisText.replace(/```json\n?/, '').replace(/```\n?$/, '').trim();
-      
+      if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+        return res.json({
+          productName: "No product detected",
+          confidence: "low"
+        });
+      }
+
+      const text = result.candidates[0].content.parts?.[0]?.text;
+      if (!text) {
+        return res.json({
+          productName: "Analysis failed",
+          confidence: "low"
+        });
+      }
+
+      // Parse JSON response
       try {
-        const analysis = JSON.parse(analysisText);
+        let cleanText = text.trim();
+        
+        // Remove markdown code blocks if present
+        if (cleanText.startsWith('```json')) {
+          cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (cleanText.startsWith('```')) {
+          cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+        
+        // Extract JSON object
+        const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          return res.json({
+            productName: "No product detected",
+            confidence: "low"
+          });
+        }
+        
+        const analysis = JSON.parse(jsonMatch[0]);
         res.json(analysis);
       } catch (parseError) {
         // Fallback if JSON parsing fails
