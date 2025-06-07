@@ -416,8 +416,14 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
           let resellDataAvailable = false;
           
           for (const result of marketResults) {
-            if (result.status === 'fulfilled' && result.value && !result.value.error) {
-              const { source, data } = result.value;
+            if (result.status === 'fulfilled' && result.value) {
+              const resultValue = result.value as any;
+              if (resultValue.error) {
+                console.error(`${resultValue.source} API error:`, resultValue.error);
+                continue;
+              }
+              
+              const { source, data } = resultValue;
               
               if (source === 'eBay' && data.soldData.sampleSize > 0) {
                 resellDataAvailable = true;
@@ -448,8 +454,8 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
                   }
                 }
               }
-            } else if (result.status === 'fulfilled' && result.value?.error) {
-              console.error(`${result.value.source} API error:`, result.value.error);
+            } else if (result.status === 'rejected') {
+              console.error('Market data promise rejected:', result.reason);
             }
           }
           
