@@ -11,6 +11,7 @@ import fs from "fs/promises";
 import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
 import { createEbayService } from './ebay-api';
+import { createEcommerceService, createGoogleShoppingService, createAmazonService } from './ecommerce-platforms';
 
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY || 
@@ -19,8 +20,11 @@ const apiKey = process.env.GEMINI_API_KEY ||
                "";
 const genAI = new GoogleGenAI({ apiKey });
 
-// Initialize eBay API service
+// Initialize e-commerce platform services
 const ebayService = createEbayService();
+const ecommerceService = createEcommerceService();
+const googleShoppingService = createGoogleShoppingService();
+const amazonService = createAmazonService();
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -376,34 +380,92 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
         }
       }
 
-      // Enhance pricing with eBay market data if available
+      // Enhance pricing with comprehensive e-commerce platform data
       let enhancedResellPrice = analysisData.resellPrice || "Resell price not available";
       let enhancedAveragePrice = analysisData.averageSalePrice || "Price not available";
+      let marketDataSources: string[] = [];
       
-      if (ebayService && analysisData.productName) {
+      if (analysisData.productName) {
         try {
-          console.log(`Fetching eBay market data for: ${analysisData.productName}`);
-          const marketData = await ebayService.getComprehensiveMarketData(analysisData.productName);
+          console.log(`Fetching comprehensive market data for: ${analysisData.productName}`);
           
-          if (marketData.soldData.sampleSize > 0 || marketData.currentData.sampleSize > 0) {
-            // Combine eBay data with Gemini analysis
-            const ebayResellData = marketData.marketInsights.recommendedResellPrice !== 'Unable to determine' 
-              ? marketData.marketInsights.recommendedResellPrice 
-              : marketData.soldData.priceRange;
-              
-            enhancedResellPrice = ebayResellData !== 'No recent sales found' 
-              ? `${ebayResellData} (eBay: ${marketData.soldData.sampleSize} sold, ${marketData.currentData.sampleSize} active)` 
-              : analysisData.resellPrice || "Resell price not available";
-              
-            if (marketData.currentData.averagePrice > 0) {
-              enhancedAveragePrice = `$${marketData.currentData.averagePrice} ${marketData.currentData.currency} (eBay current average)`;
-            }
-            
-            console.log(`eBay enhancement: Sold ${marketData.soldData.sampleSize}, Active ${marketData.currentData.sampleSize}`);
+          // Parallel execution of multiple data sources
+          const marketDataPromises = [];
+          
+          // eBay market data
+          if (ebayService) {
+            marketDataPromises.push(
+              ebayService.getComprehensiveMarketData(analysisData.productName)
+                .then(data => ({ source: 'eBay', data }))
+                .catch(error => ({ source: 'eBay', error }))
+            );
           }
+          
+          // Comprehensive e-commerce platform data
+          marketDataPromises.push(
+            ecommerceService.getComprehensivePricing(analysisData.productName)
+              .then(data => ({ source: 'E-commerce', data }))
+              .catch(error => ({ source: 'E-commerce', error }))
+          );
+          
+          const marketResults = await Promise.allSettled(marketDataPromises);
+          
+          let totalPlatforms = 0;
+          let totalCurrentPrice = 0;
+          let platformCount = 0;
+          let resellDataAvailable = false;
+          
+          for (const result of marketResults) {
+            if (result.status === 'fulfilled' && result.value && !result.value.error) {
+              const { source, data } = result.value;
+              
+              if (source === 'eBay' && data.soldData.sampleSize > 0) {
+                resellDataAvailable = true;
+                const ebayResellData = data.marketInsights.recommendedResellPrice !== 'Unable to determine' 
+                  ? data.marketInsights.recommendedResellPrice 
+                  : data.soldData.priceRange;
+                
+                if (ebayResellData !== 'No recent sales found') {
+                  enhancedResellPrice = `${ebayResellData} (eBay: ${data.soldData.sampleSize} sold, ${data.currentData.sampleSize} active)`;
+                  marketDataSources.push(`eBay ${data.soldData.sampleSize + data.currentData.sampleSize} listings`);
+                }
+                
+                if (data.currentData.averagePrice > 0) {
+                  totalCurrentPrice += data.currentData.averagePrice;
+                  platformCount++;
+                }
+              } else if (source === 'E-commerce' && data.platforms.length > 0) {
+                totalPlatforms += data.platforms.length;
+                
+                if (data.marketSummary.averagePrice > 0) {
+                  totalCurrentPrice += data.marketSummary.averagePrice;
+                  platformCount++;
+                  
+                  marketDataSources.push(`${data.platforms.length} retail platforms`);
+                  
+                  if (!resellDataAvailable && data.marketSummary.recommendedResellPrice !== 'Insufficient market data') {
+                    enhancedResellPrice = `${data.marketSummary.recommendedResellPrice} (estimated from retail)`;
+                  }
+                }
+              }
+            } else if (result.status === 'fulfilled' && result.value?.error) {
+              console.error(`${result.value.source} API error:`, result.value.error);
+            }
+          }
+          
+          // Calculate enhanced average price from multiple sources
+          if (platformCount > 0) {
+            const averageMarketPrice = totalCurrentPrice / platformCount;
+            enhancedAveragePrice = `$${Math.round(averageMarketPrice)} USD (avg from ${marketDataSources.join(', ')})`;
+          }
+          
+          if (marketDataSources.length > 0) {
+            console.log(`Market data enhancement: ${marketDataSources.join(', ')}`);
+          }
+          
         } catch (error) {
-          console.error('eBay API error:', error);
-          // Continue with Gemini data if eBay fails
+          console.error('Market data aggregation error:', error);
+          // Continue with Gemini data if market data fails
         }
       }
 
