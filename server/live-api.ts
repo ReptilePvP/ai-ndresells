@@ -1,12 +1,12 @@
 import { WebSocket as WS } from 'ws';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI, Modality } from '@google/genai';
 
 // Initialize Gemini AI for live analysis
 const apiKey = process.env.GEMINI_API_KEY || 
                process.env.GOOGLE_API_KEY || 
                process.env.GOOGLE_GEMINI_API_KEY || 
                "";
-const genAI = new GoogleGenerativeAI(apiKey);
+const genAI = new GoogleGenAI({ apiKey });
 
 // Note: Gemini Live API is currently in limited preview
 // This is a simplified implementation for demonstration
@@ -345,19 +345,23 @@ Analyze this image and identify the main product. Respond with only a JSON objec
 If no clear product is visible, return: {"productName": "No product detected", "confidence": "low"}
 `;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
-    const result = await model.generateContent([
-      LIVE_ANALYSIS_PROMPT,
-      {
-        inlineData: {
-          mimeType: 'image/jpeg',
-          data: base64Data,
-        },
-      },
-    ]);
+    const result = await genAI.models.generateContent({
+      model: 'gemini-2.0-flash-exp',
+      contents: [{
+        role: "user",
+        parts: [
+          { text: LIVE_ANALYSIS_PROMPT },
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: base64Data,
+            },
+          },
+        ],
+      }],
+    });
 
-    const response = await result.response;
-    if (!response.candidates || !response.candidates[0]) {
+    if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
       session.clientWs.send(JSON.stringify({
         type: 'analysis',
         productName: "No product detected",
