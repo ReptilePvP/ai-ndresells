@@ -43,9 +43,14 @@ export class EbayProductionService {
       this.accessToken = verifiedToken;
       this.tokenExpiry = new Date('2026-11-29').getTime();
       
-      // Test token immediately
-      await this.testApiAccess();
-      return this.accessToken;
+      // Test token immediately but don't fail startup if invalid
+      try {
+        await this.testApiAccess();
+      } catch (error) {
+        console.log('⚠ eBay token validation failed - continuing with limited functionality');
+        this.accessToken = null;
+      }
+      return this.accessToken || '';
     }
 
     // Check if we have a valid cached token
@@ -79,10 +84,14 @@ export class EbayProductionService {
     
     console.log('✓ eBay OAuth token generated successfully');
     
-    // Test the new token
-    await this.testApiAccess();
+    // Test the new token but don't fail if it doesn't work
+    try {
+      await this.testApiAccess();
+    } catch (error) {
+      console.log('⚠ eBay token test failed - continuing with limited functionality');
+    }
     
-    return this.accessToken!;
+    return this.accessToken || '';
   }
 
   private async testApiAccess(): Promise<void> {
@@ -105,9 +114,11 @@ export class EbayProductionService {
       } else {
         const errorData = await response.text();
         console.error('eBay API test failed:', response.status, errorData);
+        this.accessToken = null; // Invalidate token on failure
       }
     } catch (error) {
       console.error('eBay API test error:', error);
+      this.accessToken = null; // Invalidate token on error
     }
   }
 
