@@ -38,64 +38,153 @@ export function LiveAnalysisPage() {
     setConnectionStatus('connecting');
     
     try {
-      // Get camera stream with fallback options
+      // Get camera stream with progressive fallback
       let stream;
-      try {
-        // Try rear camera first (mobile)
-        stream = await navigator.mediaDevices.getUserMedia({
+      const streamConfigs = [
+        // High quality rear camera
+        {
           video: { 
             facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
+            width: { ideal: 1920, max: 1920 },
+            height: { ideal: 1080, max: 1080 }
           }
-        });
-      } catch (err) {
-        // Fallback to any available camera
-        stream = await navigator.mediaDevices.getUserMedia({
+        },
+        // Standard rear camera
+        {
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        },
+        // Any camera with quality
+        {
           video: {
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
           }
-        });
+        },
+        // Basic camera fallback
+        {
+          video: true
+        }
+      ];
+
+      for (let i = 0; i < streamConfigs.length; i++) {
+        try {
+          console.log(`Attempting camera config ${i + 1}:`, streamConfigs[i]);
+          stream = await navigator.mediaDevices.getUserMedia(streamConfigs[i]);
+          console.log('Camera stream obtained successfully with config', i + 1);
+          break;
+        } catch (err) {
+          console.warn(`Camera config ${i + 1} failed:`, err);
+          if (i === streamConfigs.length - 1) {
+            throw err; // Re-throw the last error if all configs fail
+          }
+        }
+      }
+
+      if (!stream) {
+        throw new Error('Failed to obtain camera stream with any configuration');
       }
       
       setVideoStream(stream);
       
-      // Set up video element
+      // Set up video element with additional attributes
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.muted = true;
         videoRef.current.playsInline = true;
+        videoRef.current.autoplay = true;
+        videoRef.current.controls = false;
         
-        // Wait for video to be ready
+        // Force video dimensions
+        videoRef.current.style.width = '100%';
+        videoRef.current.style.height = '100%';
+        videoRef.current.style.objectFit = 'cover';
+        
+        console.log('Video element setup complete:', {
+          srcObject: !!videoRef.current.srcObject,
+          muted: videoRef.current.muted,
+          playsInline: videoRef.current.playsInline,
+          autoplay: videoRef.current.autoplay,
+          readyState: videoRef.current.readyState,
+          streamTracks: stream.getTracks().length
+        });
+        
+        // Wait for video to be ready with better error handling
         await new Promise((resolve, reject) => {
           if (!videoRef.current) return reject(new Error('Video element not found'));
           
-          videoRef.current.onloadedmetadata = () => {
-            console.log('Video metadata loaded');
-            videoRef.current?.play().then(() => {
-              console.log('Video play() called successfully');
+          let resolved = false;
+          
+          const handleSuccess = () => {
+            if (!resolved) {
+              resolved = true;
+              console.log('Video successfully started');
               setVideoPlaying(true);
               resolve(void 0);
-            }).catch(reject);
+            }
           };
           
-          videoRef.current.onplaying = () => {
-            console.log('Video is now playing');
-            setVideoPlaying(true);
+          const handleError = (error: any) => {
+            if (!resolved) {
+              resolved = true;
+              console.error('Video error:', error);
+              reject(error);
+            }
+          };
+          
+          videoRef.current.onloadedmetadata = () => {
+            console.log('Video metadata loaded', {
+              videoWidth: videoRef.current?.videoWidth,
+              videoHeight: videoRef.current?.videoHeight,
+              duration: videoRef.current?.duration
+            });
           };
           
           videoRef.current.oncanplay = () => {
-            console.log('Video can start playing');
+            console.log('Video can play');
+            if (videoRef.current) {
+              videoRef.current.play()
+                .then(() => {
+                  console.log('Video play() successful');
+                  handleSuccess();
+                })
+                .catch(handleError);
+            }
+          };
+          
+          videoRef.current.onplaying = () => {
+            console.log('Video is playing');
+            handleSuccess();
           };
           
           videoRef.current.onerror = (e) => {
-            console.error('Video error:', e);
-            reject(new Error('Video playback failed'));
+            console.error('Video element error:', e);
+            handleError(new Error('Video playback failed'));
           };
           
+          // Force play after a short delay to ensure stream is ready
+          setTimeout(() => {
+            if (!resolved && videoRef.current) {
+              console.log('Forced play attempt after delay');
+              videoRef.current.play()
+                .then(() => {
+                  console.log('Delayed play successful');
+                  handleSuccess();
+                })
+                .catch(handleError);
+            }
+          }, 500);
+          
           // Timeout after 10 seconds
-          setTimeout(() => reject(new Error('Video setup timeout')), 10000);
+          setTimeout(() => {
+            if (!resolved) {
+              console.error('Video setup timeout - check console for errors');
+              handleError(new Error('Video setup timeout - camera stream may not be compatible'));
+            }
+          }, 10000);
         });
         
         console.log('Video stream started successfully:', {
@@ -419,6 +508,24 @@ Focus on real-time identification and pricing guidance for resellers.`
                             <span className="text-gray-600 dark:text-gray-400 text-sm">
                               {videoStream ? 'Loading camera feed...' : 'Camera connecting...'}
                             </span>
+                            {videoStream && (
+                              <button 
+                                onClick={() => {
+                                  if (videoRef.current) {
+                                    console.log('Manual video play attempt');
+                                    videoRef.current.play()
+                                      .then(() => {
+                                        console.log('Manual play successful');
+                                        setVideoPlaying(true);
+                                      })
+                                      .catch(err => console.error('Manual play failed:', err));
+                                  }
+                                }}
+                                className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                              >
+                                Click to Start Video
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
