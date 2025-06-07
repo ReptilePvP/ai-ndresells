@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { LiveView } from "./live-view";
+import { LiveAnalysis } from "./live-analysis";
 import { Camera, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import cameraIconPath from "@assets/image.jpg";
@@ -223,7 +223,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
               </div>
             </div>
             
-            <LiveView onAnalysis={onAnalysis} />
+            <LiveAnalysis onAnalysis={onAnalysis} />
           </div>
         </div>
       </div>

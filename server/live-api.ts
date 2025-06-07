@@ -1,4 +1,12 @@
 import { WebSocket as WS } from 'ws';
+import { GoogleGenAI } from "@google/genai";
+
+// Initialize Gemini AI for live analysis
+const apiKey = process.env.GEMINI_API_KEY || 
+               process.env.GOOGLE_API_KEY || 
+               process.env.GOOGLE_GEMINI_API_KEY || 
+               "";
+const genAI = new GoogleGenAI({ apiKey });
 
 // Note: Gemini Live API is currently in limited preview
 // This is a simplified implementation for demonstration
@@ -67,6 +75,9 @@ async function handleClientMessage(sessionId: string, message: any) {
       break;
     case 'text_message':
       await sendTextMessage(sessionId, message.text);
+      break;
+    case 'analyze_frame':
+      await analyzeFrame(sessionId, message.imageData, message.sessionId);
       break;
   }
 }
@@ -284,4 +295,102 @@ function getDefaultSystemPrompt(): string {
 7. PROVIDE ACTIONABLE INSIGHTS: "This model typically sells for X, but yours appears to be in Y condition"
 
 Remember: You're having a live conversation, so be engaging and helpful in real-time.`;
+}
+
+async function analyzeFrame(sessionId: string, imageData: string, userSessionId: string) {
+  const session = activeSessions.get(sessionId);
+  if (!session || !session.clientWs) return;
+
+  try {
+    // Convert base64 data URL to base64 string
+    const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
+    
+    // Quick analysis prompt for live view
+    const LIVE_ANALYSIS_PROMPT = `
+Analyze this image and identify the main product. Respond with only a JSON object:
+{
+  "productName": "Product name (brand and model if visible)",
+  "confidence": "high/medium/low"
+}
+
+If no clear product is visible, return: {"productName": "No product detected", "confidence": "low"}
+`;
+
+    const result = await genAI.models.generateContent({
+      model: 'gemini-2.5-flash-preview-05-20',
+      contents: [{
+        role: "user",
+        parts: [
+          { text: LIVE_ANALYSIS_PROMPT },
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: base64Data,
+            },
+          },
+        ],
+      }],
+    } as any);
+
+    if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+      session.clientWs.send(JSON.stringify({
+        type: 'analysis',
+        productName: "No product detected",
+        confidence: "low"
+      }));
+      return;
+    }
+
+    const text = result.candidates[0].content.parts?.[0]?.text;
+    if (!text) {
+      session.clientWs.send(JSON.stringify({
+        type: 'analysis',
+        productName: "Analysis failed",
+        confidence: "low"
+      }));
+      return;
+    }
+
+    // Parse JSON response
+    try {
+      let cleanText = text.trim();
+      
+      // Remove markdown code blocks if present
+      if (cleanText.startsWith('```json')) {
+        cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanText.startsWith('```')) {
+        cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      // Extract JSON object
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        session.clientWs.send(JSON.stringify({
+          type: 'analysis',
+          productName: "No product detected",
+          confidence: "low"
+        }));
+        return;
+      }
+      
+      const analysis = JSON.parse(jsonMatch[0]);
+      session.clientWs.send(JSON.stringify({
+        type: 'analysis',
+        ...analysis
+      }));
+    } catch (parseError) {
+      session.clientWs.send(JSON.stringify({
+        type: 'analysis',
+        productName: "Analyzing...",
+        confidence: "low"
+      }));
+    }
+  } catch (error) {
+    console.error("Live frame analysis error:", error);
+    session.clientWs.send(JSON.stringify({
+      type: 'analysis',
+      productName: "Analysis failed",
+      confidence: "low"
+    }));
+  }
 }
