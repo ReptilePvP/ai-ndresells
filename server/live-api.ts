@@ -87,13 +87,13 @@ async function setupGeminiConnection(sessionId: string, config: any) {
   if (!session) return;
 
   try {
-    // Connect to Gemini Live API
-    const geminiWs = new WS('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent', {
-      headers: {
-        'Authorization': `Bearer ${await getAccessToken()}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    // Connect to Gemini Live API using the correct endpoint and API key
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('Gemini API key not found');
+    }
+    
+    const geminiWs = new WS(`wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`);
 
     session.geminiWs = geminiWs;
     session.config = config;
@@ -102,31 +102,22 @@ async function setupGeminiConnection(sessionId: string, config: any) {
       console.log(`Connected to Gemini Live API for session ${sessionId}`);
       session.isConnected = true;
       
-      // Send initial setup to Gemini
+      // Send initial setup to Gemini according to official documentation
       const setupMessage = {
         setup: {
-          model: config.model || 'gemini-2.5-flash-exp',
+          model: config.model || 'models/gemini-2.0-flash-exp',
           generationConfig: {
-            responseModalities: ['AUDIO', 'TEXT'],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: {
-                  voiceName: 'Aoede'
-                }
-              }
-            }
+            responseModalities: config.responseModalities || ['TEXT']
           },
           systemInstruction: {
             parts: [{
               text: config.systemPrompt || getDefaultSystemPrompt()
             }]
-          },
-          tools: [{
-            googleSearch: {}
-          }]
+          }
         }
       };
 
+      console.log('Sending setup message to Gemini:', setupMessage);
       geminiWs.send(JSON.stringify(setupMessage));
       
       session.clientWs.send(JSON.stringify({
@@ -299,6 +290,44 @@ Remember: You're having a live conversation, so be engaging and helpful in real-
 
 async function analyzeFrame(sessionId: string, imageData: string, userSessionId: string) {
   const session = activeSessions.get(sessionId);
+  if (!session || !session.geminiWs || !session.isConnected) {
+    // Fallback to direct Gemini API for frame analysis
+    return await directFrameAnalysis(sessionId, imageData);
+  }
+
+  try {
+    // Convert base64 data URL to base64 string
+    const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
+    
+    // Send image data to Gemini Live API according to official documentation
+    const clientContent = {
+      clientContent: {
+        turns: [{
+          role: "user",
+          parts: [{
+            text: "Analyze this product image and identify the main product with brand and model if visible."
+          }, {
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: base64Data
+            }
+          }]
+        }]
+      }
+    };
+
+    console.log('Sending frame analysis to Gemini Live API');
+    session.geminiWs.send(JSON.stringify(clientContent));
+    
+  } catch (error) {
+    console.error("Gemini Live frame analysis error:", error);
+    // Fallback to direct API
+    await directFrameAnalysis(sessionId, imageData);
+  }
+}
+
+async function directFrameAnalysis(sessionId: string, imageData: string) {
+  const session = activeSessions.get(sessionId);
   if (!session || !session.clientWs) return;
 
   try {
@@ -316,8 +345,8 @@ Analyze this image and identify the main product. Respond with only a JSON objec
 If no clear product is visible, return: {"productName": "No product detected", "confidence": "low"}
 `;
 
-    const result = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash-preview-05-20',
+    const result = await genAI.generateContent({
+      model: 'gemini-2.0-flash-exp',
       contents: [{
         role: "user",
         parts: [
@@ -330,7 +359,7 @@ If no clear product is visible, return: {"productName": "No product detected", "
           },
         ],
       }],
-    } as any);
+    });
 
     if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
       session.clientWs.send(JSON.stringify({

@@ -123,6 +123,25 @@ export function LiveAnalysis({ onAnalysis }: LiveAnalysisProps) {
         setIsConnecting(false);
         setIsActive(true);
         
+        // Send setup configuration for Gemini Live
+        const setupConfig = {
+          type: 'setup',
+          config: {
+            model: 'models/gemini-2.0-flash-exp',
+            responseModalities: ['TEXT'],
+            systemPrompt: `You are an expert product analyst for resale market evaluation. When analyzing products:
+
+1. IDENTIFY the product name, brand, and model when visible
+2. ASSESS the condition and any visible defects
+3. PROVIDE quick market insights for resale value
+4. RESPOND with concise, actionable information
+
+Focus on real-time identification and pricing guidance for resellers.`
+          }
+        };
+        
+        ws.send(JSON.stringify(setupConfig));
+        
         // Start periodic frame capture and analysis
         intervalRef.current = setInterval(analyzeCurrentFrame, 3000);
         
