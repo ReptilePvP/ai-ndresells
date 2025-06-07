@@ -196,6 +196,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch uploads" });
     }
   });
+  // Live analysis endpoint for real-time video frames
+  app.post("/api/analyze-live", async (req, res) => {
+    try {
+      const { imageData, sessionId } = req.body;
+      
+      if (!imageData || !sessionId) {
+        return res.status(400).json({ message: "Image data and session ID required" });
+      }
+
+      // Convert base64 data URL to base64 string
+      const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
+      
+      // Quick analysis with simpler prompt for live view
+      const LIVE_ANALYSIS_PROMPT = `
+Analyze this image and identify the main product. Respond with only a JSON object:
+{
+  "productName": "Product name (brand and model if visible)",
+  "confidence": "high/medium/low"
+}
+
+If no clear product is visible, return: {"productName": "No product detected", "confidence": "low"}
+`;
+
+      const result = await genAI.models.generateContent({
+        model: 'gemini-2.5-flash-preview-05-20',
+        contents: [{
+          role: "user",
+          parts: [
+            { text: LIVE_ANALYSIS_PROMPT },
+            {
+              inlineData: {
+                mimeType: 'image/jpeg',
+                data: base64Data,
+              },
+            },
+          ],
+        }],
+      } as any);
+
+      const response = result.response;
+      let analysisText = response.text();
+      
+      // Clean and parse the response
+      analysisText = analysisText.replace(/```json\n?/, '').replace(/```\n?$/, '').trim();
+      
+      try {
+        const analysis = JSON.parse(analysisText);
+        res.json(analysis);
+      } catch (parseError) {
+        // Fallback if JSON parsing fails
+        res.json({
+          productName: "Analyzing...",
+          confidence: "low"
+        });
+      }
+    } catch (error) {
+      console.error("Live analysis error:", error);
+      res.status(500).json({ 
+        productName: "Analysis failed",
+        confidence: "low"
+      });
+    }
+  });
+
   // Generate session ID for new sessions
   app.get("/api/session", (req, res) => {
     const sessionId = req.sessionID || Math.random().toString(36).substring(7);
