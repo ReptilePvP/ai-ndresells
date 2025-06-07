@@ -188,7 +188,7 @@ export class EbayProductionService {
   }
 
   private async performSearch(searchUrl: string, token: string): Promise<EbayPriceData> {
-      
+    try {
       const response = await fetch(searchUrl, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -255,9 +255,8 @@ export class EbayProductionService {
           image: item.image
         }))
       };
-
     } catch (error) {
-      console.error('eBay marketplace error:', error);
+      console.error('eBay search error:', error);
       return {
         averagePrice: 0,
         priceRange: 'Search unavailable',

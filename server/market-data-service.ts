@@ -62,20 +62,8 @@ export class MarketDataService {
       console.log('eBay production service not available');
     }
 
-    // Try e-commerce platforms
-    try {
-      const ecommerceData = await this.ecommerceService.getComprehensivePricing(productName);
-      
-      if (ecommerceData.platforms.length > 0) {
-        const platformPrices = ecommerceData.platforms.map(p => p.currentPrice).filter(p => p > 0);
-        retailPrices.push(...platformPrices);
-        
-        const platformNames = new Set(ecommerceData.platforms.map(p => p.platform));
-        sources.push(`${platformNames.size} retail platforms`);
-      }
-    } catch (error) {
-      console.log('E-commerce data unavailable:', error.message);
-    }
+    // E-commerce platforms disabled - require API credentials setup
+    console.log('Amazon/Walmart marketplace integration disabled');
 
     if (sources.length === 0) {
       return { retailPrice: '', resellPrice: '', marketSummary: '', dataQuality: 'limited', sources: [] };
