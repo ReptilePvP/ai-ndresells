@@ -39,6 +39,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
       firstName: "",
       lastName: "",
     },
+    mode: "onChange"
   });
 
   const onLoginSubmit = async (data: LoginCredentials) => {
@@ -75,11 +76,13 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     }
   };
 
-  // Reset forms when switching modes or opening dialog
+  // Reset forms only when dialog opens, not when switching modes
   useEffect(() => {
-    loginForm.reset();
-    registerForm.reset();
-  }, [mode, open, loginForm, registerForm]);
+    if (open) {
+      loginForm.reset();
+      registerForm.reset();
+    }
+  }, [open, loginForm, registerForm]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -183,20 +186,37 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
               <FormField
                 control={registerForm.control}
                 name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="johndoe" 
-                        {...field}
-                        autoComplete="username"
-                        disabled={registerMutation.isPending}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  console.log("Username field render:", { 
+                    value: field.value, 
+                    disabled: registerMutation.isPending,
+                    name: field.name 
+                  });
+                  return (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="johndoe" 
+                          value={field.value || ""}
+                          onChange={(e) => {
+                            console.log("Username onChange:", e.target.value);
+                            field.onChange(e);
+                          }}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          autoComplete="off"
+                          disabled={registerMutation.isPending}
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck="false"
+                          style={{ WebkitAppearance: 'none' }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
               
               <FormField
