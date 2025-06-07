@@ -214,27 +214,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
               </div>
             )}
             
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-300 dark:border-gray-600" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white dark:bg-gray-900 px-2 text-gray-500 dark:text-gray-400">Or</span>
-              </div>
-            </div>
-            
-            <Link href="/live">
-              <Button
-                variant="outline"
-                className="w-full h-20 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-2 border-dashed border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 transition-all duration-200"
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <Eye className="h-6 w-6 text-purple-600" />
-                  <span className="font-medium">Live Analysis</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Real-time camera analysis</span>
-                </div>
-              </Button>
-            </Link>
+
           </div>
         </div>
       </div>

@@ -370,7 +370,7 @@ If no clear product is visible, return: {"productName": "No product detected", "
       return;
     }
 
-    const text = response.candidates[0].content.parts?.[0]?.text;
+    const text = result.candidates[0].content.parts?.[0]?.text;
     if (!text) {
       session.clientWs.send(JSON.stringify({
         type: 'analysis',
