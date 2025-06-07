@@ -101,10 +101,15 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
       setVideoStream(stream);
       
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        console.log("Setting video srcObject");
+        const video = videoRef.current;
+        video.srcObject = stream;
+        
+        // Force video to play
+        video.play().catch(err => console.log("Play error:", err));
         
         const activateVideo = () => {
-          console.log("Activating video - readyState:", videoRef.current?.readyState);
+          console.log("Activating video - readyState:", video.readyState);
           setIsConnecting(false);
           setIsActive(true);
           
@@ -117,36 +122,11 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
           });
         };
 
-        // Multiple event listeners for better compatibility
-        let activated = false;
-        const safeActivateVideo = () => {
-          if (!activated) {
-            activated = true;
-            activateVideo();
-          }
-        };
-
-        videoRef.current.onloadedmetadata = () => {
-          console.log("onloadedmetadata fired - readyState:", videoRef.current?.readyState);
-          safeActivateVideo();
-        };
-        videoRef.current.oncanplay = () => {
-          console.log("oncanplay fired - readyState:", videoRef.current?.readyState);
-          safeActivateVideo();
-        };
-        videoRef.current.onloadeddata = () => {
-          console.log("onloadeddata fired - readyState:", videoRef.current?.readyState);
-          safeActivateVideo();
-        };
-        
-        // Fallback timeout in case events don't fire
+        // Immediate activation since stream is ready
         setTimeout(() => {
-          console.log("Timeout check - readyState:", videoRef.current?.readyState, "activated:", activated);
-          if (videoRef.current && videoRef.current.readyState >= 2 && !activated) {
-            console.log("Fallback activation triggered");
-            safeActivateVideo();
-          }
-        }, 3000);
+          console.log("Force activation after 1 second");
+          activateVideo();
+        }, 1000);
       }
     } catch (err) {
       setIsConnecting(false);
