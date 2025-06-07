@@ -106,7 +106,14 @@ export default function Analyzer() {
               Product Analysis
             </h2>
             
-            <UploadZone onFileSelect={handleFileSelect} isLoading={isLoading} />
+            <UploadZone 
+              onFileSelect={handleFileSelect} 
+              isLoading={isLoading}
+              onAnalysis={(analysisData) => {
+                // Handle live analysis results
+                setAnalysis(analysisData);
+              }}
+            />
             
             <Button
               onClick={handleAnalyze}

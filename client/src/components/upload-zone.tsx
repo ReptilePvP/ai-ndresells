@@ -1,17 +1,26 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { CameraCapture } from "./camera-capture";
+import { LiveView } from "./live-view";
+import { Camera, Upload, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import cameraIconPath from "@assets/image.jpg";
 
 interface UploadZoneProps {
   onFileSelect: (file: File) => void;
   isLoading?: boolean;
+  onAnalysis?: (analysis: any) => void;
 }
 
-export function UploadZone({ onFileSelect, isLoading }: UploadZoneProps) {
+export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [showOptions, setShowOptions] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { toast } = useToast();
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -59,6 +68,58 @@ export function UploadZone({ onFileSelect, isLoading }: UploadZoneProps) {
     reader.readAsDataURL(file);
 
     onFileSelect(file);
+    setShowOptions(false);
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      setCameraStream(stream);
+      setShowCamera(true);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (error) {
+      toast({
+        title: "Camera Error",
+        description: "Unable to access camera. Please check permissions.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current || !cameraStream) return;
+
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        handleFile(file);
+        stopCamera();
+      }
+    }, 'image/jpeg', 0.8);
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setShowCamera(false);
+    setShowOptions(false);
   };
 
   const clearPreview = () => {
@@ -122,7 +183,62 @@ export function UploadZone({ onFileSelect, isLoading }: UploadZoneProps) {
               </div>
             </div>
             
-            <CameraCapture onCapture={onFileSelect} isAnalyzing={isLoading} />
+            {/* Upload options - Camera or File */}
+            {!showOptions ? (
+              <Button 
+                type="button" 
+                onClick={() => setShowOptions(true)}
+                disabled={isLoading}
+                className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 w-full"
+              >
+                {isLoading ? "Analyzing..." : "Choose Product Image"}
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={startCamera}
+                    disabled={isLoading}
+                    className="flex flex-col items-center gap-2 h-auto py-4"
+                  >
+                    <Camera className="h-6 w-6" />
+                    <span className="text-sm">Take Photo</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoading}
+                    className="flex flex-col items-center gap-2 h-auto py-4"
+                  >
+                    <Upload className="h-6 w-6" />
+                    <span className="text-sm">Upload File</span>
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowOptions(false)}
+                  className="w-full"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-300 dark:border-gray-600" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white dark:bg-gray-900 px-2 text-gray-500 dark:text-gray-400">Or</span>
+              </div>
+            </div>
+            
+            <LiveView onAnalysis={onAnalysis} />
           </div>
         </div>
       </div>

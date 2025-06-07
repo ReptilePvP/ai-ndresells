@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Video, VideoOff, Mic, MicOff, AlertCircle, Loader2 } from "lucide-react";
+import { Video, VideoOff, Eye, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface LiveViewProps {
@@ -12,43 +12,129 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
-  const [audioEnabled, setAudioEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isListening, setIsListening] = useState(false);
-  const [currentInstructions, setCurrentInstructions] = useState<string>("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [lastAnalysis, setLastAnalysis] = useState<string>("");
+  const [analysisCount, setAnalysisCount] = useState(0);
   
   const videoRef = useRef<HTMLVideoElement>(null);
-  const websocketRef = useRef<WebSocket | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+
+  // Get session ID for uploads
+  const getSessionId = () => {
+    let sessionId = localStorage.getItem('sessionId');
+    if (!sessionId) {
+      sessionId = Math.random().toString(36).substring(7);
+      localStorage.setItem('sessionId', sessionId);
+    }
+    return sessionId;
+  };
+
+  const analyzeCurrentFrame = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current || !videoStream || isAnalyzing) {
+      return;
+    }
+
+    setIsAnalyzing(true);
+    
+    try {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) return;
+
+      // Capture current frame
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+
+      // Convert to blob and upload for analysis
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+
+        const formData = new FormData();
+        formData.append('image', blob, `live-frame-${Date.now()}.jpg`);
+        formData.append('sessionId', getSessionId());
+
+        try {
+          // Upload frame
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error('Upload failed');
+          }
+
+          const uploadData = await uploadResponse.json();
+
+          // Analyze frame with simplified prompt for live analysis
+          const analysisResponse = await fetch(`/api/analyze/${uploadData.id}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              liveMode: true,
+              prompt: `Analyze this product image quickly for live viewing. Provide a brief analysis focusing on:
+1. Product identification (brand/type)
+2. Estimated value
+3. Key features visible
+4. Any notable details
+Keep response conversational and under 100 words for real-time display.`
+            })
+          });
+
+          if (analysisResponse.ok) {
+            const analysis = await analysisResponse.json();
+            setLastAnalysis(analysis.productName || "Analyzing...");
+            setAnalysisCount(prev => prev + 1);
+            
+            if (onAnalysis) {
+              onAnalysis(analysis);
+            }
+          }
+        } catch (error) {
+          console.error('Live analysis error:', error);
+        }
+      }, 'image/jpeg', 0.7);
+    } catch (error) {
+      console.error('Frame capture error:', error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [videoStream, isAnalyzing, onAnalysis]);
 
   const startLiveView = async () => {
     setIsConnecting(true);
     setError(null);
     
     try {
-      // Request camera and microphone permissions
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-        audio: audioEnabled
+        video: { facingMode: 'environment' }
       });
       
       setVideoStream(stream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          setIsConnecting(false);
+          setIsActive(true);
+          
+          // Start periodic analysis every 3 seconds
+          intervalRef.current = setInterval(analyzeCurrentFrame, 3000);
+          
+          toast({
+            title: "Live View Started",
+            description: "AI is now analyzing your camera feed in real-time",
+          });
+        };
       }
-
-      // Connect to Gemini Live API
-      await connectToGeminiLive(stream);
-      
-      setIsActive(true);
-      setIsConnecting(false);
-      
-      toast({
-        title: "Live View Started",
-        description: "Point your camera at a product and ask Gemini to analyze it",
-      });
-      
     } catch (err) {
       setIsConnecting(false);
       const errorMsg = err instanceof Error ? err.message : 'Failed to start live view';
@@ -57,153 +143,27 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
     }
   };
 
-  const connectToGeminiLive = async (stream: MediaStream) => {
-    try {
-      // Connect to our backend WebSocket endpoint that handles Gemini Live API
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/api/live`;
-      
-      websocketRef.current = new WebSocket(wsUrl);
-      
-      websocketRef.current.onopen = () => {
-        console.log('Connected to Gemini Live API');
-        setIsListening(true);
-        
-        // Send initial setup message
-        websocketRef.current?.send(JSON.stringify({
-          type: 'setup',
-          config: {
-            model: 'gemini-2.5-flash-exp',
-            systemPrompt: `You are an expert product analyst. When the user shows you a product through their camera, analyze it and provide:
-1. Product name and brand
-2. Brief description
-3. Estimated retail price
-4. Estimated resell value
-5. Key features that affect value
-
-Be conversational and guide the user to position the product better if needed. Ask them to show different angles or provide more details if helpful.`
-          }
-        }));
-      };
-      
-      websocketRef.current.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        handleGeminiResponse(data);
-      };
-      
-      websocketRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setError('Connection to AI service failed');
-      };
-      
-      websocketRef.current.onclose = () => {
-        setIsListening(false);
-      };
-
-      // Start sending video frames
-      startVideoStreaming(stream);
-      
-    } catch (error) {
-      console.error('Failed to connect to Gemini Live:', error);
-      throw new Error('Failed to connect to AI service');
-    }
-  };
-
-  const startVideoStreaming = (stream: MediaStream) => {
-    const videoTrack = stream.getVideoTracks()[0];
-    if (!videoTrack) return;
-
-    // Create a canvas to capture frames
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const captureFrame = () => {
-      if (!videoRef.current || !websocketRef.current || websocketRef.current.readyState !== WebSocket.OPEN) {
-        return;
-      }
-
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      ctx.drawImage(videoRef.current, 0, 0);
-      
-      // Send frame to Gemini Live API every 2 seconds to avoid overwhelming
-      canvas.toBlob((blob) => {
-        if (blob && websocketRef.current?.readyState === WebSocket.OPEN) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            if (typeof reader.result === 'string') {
-              websocketRef.current?.send(JSON.stringify({
-                type: 'video_frame',
-                data: reader.result.split(',')[1] // Remove data:image/jpeg;base64, prefix
-              }));
-            }
-          };
-          reader.readAsDataURL(blob);
-        }
-      }, 'image/jpeg', 0.7);
-    };
-
-    // Capture frames every 2 seconds
-    const frameInterval = setInterval(() => {
-      if (isActive) {
-        captureFrame();
-      } else {
-        clearInterval(frameInterval);
-      }
-    }, 2000);
-  };
-
-  const handleGeminiResponse = (data: any) => {
-    switch (data.type) {
-      case 'text_response':
-        setCurrentInstructions(data.text);
-        break;
-      case 'analysis_complete':
-        if (onAnalysis) {
-          onAnalysis(data.analysis);
-        }
-        toast({
-          title: "Analysis Complete",
-          description: "Product analysis has been generated",
-        });
-        break;
-      case 'error':
-        setError(data.message);
-        break;
-    }
-  };
-
   const stopLiveView = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
     if (videoStream) {
       videoStream.getTracks().forEach(track => track.stop());
       setVideoStream(null);
     }
     
-    if (websocketRef.current) {
-      websocketRef.current.close();
-      websocketRef.current = null;
-    }
-    
     setIsActive(false);
-    setIsListening(false);
-    setCurrentInstructions("");
+    setIsAnalyzing(false);
+    setLastAnalysis("");
+    setAnalysisCount(0);
     setError(null);
     
     toast({
       title: "Live View Stopped",
-      description: "Camera and AI analysis have been disconnected",
+      description: "Real-time analysis has been disconnected",
     });
-  };
-
-  const toggleAudio = () => {
-    setAudioEnabled(!audioEnabled);
-    if (videoStream) {
-      const audioTrack = videoStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioEnabled;
-      }
-    }
   };
 
   useEffect(() => {
@@ -217,22 +177,22 @@ Be conversational and guide the user to position the product better if needed. A
       <Card className="w-full">
         <CardContent className="p-6 text-center">
           <div className="space-y-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-green-100 dark:from-blue-900/40 dark:to-green-900/40 rounded-xl flex items-center justify-center mx-auto">
-              <Video className="w-8 h-8 text-blue-600" />
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/40 dark:to-blue-900/40 rounded-xl flex items-center justify-center mx-auto">
+              <Eye className="w-8 h-8 text-purple-600" />
             </div>
             <div>
               <h3 className="text-xl font-semibold mb-2">Live Product Analysis</h3>
               <p className="text-gray-600 dark:text-gray-400 mb-4">
-                Get real-time AI analysis by pointing your camera at products. 
-                Gemini will guide you through the process and provide instant insights.
+                Get continuous AI analysis as you point your camera at products. 
+                Perfect for quick product identification and real-time pricing insights.
               </p>
             </div>
             <Button 
               onClick={startLiveView}
               size="lg"
-              className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
-              <Video className="mr-2 h-5 w-5" />
+              <Eye className="mr-2 h-5 w-5" />
               Start Live View
             </Button>
           </div>
@@ -246,11 +206,11 @@ Be conversational and guide the user to position the product better if needed. A
       <Card className="w-full">
         <CardContent className="p-6 text-center">
           <div className="space-y-4">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600" />
             <div>
-              <h3 className="text-lg font-semibold">Connecting to Live View</h3>
+              <h3 className="text-lg font-semibold">Starting Live View</h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Starting camera and connecting to AI service...
+                Initializing camera and AI analysis...
               </p>
             </div>
           </div>
@@ -266,22 +226,13 @@ Be conversational and guide the user to position the product better if needed. A
           {/* Header with controls */}
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium">Live View Active</span>
+              <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium">Live Analysis Active</span>
+              <span className="text-xs text-gray-500">({analysisCount} scans)</span>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleAudio}
-                className={audioEnabled ? "" : "bg-red-100 dark:bg-red-900/20"}
-              >
-                {audioEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-              </Button>
-              <Button variant="outline" size="sm" onClick={stopLiveView}>
-                <VideoOff className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button variant="outline" size="sm" onClick={stopLiveView}>
+              <VideoOff className="h-4 w-4" />
+            </Button>
           </div>
 
           {/* Video preview */}
@@ -294,28 +245,28 @@ Be conversational and guide the user to position the product better if needed. A
               className="w-full h-full object-cover"
             />
             
-            {/* AI Status Overlay */}
+            {/* Analysis Status Overlay */}
             <div className="absolute top-4 left-4 right-4">
               <div className="bg-black/70 text-white px-3 py-2 rounded-lg text-sm">
-                {isListening ? (
+                {isAnalyzing ? (
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span>AI is watching and listening...</span>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Analyzing...</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                    <span>Connecting to AI...</span>
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span>Watching for products</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Current Instructions */}
-            {currentInstructions && (
+            {/* Last Analysis Result */}
+            {lastAnalysis && (
               <div className="absolute bottom-4 left-4 right-4">
-                <div className="bg-blue-600/90 text-white px-3 py-2 rounded-lg text-sm">
-                  <strong>Gemini says:</strong> {currentInstructions}
+                <div className="bg-purple-600/90 text-white px-3 py-2 rounded-lg text-sm">
+                  <strong>Detected:</strong> {lastAnalysis}
                 </div>
               </div>
             )}
@@ -338,11 +289,11 @@ Be conversational and guide the user to position the product better if needed. A
               </div>
             )}
 
-            {/* Center crosshair */}
+            {/* Scanning Frame */}
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="w-20 h-20 border-2 border-white/50 rounded-lg">
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full"></div>
+                <div className="w-32 h-32 border-2 border-purple-400/50 rounded-lg animate-pulse">
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-purple-400 rounded-full"></div>
                 </div>
               </div>
             </div>
@@ -350,9 +301,12 @@ Be conversational and guide the user to position the product better if needed. A
 
           {/* Instructions */}
           <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-            Point your camera at a product and speak to Gemini for real-time analysis
+            Point your camera at products for continuous AI analysis • Auto-scans every 3 seconds
           </div>
         </div>
+        
+        {/* Hidden canvas for frame capture */}
+        <canvas ref={canvasRef} className="hidden" />
       </CardContent>
     </Card>
   );
