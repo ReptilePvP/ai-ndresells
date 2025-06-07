@@ -11,12 +11,14 @@ import Dashboard from "@/pages/dashboard";
 import History from "@/pages/history";
 import Saved from "@/pages/saved";
 import AdminDiagnostics from "@/pages/admin";
+import { LiveAnalysisPage } from "@/pages/live-analysis";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Analyzer} />
+      <Route path="/live" component={LiveAnalysisPage} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/history" component={History} />
       <Route path="/saved" component={Saved} />

@@ -345,23 +345,18 @@ Analyze this image and identify the main product. Respond with only a JSON objec
 If no clear product is visible, return: {"productName": "No product detected", "confidence": "low"}
 `;
 
-    const result = await genAI.generateContent({
-      model: 'gemini-2.0-flash-exp',
-      contents: [{
-        role: "user",
-        parts: [
-          { text: LIVE_ANALYSIS_PROMPT },
-          {
-            inlineData: {
-              mimeType: 'image/jpeg',
-              data: base64Data,
-            },
-          },
-        ],
-      }],
-    });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const result = await model.generateContent([
+      LIVE_ANALYSIS_PROMPT,
+      {
+        inlineData: {
+          mimeType: 'image/jpeg',
+          data: base64Data,
+        },
+      },
+    ]);
 
-    if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+    if (!result.response || !result.response.candidates || !result.response.candidates[0]) {
       session.clientWs.send(JSON.stringify({
         type: 'analysis',
         productName: "No product detected",

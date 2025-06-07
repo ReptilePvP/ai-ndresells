@@ -18,6 +18,14 @@ export function MobileNav() {
             <span className="text-xs">Analyze</span>
           </button>
         </Link>
+        <Link href="/live">
+          <button className={`flex flex-col items-center py-2 px-3 transition-colors ${
+            isActive("/live") ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
+          }`}>
+            <i className="fas fa-video text-lg mb-1"></i>
+            <span className="text-xs">Live</span>
+          </button>
+        </Link>
         <Link href="/dashboard">
           <button className={`flex flex-col items-center py-2 px-3 transition-colors ${
             isActive("/dashboard") ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"

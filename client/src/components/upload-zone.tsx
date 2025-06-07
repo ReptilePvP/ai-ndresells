@@ -1,8 +1,8 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { LiveAnalysis } from "./live-analysis";
-import { Camera, Upload, X } from "lucide-react";
+import { Camera, Upload, X, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 import cameraIconPath from "@assets/image.jpg";
 
 interface UploadZoneProps {
@@ -223,7 +223,18 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
               </div>
             </div>
             
-            <LiveAnalysis onAnalysis={onAnalysis} />
+            <Link href="/live">
+              <Button
+                variant="outline"
+                className="w-full h-20 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-2 border-dashed border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 transition-all duration-200"
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <Eye className="h-6 w-6 text-purple-600" />
+                  <span className="font-medium">Live Analysis</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Real-time camera analysis</span>
+                </div>
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
