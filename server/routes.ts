@@ -395,6 +395,106 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
     }
   });
 
+  // Live analysis endpoint for camera frames
+  app.post("/api/analyze-live", async (req, res) => {
+    try {
+      const { imageData, sessionId } = req.body;
+      
+      if (!imageData) {
+        return res.status(400).json({ message: "Image data required" });
+      }
+
+      // Remove data URL prefix if present
+      const base64Image = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
+      
+      // Use Gemini to analyze the image with simplified prompt for live analysis
+      const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
+      
+      const LIVE_ANALYSIS_PROMPT = `
+Analyze this product image quickly for live viewing. Provide a brief analysis focusing on:
+1. Product identification (brand/type)
+2. Estimated value range
+3. Key features visible
+4. Any notable details for reselling
+
+Return ONLY a JSON object with this structure:
+{
+  "productName": "Brief product name",
+  "description": "Short description (under 50 words)",
+  "averageSalePrice": "Price range",
+  "resellPrice": "Resell price range",
+  "confidence": 0.8
+}
+
+Keep response concise for real-time display.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: LIVE_ANALYSIS_PROMPT },
+              {
+                inline_data: {
+                  mime_type: "image/jpeg",
+                  data: base64Image
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            topK: 32,
+            topP: 1,
+            maxOutputTokens: 500,
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.status}`);
+      }
+
+      const geminiResponse = await response.json();
+      
+      if (!geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Invalid response from Gemini API');
+      }
+
+      const analysisText = geminiResponse.candidates[0].content.parts[0].text;
+      
+      // Parse JSON response
+      let analysisData;
+      try {
+        const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysisData = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No JSON found in response');
+        }
+      } catch (parseError) {
+        // Fallback if JSON parsing fails
+        analysisData = {
+          productName: "Product detected",
+          description: "Live analysis in progress...",
+          averageSalePrice: "Analyzing...",
+          resellPrice: "Analyzing...",
+          confidence: 0.5
+        };
+      }
+
+      res.json(analysisData);
+    } catch (error) {
+      console.error("Live analysis error:", error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to analyze live image" 
+      });
+    }
+  });
+
   // Submit feedback endpoint
   app.post("/api/feedback", async (req, res) => {
     try {

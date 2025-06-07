@@ -51,57 +51,34 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0);
 
-      // Convert to blob and upload for analysis
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
+      // Convert canvas to base64 and send for direct analysis
+      const imageData = canvas.toDataURL('image/jpeg', 0.7);
 
-        const formData = new FormData();
-        formData.append('image', blob, `live-frame-${Date.now()}.jpg`);
-        formData.append('sessionId', getSessionId());
+      try {
+        // Send frame directly for live analysis
+        const analysisResponse = await fetch('/api/analyze-live', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            imageData,
+            sessionId: getSessionId()
+          })
+        });
 
-        try {
-          // Upload frame
-          const uploadResponse = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-          });
-
-          if (!uploadResponse.ok) {
-            throw new Error('Upload failed');
+        if (analysisResponse.ok) {
+          const analysis = await analysisResponse.json();
+          setLastAnalysis(analysis.productName || "Analyzing...");
+          setAnalysisCount(prev => prev + 1);
+          
+          if (onAnalysis) {
+            onAnalysis(analysis);
           }
-
-          const uploadData = await uploadResponse.json();
-
-          // Analyze frame with simplified prompt for live analysis
-          const analysisResponse = await fetch(`/api/analyze/${uploadData.id}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              liveMode: true,
-              prompt: `Analyze this product image quickly for live viewing. Provide a brief analysis focusing on:
-1. Product identification (brand/type)
-2. Estimated value
-3. Key features visible
-4. Any notable details
-Keep response conversational and under 100 words for real-time display.`
-            })
-          });
-
-          if (analysisResponse.ok) {
-            const analysis = await analysisResponse.json();
-            setLastAnalysis(analysis.productName || "Analyzing...");
-            setAnalysisCount(prev => prev + 1);
-            
-            if (onAnalysis) {
-              onAnalysis(analysis);
-            }
-          }
-        } catch (error) {
-          console.error('Live analysis error:', error);
         }
-      }, 'image/jpeg', 0.7);
+      } catch (error) {
+        console.error('Live analysis error:', error);
+      }
     } catch (error) {
       console.error('Frame capture error:', error);
     } finally {
