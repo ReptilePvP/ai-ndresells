@@ -111,14 +111,83 @@ export class EbayProductionService {
     }
   }
 
+  private generateSearchTerms(productName: string): string[] {
+    const terms: string[] = [];
+    
+    // Original full name
+    terms.push(productName);
+    
+    // Extract brand and key terms
+    const words = productName.toLowerCase().split(/[\s\-:]+/);
+    const brand = words.find(w => ['skechers', 'nike', 'adidas', 'jordan', 'yeezy'].includes(w)) || words[0];
+    
+    // Brand + core product terms
+    if (brand) {
+      const coreTerms = words.filter(w => 
+        !['x', 'the', 'a', 'an', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'].includes(w) &&
+        w !== brand
+      );
+      
+      if (coreTerms.length > 0) {
+        terms.push(`${brand} ${coreTerms.slice(0, 3).join(' ')}`);
+        terms.push(`${brand} ${coreTerms[0]}`);
+      }
+    }
+    
+    // Extract quoted terms and special collections
+    const quotedMatch = productName.match(/["']([^"']+)["']/);
+    if (quotedMatch) {
+      terms.push(quotedMatch[1]);
+    }
+    
+    // Special collections (BAYC, etc.)
+    if (productName.toLowerCase().includes('bored ape')) {
+      terms.push('bored ape yacht club');
+      terms.push('bayc');
+    }
+    
+    return terms.slice(0, 4); // Limit to 4 search attempts
+  }
+
   async searchMarketplace(productName: string): Promise<EbayPriceData> {
     try {
       const token = await this.getProductionToken();
+      const searchTerms = this.generateSearchTerms(productName);
       
-      const searchQuery = encodeURIComponent(productName.trim());
-      const searchUrl = `${this.prodBaseUrl}/item_summary/search?q=${searchQuery}&limit=20&filter=buyingOptions:{FIXED_PRICE}`;
+      for (const searchTerm of searchTerms) {
+        console.log(`Trying eBay search: "${searchTerm}"`);
+        
+        const searchQuery = encodeURIComponent(searchTerm.trim());
+        const searchUrl = `${this.prodBaseUrl}/item_summary/search?q=${searchQuery}&limit=20&filter=buyingOptions:{FIXED_PRICE}`;
+        
+        const result = await this.performSearch(searchUrl, token);
+        if (result.sampleSize > 0) {
+          console.log(`eBay success: Found ${result.sampleSize} listings for "${searchTerm}"`);
+          return result;
+        }
+      }
       
-      console.log('Searching eBay marketplace for:', productName);
+      console.log('No eBay listings found for any search variation');
+      return {
+        averagePrice: 0,
+        priceRange: 'No listings found',
+        sampleSize: 0,
+        currency: 'USD',
+        recentSales: []
+      };
+    } catch (error) {
+      console.error('eBay marketplace error:', error);
+      return {
+        averagePrice: 0,
+        priceRange: 'Search unavailable',
+        sampleSize: 0,
+        currency: 'USD',
+        recentSales: []
+      };
+    }
+  }
+
+  private async performSearch(searchUrl: string, token: string): Promise<EbayPriceData> {
       
       const response = await fetch(searchUrl, {
         headers: {
