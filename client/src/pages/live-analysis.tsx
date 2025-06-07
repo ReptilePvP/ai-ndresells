@@ -164,14 +164,39 @@ export function LiveAnalysisPage() {
           }))
         });
 
-        // Force immediate display and start frame capture
-        setTimeout(() => {
-          if (videoRef.current && !videoPlaying) {
-            console.log('Forcing video display after 100ms');
+        // Force video to load and play with multiple attempts
+        const forceVideoDisplay = async () => {
+          if (!videoRef.current) return;
+          
+          try {
+            // Ensure stream is attached
+            videoRef.current.srcObject = stream;
+            videoRef.current.load();
+            
+            // Wait for metadata and force play
+            await videoRef.current.play();
+            console.log('Video forced to play successfully');
             setVideoPlaying(true);
-            startFrameCapture();
+          } catch (error) {
+            console.error('Force play failed:', error);
+            // Try again after a short delay
+            setTimeout(async () => {
+              if (videoRef.current) {
+                try {
+                  await videoRef.current.play();
+                  setVideoPlaying(true);
+                } catch (e) {
+                  console.error('Retry play failed:', e);
+                }
+              }
+            }, 1000);
           }
-        }, 100);
+        };
+        
+        // Try immediately and with delays
+        forceVideoDisplay();
+        setTimeout(forceVideoDisplay, 200);
+        setTimeout(forceVideoDisplay, 1000);
         
         // Wait for video to be ready with better error handling
         await new Promise((resolve, reject) => {
@@ -219,6 +244,8 @@ export function LiveAnalysisPage() {
           videoRef.current.onplaying = () => {
             console.log('Video is playing');
             handleSuccess();
+            // Start frame capture once video is playing
+            startFrameCapture();
           };
           
           videoRef.current.onerror = (e) => {
@@ -402,6 +429,9 @@ Focus on real-time identification and pricing guidance for resellers.`
   };
 
   const stopLiveAnalysis = () => {
+    // Stop frame capture
+    stopFrameCapture();
+    
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -415,6 +445,11 @@ Focus on real-time identification and pricing guidance for resellers.`
     if (videoStream) {
       videoStream.getTracks().forEach(track => track.stop());
       setVideoStream(null);
+    }
+    
+    // Clear video element
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     
     setIsActive(false);
@@ -596,6 +631,13 @@ Focus on real-time identification and pricing guidance for resellers.`
                       muted
                       className="relative z-10 w-full h-full object-cover"
                       style={{ minHeight: '400px' }}
+                    />
+                    {/* Hidden canvas for frame capture */}
+                    <canvas
+                      ref={canvasRef}
+                      className="hidden"
+                      width="640"
+                      height="480"
                     />
                     
                     {/* Analysis Status Overlay */}
