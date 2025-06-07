@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Camera, X, Zap, VideoOff, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCamera } from "@/hooks/useCamera";
 
 interface CameraCaptureProps {
   onCapture: (file: File) => void;
@@ -11,75 +12,27 @@ interface CameraCaptureProps {
 
 export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
+  
+  // Use the same camera hook as live analysis
+  const { 
+    videoRef, 
+    stream, 
+    error, 
+    isLoading, 
+    isPlaying, 
+    startCamera, 
+    stopCamera 
+  } = useCamera({
+    facingMode: 'environment',
+    width: 1280,
+    height: 720
+  });
 
-  const startCamera = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      });
-      
-      console.log('Camera stream obtained');
-      setStream(mediaStream);
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.muted = true;
-        videoRef.current.playsInline = true;
-        
-        // Wait for video to load and play
-        videoRef.current.onloadedmetadata = () => {
-          console.log('Video metadata loaded');
-          if (videoRef.current) {
-            videoRef.current.play()
-              .then(() => {
-                console.log('Video playing');
-                setIsPlaying(true);
-                setIsLoading(false);
-              })
-              .catch((err) => {
-                console.error('Play failed:', err);
-                setIsLoading(false);
-              });
-          }
-        };
-      }
-    } catch (err: any) {
-      console.error('Camera error:', err);
-      setError(err.message || 'Camera access failed');
-      setIsLoading(false);
-    }
-  };
-
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setIsPlaying(false);
-    setError(null);
-    setIsLoading(false);
-  };
-
-  const openCamera = () => {
+  const openCamera = async () => {
     setIsOpen(true);
-    startCamera();
+    await startCamera();
   };
 
   const closeCamera = () => {
@@ -124,10 +77,6 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
     }, 'image/jpeg', 0.9);
   };
 
-  useEffect(() => {
-    return () => stopCamera();
-  }, []);
-
   if (!isOpen) {
     return (
       <Button
@@ -170,14 +119,14 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
                 <div className="text-center">
                   <VideoOff className="w-8 h-8 text-red-400 mx-auto mb-2" />
                   <p className="text-red-300 text-sm mb-2">{error}</p>
-                  <Button onClick={startCamera} size="sm" variant="secondary">
+                  <Button onClick={openCamera} size="sm" variant="secondary">
                     Retry Camera
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* Video Element */}
+            {/* Video Element - Same as live analysis */}
             <video
               ref={videoRef}
               autoPlay
