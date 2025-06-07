@@ -32,6 +32,51 @@ export function LiveAnalysisPage() {
     return sessionId;
   };
 
+  const startFrameCapture = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) return;
+    
+    console.log('Starting frame capture with video dimensions:', {
+      videoWidth: video.videoWidth,
+      videoHeight: video.videoHeight,
+      readyState: video.readyState
+    });
+    
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    
+    // Start capturing frames every 2 seconds for live analysis
+    intervalRef.current = setInterval(() => {
+      if (video.readyState === video.HAVE_ENOUGH_DATA && connectionStatus === 'connected') {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frameData = canvas.toDataURL('image/jpeg', 0.8);
+        
+        console.log('Capturing frame for analysis');
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: 'video_frame',
+            data: frameData.split(',')[1], // Remove data URL prefix
+            timestamp: Date.now()
+          }));
+        }
+      }
+    }, 2000);
+  };
+
+  const stopFrameCapture = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      console.log('Frame capture stopped');
+    }
+  };
+
   const startLiveAnalysis = async () => {
     setIsConnecting(true);
     setError(null);
@@ -109,8 +154,24 @@ export function LiveAnalysisPage() {
           playsInline: videoRef.current.playsInline,
           autoplay: videoRef.current.autoplay,
           readyState: videoRef.current.readyState,
-          streamTracks: stream.getTracks().length
+          streamTracks: stream.getTracks().length,
+          streamActive: stream.active,
+          videoTracks: stream.getVideoTracks().map(track => ({
+            id: track.id,
+            label: track.label,
+            enabled: track.enabled,
+            readyState: track.readyState
+          }))
         });
+
+        // Force immediate display and start frame capture
+        setTimeout(() => {
+          if (videoRef.current && !videoPlaying) {
+            console.log('Forcing video display after 100ms');
+            setVideoPlaying(true);
+            startFrameCapture();
+          }
+        }, 100);
         
         // Wait for video to be ready with better error handling
         await new Promise((resolve, reject) => {
@@ -499,34 +560,32 @@ Focus on real-time identification and pricing guidance for resellers.`
                 <CardContent>
                   <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden">
                     {/* Debug background pattern - only show when video isn't playing */}
-                    {!videoPlaying && (
-                      <div className="absolute inset-0 opacity-60 z-5">
-                        <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20"></div>
-                        <div className="absolute inset-4 border-2 border-dashed border-gray-400 dark:border-gray-500 rounded flex items-center justify-center">
-                          <div className="text-center">
-                            <Eye className="w-8 h-8 text-gray-500 dark:text-gray-400 mx-auto mb-2" />
-                            <span className="text-gray-600 dark:text-gray-400 text-sm">
-                              {videoStream ? 'Loading camera feed...' : 'Camera connecting...'}
-                            </span>
-                            {videoStream && (
-                              <button 
-                                onClick={() => {
-                                  if (videoRef.current) {
-                                    console.log('Manual video play attempt');
-                                    videoRef.current.play()
-                                      .then(() => {
-                                        console.log('Manual play successful');
-                                        setVideoPlaying(true);
-                                      })
-                                      .catch(err => console.error('Manual play failed:', err));
-                                  }
-                                }}
-                                className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                              >
-                                Click to Start Video
-                              </button>
-                            )}
-                          </div>
+                    {(!videoPlaying || !videoStream) && (
+                      <div className="absolute inset-0 bg-gray-800 z-5 flex items-center justify-center">
+                        <div className="text-center">
+                          <Eye className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <span className="text-gray-300 text-sm block mb-2">
+                            {videoStream ? 'Starting video feed...' : 'Connecting to camera...'}
+                          </span>
+                          {videoStream && !videoPlaying && (
+                            <button 
+                              onClick={() => {
+                                if (videoRef.current && videoStream) {
+                                  console.log('Manual video play attempt with stream:', videoStream.getTracks());
+                                  videoRef.current.srcObject = videoStream;
+                                  videoRef.current.play()
+                                    .then(() => {
+                                      console.log('Manual play successful');
+                                      setVideoPlaying(true);
+                                    })
+                                    .catch(err => console.error('Manual play failed:', err));
+                                }
+                              }}
+                              className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                            >
+                              Start Video Feed
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
