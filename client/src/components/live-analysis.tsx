@@ -52,7 +52,7 @@ export function LiveAnalysis({ onAnalysis }: LiveAnalysisProps) {
       
       // Connect to WebSocket for live analysis
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const wsUrl = `${protocol}//${window.location.host}/api/live`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       
