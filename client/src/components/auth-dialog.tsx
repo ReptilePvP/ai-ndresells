@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,6 +91,12 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
           <DialogTitle>
             {mode === "login" ? "Sign In" : "Create Account"}
           </DialogTitle>
+          <DialogDescription>
+            {mode === "login" 
+              ? "Enter your credentials to access your account" 
+              : "Fill in your information to create a new account"
+            }
+          </DialogDescription>
         </DialogHeader>
 
         {mode === "login" ? (
@@ -183,30 +189,25 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                 />
               </div>
 
-              <FormField
-                control={registerForm.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="johndoe" 
-                        value={field.value || ""}
-                        onChange={(e) => field.onChange(e.target.value)}
-                        onBlur={field.onBlur}
-                        name="username"
-                        autoComplete="username"
-                        disabled={registerMutation.isPending}
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        spellCheck="false"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  placeholder="johndoe"
+                  value={registerForm.watch("username") || ""}
+                  onChange={(e) => registerForm.setValue("username", e.target.value)}
+                  disabled={registerMutation.isPending}
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
+                />
+                {registerForm.formState.errors.username && (
+                  <p className="text-sm text-red-500">
+                    {registerForm.formState.errors.username.message}
+                  </p>
                 )}
-              />
+              </div>
               
               <FormField
                 control={registerForm.control}
