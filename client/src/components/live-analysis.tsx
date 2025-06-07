@@ -1,14 +1,14 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Video, VideoOff, Eye, AlertCircle, Loader2 } from "lucide-react";
+import { VideoOff, Eye, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-interface LiveViewProps {
+interface LiveAnalysisProps {
   onAnalysis?: (analysis: any) => void;
 }
 
-export function LiveView({ onAnalysis }: LiveViewProps) {
+export function LiveAnalysis({ onAnalysis }: LiveAnalysisProps) {
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
@@ -20,9 +20,9 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const { toast } = useToast();
 
-  // Get session ID for uploads
   const getSessionId = () => {
     let sessionId = localStorage.getItem('sessionId');
     if (!sessionId) {
@@ -32,8 +32,82 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
     return sessionId;
   };
 
-  const analyzeCurrentFrame = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || !videoStream || isAnalyzing) {
+  const startLiveAnalysis = async () => {
+    setIsConnecting(true);
+    setError(null);
+    
+    try {
+      // Get camera stream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      
+      setVideoStream(stream);
+      
+      // Set up video element
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      
+      // Connect to WebSocket for live analysis
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      
+      ws.onopen = () => {
+        console.log("WebSocket connected for live analysis");
+        setIsConnecting(false);
+        setIsActive(true);
+        
+        // Start periodic frame capture and analysis
+        intervalRef.current = setInterval(analyzeCurrentFrame, 3000);
+        
+        toast({
+          title: "Live Analysis Started",
+          description: "Real-time product identification active",
+        });
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const response = JSON.parse(event.data);
+          if (response.type === 'analysis') {
+            setLastAnalysis(response.productName || "Analyzing...");
+            setAnalysisCount(prev => prev + 1);
+            setIsAnalyzing(false);
+            
+            if (onAnalysis) {
+              onAnalysis(response);
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket response:', error);
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setError("Connection to analysis service failed");
+        setIsConnecting(false);
+      };
+      
+      ws.onclose = () => {
+        console.log("WebSocket connection closed");
+        setIsActive(false);
+      };
+      
+    } catch (err) {
+      setIsConnecting(false);
+      const errorMsg = err instanceof Error ? err.message : 'Failed to start live analysis';
+      setError(errorMsg);
+      console.error('Live analysis error:', err);
+    }
+  };
+
+  const analyzeCurrentFrame = () => {
+    if (!videoRef.current || !canvasRef.current || !videoStream || !wsRef.current || isAnalyzing) {
       return;
     }
 
@@ -51,88 +125,30 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0);
 
-      // Convert canvas to base64 and send for direct analysis
+      // Convert to base64 and send via WebSocket
       const imageData = canvas.toDataURL('image/jpeg', 0.7);
-
-      try {
-        // Send frame directly for live analysis
-        const analysisResponse = await fetch('/api/analyze-live', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            imageData,
-            sessionId: getSessionId()
-          })
-        });
-
-        if (analysisResponse.ok) {
-          const analysis = await analysisResponse.json();
-          setLastAnalysis(analysis.productName || "Analyzing...");
-          setAnalysisCount(prev => prev + 1);
-          
-          if (onAnalysis) {
-            onAnalysis(analysis);
-          }
-        }
-      } catch (error) {
-        console.error('Live analysis error:', error);
-      }
+      
+      wsRef.current.send(JSON.stringify({
+        type: 'analyze_frame',
+        imageData,
+        sessionId: getSessionId()
+      }));
+      
     } catch (error) {
       console.error('Frame capture error:', error);
-    } finally {
       setIsAnalyzing(false);
-    }
-  }, [videoStream, isAnalyzing, onAnalysis]);
-
-  const startLiveView = async () => {
-    console.log("Starting live view...");
-    setError(null);
-    setIsConnecting(true);
-    
-    try {
-      console.log("Requesting camera access...");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
-      
-      console.log("Camera stream obtained:", stream);
-      setVideoStream(stream);
-      
-      // Force immediate state update using functional updates
-      setIsConnecting(() => false);
-      setIsActive(() => true);
-      
-      // Set up video element
-      if (videoRef.current) {
-        console.log("Setting video srcObject");
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(err => console.log("Play error:", err));
-      }
-      
-      // Start analysis after brief delay
-      setTimeout(() => {
-        intervalRef.current = setInterval(analyzeCurrentFrame, 3000);
-        
-        toast({
-          title: "Live View Started",
-          description: "AI is now analyzing your camera feed in real-time",
-        });
-      }, 1500);
-      
-    } catch (err) {
-      setIsConnecting(() => false);
-      const errorMsg = err instanceof Error ? err.message : 'Failed to start live view';
-      setError(errorMsg);
-      console.error('Live view error:', err);
     }
   };
 
-  const stopLiveView = () => {
+  const stopLiveAnalysis = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+    
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
     
     if (videoStream) {
@@ -147,18 +163,14 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
     setError(null);
     
     toast({
-      title: "Live View Stopped",
-      description: "Real-time analysis has been disconnected",
+      title: "Live Analysis Stopped",
+      description: "Real-time analysis disconnected",
     });
   };
 
   useEffect(() => {
-    console.log("LiveView component state - isActive:", isActive, "isConnecting:", isConnecting);
-  }, [isActive, isConnecting]);
-
-  useEffect(() => {
     return () => {
-      stopLiveView();
+      stopLiveAnalysis();
     };
   }, []);
 
@@ -173,17 +185,17 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
             <div>
               <h3 className="text-xl font-semibold mb-2">Live Product Analysis</h3>
               <p className="text-gray-600 dark:text-gray-400 mb-4">
-                Get continuous AI analysis as you point your camera at products. 
-                Perfect for quick product identification and real-time pricing insights.
+                Get real-time AI analysis as you point your camera at products. 
+                Uses advanced WebSocket streaming for instant results.
               </p>
             </div>
             <Button 
-              onClick={startLiveView}
+              onClick={startLiveAnalysis}
               size="lg"
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
               <Eye className="mr-2 h-5 w-5" />
-              Start Live View
+              Start Live Analysis
             </Button>
           </div>
         </CardContent>
@@ -198,9 +210,9 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
           <div className="space-y-4">
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600" />
             <div>
-              <h3 className="text-lg font-semibold">Starting Live View</h3>
+              <h3 className="text-lg font-semibold">Starting Live Analysis</h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Initializing camera and AI analysis...
+                Connecting to camera and AI analysis service...
               </p>
             </div>
           </div>
@@ -216,11 +228,11 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
           {/* Header with controls */}
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-sm font-medium">Live Analysis Active</span>
               <span className="text-xs text-gray-500">({analysisCount} scans)</span>
             </div>
-            <Button variant="outline" size="sm" onClick={stopLiveView}>
+            <Button variant="outline" size="sm" onClick={stopLiveAnalysis}>
               <VideoOff className="h-4 w-4" />
             </Button>
           </div>
@@ -246,7 +258,7 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
                 ) : (
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span>Watching for products</span>
+                    <span>Live Analysis Ready</span>
                   </div>
                 )}
               </div>
@@ -260,38 +272,11 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
                 </div>
               </div>
             )}
-
-            {/* Error Overlay */}
-            {error && (
-              <div className="absolute inset-0 flex items-center justify-center bg-red-900/50">
-                <div className="text-center text-white">
-                  <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                  <p className="text-sm">{error}</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-2"
-                    onClick={stopLiveView}
-                  >
-                    Stop Live View
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Scanning Frame */}
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="w-32 h-32 border-2 border-purple-400/50 rounded-lg animate-pulse">
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-purple-400 rounded-full"></div>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Instructions */}
           <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-            Point your camera at products for continuous AI analysis • Auto-scans every 3 seconds
+            Point your camera at products for instant AI identification • Analyzes every 3 seconds
           </div>
         </div>
         
