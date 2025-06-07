@@ -243,6 +243,48 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
         </div>
       </div>
 
+      {/* Camera Interface */}
+      {showCamera && (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col">
+          <div className="flex justify-between items-center p-4 text-white">
+            <h3 className="text-lg font-semibold">Take Photo</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={stopCamera}
+              className="text-white hover:bg-white/10"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+          
+          <div className="flex-1 relative">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
+            
+            {/* Camera controls */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
+              <div className="flex justify-center">
+                <Button
+                  onClick={capturePhoto}
+                  className="w-16 h-16 rounded-full bg-white hover:bg-gray-200 text-black"
+                >
+                  <Camera className="h-6 w-6" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden canvas for photo capture */}
+      <canvas ref={canvasRef} className="hidden" />
+
       <input
         ref={fileInputRef}
         type="file"
