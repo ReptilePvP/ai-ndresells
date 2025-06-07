@@ -188,8 +188,8 @@ export class EbayProductionService {
 }
 
 export function createEbayProductionService(): EbayProductionService | null {
-  const clientId = process.env.EBAY_CLIENT_ID || 'Nicholas-Sandbox-PRD-225961f57-4d30ad4c';
-  const clientSecret = process.env.EBAY_CLIENT_SECRET || 'PRD-25961f57bd24-aade-4e70-a6bb-986f';
+  const clientId = process.env.EBAY_APP_ID || 'Nicholas-Sandbox-PRD-225961f57-4d30ad4c';
+  const clientSecret = process.env.EBAY_CERT_ID || 'PRD-25961f57bd24-aade-4e70-a6bb-986f';
 
   if (!clientId || !clientSecret) {
     console.warn('eBay production credentials not found');
