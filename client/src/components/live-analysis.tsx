@@ -37,17 +37,54 @@ export function LiveAnalysis({ onAnalysis }: LiveAnalysisProps) {
     setError(null);
     
     try {
-      // Get camera stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
+      // Get camera stream with fallback options
+      let stream;
+      try {
+        // Try rear camera first (mobile)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+      } catch (err) {
+        // Fallback to any available camera
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+      }
       
       setVideoStream(stream);
       
       // Set up video element
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        videoRef.current.muted = true;
+        videoRef.current.playsInline = true;
+        
+        // Wait for video to be ready
+        await new Promise((resolve, reject) => {
+          if (!videoRef.current) return reject(new Error('Video element not found'));
+          
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play().then(resolve).catch(reject);
+          };
+          
+          videoRef.current.onerror = reject;
+          
+          // Timeout after 10 seconds
+          setTimeout(() => reject(new Error('Video setup timeout')), 10000);
+        });
+        
+        console.log('Video stream started successfully:', {
+          videoWidth: videoRef.current.videoWidth,
+          videoHeight: videoRef.current.videoHeight,
+          readyState: videoRef.current.readyState
+        });
       }
       
       // Connect to WebSocket for live analysis
@@ -100,9 +137,30 @@ export function LiveAnalysis({ onAnalysis }: LiveAnalysisProps) {
       
     } catch (err) {
       setIsConnecting(false);
-      const errorMsg = err instanceof Error ? err.message : 'Failed to start live analysis';
+      let errorMsg = 'Failed to start live analysis';
+      
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError') {
+          errorMsg = 'Camera permission denied. Please allow camera access and try again.';
+        } else if (err.name === 'NotFoundError') {
+          errorMsg = 'No camera found on this device.';
+        } else if (err.name === 'NotReadableError') {
+          errorMsg = 'Camera is being used by another application.';
+        } else if (err.name === 'OverconstrainedError') {
+          errorMsg = 'Camera constraints not supported. Trying with basic settings...';
+        } else {
+          errorMsg = err.message;
+        }
+      }
+      
       setError(errorMsg);
       console.error('Live analysis error:', err);
+      
+      toast({
+        title: "Camera Error",
+        description: errorMsg,
+        variant: "destructive",
+      });
     }
   };
 
@@ -215,6 +273,36 @@ export function LiveAnalysis({ onAnalysis }: LiveAnalysisProps) {
                 Connecting to camera and AI analysis service...
               </p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="w-full border-red-200 dark:border-red-800">
+        <CardContent className="p-6 text-center">
+          <div className="space-y-4">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/40 rounded-xl flex items-center justify-center mx-auto">
+              <VideoOff className="w-8 h-8 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-red-700 dark:text-red-400">Camera Access Required</h3>
+              <p className="text-red-600 dark:text-red-400 mb-4">
+                {error}
+              </p>
+            </div>
+            <Button 
+              onClick={() => {
+                setError(null);
+                startLiveAnalysis();
+              }}
+              variant="outline"
+              className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400"
+            >
+              Try Again
+            </Button>
           </div>
         </CardContent>
       </Card>
