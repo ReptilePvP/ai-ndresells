@@ -13,6 +13,7 @@ import { GoogleGenAI } from "@google/genai";
 import { createEbayService } from './ebay-api';
 import { createEcommerceService, createGoogleShoppingService, createAmazonService } from './ecommerce-platforms';
 import { createPricingAggregator } from './pricing-aggregator';
+import { createMarketDataService } from './market-data-service';
 
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY || 
@@ -27,6 +28,7 @@ const ecommerceService = createEcommerceService();
 const googleShoppingService = createGoogleShoppingService();
 const amazonService = createAmazonService();
 const pricingAggregator = createPricingAggregator();
+const marketDataService = createMarketDataService();
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -382,29 +384,32 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
         }
       }
 
-      // Enhance pricing with comprehensive market data
+      // Enhance pricing with real market data
       let enhancedResellPrice = analysisData.resellPrice || "Resell price not available";
       let enhancedAveragePrice = analysisData.averageSalePrice || "Price not available";
-      let marketDataSources: string[] = [];
       
       if (analysisData.productName) {
         try {
-          console.log(`Aggregating comprehensive pricing for: ${analysisData.productName}`);
+          const marketData = await marketDataService.getMarketData(
+            analysisData.productName,
+            analysisData.averageSalePrice || "",
+            analysisData.resellPrice || ""
+          );
           
-          const comprehensivePricing = await pricingAggregator.getComprehensivePricing(analysisData.productName);
-          const formattedPricing = pricingAggregator.formatForAnalysis(comprehensivePricing);
+          if (marketData.retailPrice) {
+            enhancedAveragePrice = marketData.retailPrice;
+          }
           
-          if (formattedPricing.marketDataSources.length > 0) {
-            enhancedResellPrice = formattedPricing.enhancedResellPrice;
-            enhancedAveragePrice = formattedPricing.enhancedAveragePrice;
-            marketDataSources = formattedPricing.marketDataSources;
-            
-            console.log(`Pricing enhancement: ${marketDataSources.join(', ')} - Quality: ${comprehensivePricing.marketSummary.dataQuality}`);
+          if (marketData.resellPrice) {
+            enhancedResellPrice = marketData.resellPrice;
+          }
+          
+          if (marketData.sources.length > 0) {
+            console.log(`Market data from: ${marketData.sources.join(', ')} (${marketData.dataQuality})`);
           }
           
         } catch (error) {
-          console.error('Pricing aggregation error:', error);
-          // Continue with Gemini data if pricing aggregation fails
+          console.error('Market data error:', error);
         }
       }
 

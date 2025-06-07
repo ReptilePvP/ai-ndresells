@@ -43,6 +43,8 @@ export class EbayApiService {
 
     const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
     
+    console.log('Requesting eBay token with Client ID:', this.clientId.substring(0, 10) + '...');
+    
     const response = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
       method: 'POST',
       headers: {
@@ -50,7 +52,7 @@ export class EbayApiService {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json'
       },
-      body: 'grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope/buy.item.browse'
+      body: 'grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope'
     });
 
     if (!response.ok) {
