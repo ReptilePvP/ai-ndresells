@@ -393,11 +393,13 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
       if (analysisData.productName) {
         try {
           // First try eBay market data with OAuth token
+          console.log('Fetching market data for product:', analysisData.productName);
           const marketData = await marketDataService.getMarketData(
             analysisData.productName,
             analysisData.averageSalePrice || "",
             analysisData.resellPrice || ""
           );
+          console.log('Market data result:', marketData);
           
           if (marketData.dataQuality === 'authenticated' && marketData.sources.length > 0) {
             // Use authenticated eBay data
