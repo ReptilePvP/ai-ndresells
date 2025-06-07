@@ -1,5 +1,6 @@
 import { EbayApiService, createEbayService } from './ebay-api';
 import { EcommercePlatformService, createEcommerceService } from './ecommerce-platforms';
+import { EbayProductionService, createEbayProductionService } from './ebay-production-auth';
 
 interface MarketDataResult {
   retailPrice: string;

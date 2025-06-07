@@ -28,6 +28,7 @@ interface EbayPriceData {
 
 export class EbayApiService {
   private readonly baseUrl = 'https://api.ebay.com/buy/browse/v1';
+  private readonly tokenUrl = 'https://api.ebay.com/identity/v1/oauth2/token';
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
 
@@ -43,9 +44,9 @@ export class EbayApiService {
 
     const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
     
-    console.log('Requesting eBay access token for Browse API...');
+    console.log('Requesting eBay production access token...');
     
-    const response = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+    const response = await fetch(this.tokenUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${credentials}`,
@@ -57,15 +58,15 @@ export class EbayApiService {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('eBay token error:', response.status, errorText);
-      throw new Error(`eBay token request failed: ${response.status} - ${errorText}`);
+      console.error('eBay production token error:', response.status, errorText);
+      throw new Error(`eBay production authentication failed: ${response.status}`);
     }
 
     const tokenData = await response.json();
     this.accessToken = tokenData.access_token;
-    this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000) - 60000; // 1 minute buffer
+    this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000) - 60000;
     
-    console.log('eBay access token obtained successfully');
+    console.log('eBay production access token obtained successfully');
     return this.accessToken!;
   }
 
