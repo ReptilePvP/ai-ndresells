@@ -87,20 +87,24 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
   }, [videoStream, isAnalyzing, onAnalysis]);
 
   const startLiveView = async () => {
+    console.log("Starting live view...");
     setIsConnecting(true);
     setError(null);
     
     try {
+      console.log("Requesting camera access...");
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' }
       });
       
+      console.log("Camera stream obtained:", stream);
       setVideoStream(stream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         
         const activateVideo = () => {
+          console.log("Activating video - readyState:", videoRef.current?.readyState);
           setIsConnecting(false);
           setIsActive(true);
           
@@ -114,15 +118,35 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
         };
 
         // Multiple event listeners for better compatibility
-        videoRef.current.onloadedmetadata = activateVideo;
-        videoRef.current.oncanplay = activateVideo;
+        let activated = false;
+        const safeActivateVideo = () => {
+          if (!activated) {
+            activated = true;
+            activateVideo();
+          }
+        };
+
+        videoRef.current.onloadedmetadata = () => {
+          console.log("onloadedmetadata fired - readyState:", videoRef.current?.readyState);
+          safeActivateVideo();
+        };
+        videoRef.current.oncanplay = () => {
+          console.log("oncanplay fired - readyState:", videoRef.current?.readyState);
+          safeActivateVideo();
+        };
+        videoRef.current.onloadeddata = () => {
+          console.log("onloadeddata fired - readyState:", videoRef.current?.readyState);
+          safeActivateVideo();
+        };
         
         // Fallback timeout in case events don't fire
         setTimeout(() => {
-          if (videoRef.current && videoRef.current.readyState >= 2) {
-            activateVideo();
+          console.log("Timeout check - readyState:", videoRef.current?.readyState, "activated:", activated);
+          if (videoRef.current && videoRef.current.readyState >= 2 && !activated) {
+            console.log("Fallback activation triggered");
+            safeActivateVideo();
           }
-        }, 2000);
+        }, 3000);
       }
     } catch (err) {
       setIsConnecting(false);
