@@ -35,6 +35,19 @@ export class EbayProductionService {
   ) {}
 
   private async getProductionToken(): Promise<string> {
+    // Use the provided long-term token (expires Nov 2026)
+    const verifiedToken = 'v^1.1#i^1#I^3#f^0#r^0#p^1#t^H4sIAAAAAAAA/+VYa2wUVRTe3bZghYJEXiLGdQpRMDN7Z3b2NXaXbF90adk+dsujBPHuzJ126O7MMvcO3fKHUgyixBhAMCg/KsEEJUSNopEgRqLEKAZJ1BAjxMaYYIIaRagaNM5sl7KtBJBu4ibun82ce+653/edc+69M6BvQvnCLQ1bhirsEx0DfaDPYbezk0D5hLKHp5Q45pTZQJ6DfaBvXl9pf8n5KgxTybTQhnBaUzFyZlJJFQtZY5AydFXQIFawoMIUwgIRhVh4aZPAMUBI6xrRRC1JOSO1QQrysoyQxx8QEeBlL2ta1asx41qQQjxCPJ9gIR+AXl5G5jjGBoqomECVBCkOcB4aeGngiwOfwHMC72N8vLeDci5DOlY01XRhABXKwhWyc/U8rDeGCjFGOjGDUKFIuD7WHI7U1kXjVa68WKGcDjECiYFHP9VoEnIug0kD3XgZnPUWYoYoIowpV2h4hdFBhfBVMLcBPys1koFPZCV3QvL7gR+BgkhZr+kpSG6Mw7IoEi1nXQWkEoX03kxRU43EWiSS3FPUDBGpdVp/rQZMKrKC9CBVVx1eGW5poUJRRezSkhDTMahKCS1Dt7TV0hznCXhZ2eOjeckNoMSLuXWGg+VUHrNQjaZKiqUZdkY1Uo1M0GisNO48aUynZrVZD8vEApTvFxiR0N1h5XQ4iQbpUq20opSpgzP7ePMEjMwmRFcSBkEjEcYOZBUyuyqdViRq7GC2FHPVk8FBqouQtOBy9fT0MD1uRtM7XRwArGvF0qaY2IVSkLJ8rV7P+is3n0ArWSqi2aWmv0B60yaWjFmqJgC1kwp5OK+PY3O6j4YVGmv9hyGPs2t0QxSqQdySmQCRA14PCEAkFaRBQrkadVk4UAL20imodyOSTkIR0aJZZ0YK6YokuD0y5/bLiJa8AZnmA7JMJzySl2bN7REglEiIAf//qE9utdJjSNQRKUypF6rMG2HLYrWulrR1LO+O8nGxdQPbuB5pOJBpqzYSTW1Gpy6nErA1kGoP3mozXJd8TVIxlYmb6xdfrzdomCBpXPRiopZGLVpSEXuLK8FuXWqBOumNoWTSNIyLZDidjhRoqy4UvX+3S9we7QKeUP/N6XRdVtiq2OJiZc3HZgCYVhjr/GFELeXSoGH1OumyzGuyqMfFWzGvrUXF2iQ5zFaRhu+bjEmZdDF4vcjoCGuGbl61mWbr/hXXupFqHmdE15JJpC8bXwVY7ZxKGQQmkqjY+roABa7AIjtrWR8f4Pwc6/WNi5eYPUnXFNuWVKCduLTmNu7UrtEv+CFb9sf224+Dfvsxh90OqsB8thI8MKGkvbRk8hysEMQoUGaw0qma7606YrpRbxoquuNu26kpTdKmhqZLfQnj7eW/LvLbKvK+LwysBrNHvjCUl7CT8j43gLnXRsrYqbMqOA/wAh/w8Rzv6wCV10ZL2Zml01e+7zhZ9cbB6fWnvn3itW1/zDz76J6toGLEyW4vs5X2222diVXMNveLO/ybth7aPG1qw+rBow2HD+zdv2vVpvPbj9h2bd+33vbplMs/r9v/w+UXHvrmw0XxVw83xtzxS0cuRIXytU9duXDPFydf/r6qovvHz2ddnCx3PinO/uWDwc1dM6fO6MGL46/bFm0+1rFxwbmnGePP4/sO0pGhN99q9jxy5iu+Fx1y3nXhPbxxcGfGFpCi+pONwPHY88sd85nMzsEzC38//e70A6sfDzTtmWvb8Oydx/XMS7uH1h2pfHDok8N/nd1wZdtH9Y33UkuWRFdEvaEZ9537uE4+MK/tuzvY1t8ufsncf/riKwsal1THnhv4+qfde5vtB8XgyvaezyaCk0crg9OeOXFiB9Uef2c4l38DP9VvkPkRAAA=';
+    
+    if (verifiedToken) {
+      console.log('Using verified eBay token (expires Nov 2026)');
+      this.accessToken = verifiedToken;
+      this.tokenExpiry = new Date('2026-11-29').getTime();
+      
+      // Test token immediately
+      await this.testApiAccess();
+      return this.accessToken;
+    }
+
     // Check if we have a valid cached token
     if (this.accessToken && Date.now() < this.tokenExpiry) {
       return this.accessToken;
