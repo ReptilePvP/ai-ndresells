@@ -37,23 +37,13 @@ export class EbayApiService {
   ) {}
 
   private async getAccessToken(): Promise<string> {
-    // Use provided OAuth token directly
-    const providedToken = 'v^1.1#i^1#I^3#r^1#p^3#f^0#t^Ul4xMF8zOjI2QzA5QTlBQTZFREY0N0NEMzRBMjc0NDZCQUM3NjkzXzFfMSNFXjI2MA==';
-    
-    if (providedToken) {
-      console.log('Using provided eBay OAuth token');
-      this.accessToken = providedToken;
-      this.tokenExpiry = Date.now() + (3600 * 1000); // Set 1 hour expiry
-      return providedToken;
-    }
-
     if (this.accessToken && Date.now() < this.tokenExpiry) {
       return this.accessToken;
     }
 
     const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
     
-    console.log('Requesting eBay token with Client ID:', this.clientId.substring(0, 10) + '...');
+    console.log('Requesting eBay access token for Browse API...');
     
     const response = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
       method: 'POST',
@@ -62,17 +52,20 @@ export class EbayApiService {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json'
       },
-      body: 'grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope'
+      body: 'grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope/buy.item.browse'
     });
 
     if (!response.ok) {
-      throw new Error(`eBay token request failed: ${response.status}`);
+      const errorText = await response.text();
+      console.error('eBay token error:', response.status, errorText);
+      throw new Error(`eBay token request failed: ${response.status} - ${errorText}`);
     }
 
     const tokenData = await response.json();
     this.accessToken = tokenData.access_token;
     this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000) - 60000; // 1 minute buffer
     
+    console.log('eBay access token obtained successfully');
     return this.accessToken!;
   }
 
@@ -81,18 +74,23 @@ export class EbayApiService {
     
     // Search for sold/completed listings
     const searchQuery = encodeURIComponent(`${productName} -damaged -broken -parts`);
-    const url = `${this.baseUrl}/item_summary/search?q=${searchQuery}&filter=conditionIds:{1000|1500|2000|2500|3000}&filter=buyingOptions:{AUCTION|FIXED_PRICE}&filter=itemEndDate:[2024-01-01T00:00:00.000Z..${new Date().toISOString()}]&limit=${limit}&sort=itemEndDate`;
+    const url = `${this.baseUrl}/item_summary/search?q=${searchQuery}&filter=conditionIds:{1000|1500|2000|2500|3000}&filter=buyingOptions:{AUCTION|FIXED_PRICE}&limit=${limit}&sort=itemEndDate`;
 
+    console.log('eBay sold listings search:', url);
+    
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
-        'X-EBAY-C-ENDUSERCTX': 'affiliateCampaignId=<ePNCampaignId>,affiliateReferenceId=<referenceId>'
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
       }
     });
 
     if (!response.ok) {
-      throw new Error(`eBay search failed: ${response.status}`);
+      const errorText = await response.text();
+      console.error('eBay sold listings error:', response.status, errorText);
+      throw new Error(`eBay sold listings search failed: ${response.status}`);
     }
 
     const data: EbayApiResponse = await response.json();
@@ -144,15 +142,20 @@ export class EbayApiService {
     const searchQuery = encodeURIComponent(`${productName} -damaged -broken -parts`);
     const url = `${this.baseUrl}/item_summary/search?q=${searchQuery}&filter=conditionIds:{1000|1500|2000|2500|3000}&filter=buyingOptions:{FIXED_PRICE}&filter=itemLocationCountry:US&limit=${limit}&sort=price`;
 
+    console.log('eBay current listings search:', url);
+
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
-        'X-EBAY-C-ENDUSERCTX': 'affiliateCampaignId=<ePNCampaignId>,affiliateReferenceId=<referenceId>'
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
       }
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('eBay current listings error:', response.status, errorText);
       throw new Error(`eBay current listings search failed: ${response.status}`);
     }
 
