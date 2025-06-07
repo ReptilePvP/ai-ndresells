@@ -41,17 +41,25 @@ export class MarketDataService {
     let resellPrices: number[] = [];
 
     // Try eBay production marketplace data
+    console.log('Checking eBay production service availability...');
     if (this.ebayProdService) {
       try {
+        console.log('Calling eBay marketplace search for:', productName);
         const ebayData = await this.ebayProdService.searchMarketplace(productName);
         
+        console.log('eBay response:', ebayData);
         if (ebayData.sampleSize > 0) {
           retailPrices.push(ebayData.averagePrice);
           sources.push(`eBay ${ebayData.sampleSize} listings`);
+          console.log(`eBay success: ${ebayData.sampleSize} listings, avg $${ebayData.averagePrice}`);
+        } else {
+          console.log('eBay returned no valid listings');
         }
       } catch (error) {
-        console.log('eBay production data unavailable:', (error as Error).message || error);
+        console.error('eBay production error:', (error as Error).message || error);
       }
+    } else {
+      console.log('eBay production service not available');
     }
 
     // Try e-commerce platforms

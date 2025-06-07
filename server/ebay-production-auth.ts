@@ -83,22 +83,26 @@ export class EbayProductionService {
   private async testApiAccess(): Promise<void> {
     try {
       const testUrl = `${this.prodBaseUrl}/item_summary/search?q=test&limit=1`;
+      console.log('Testing eBay API access with URL:', testUrl);
+      
       const response = await fetch(testUrl, {
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
           'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
+          'X-EBAY-C-ENDUSERCTX': 'affiliateCampaignId=<ePNCampaignId>,affiliateReferenceId=<referenceId>',
           'Accept': 'application/json'
         }
       });
 
       if (response.ok) {
-        console.log('eBay production API access confirmed');
+        const data = await response.json();
+        console.log('eBay production API access confirmed, sample response:', JSON.stringify(data, null, 2));
       } else {
         const errorData = await response.text();
-        console.warn('eBay API test failed:', response.status, errorData);
+        console.error('eBay API test failed:', response.status, errorData);
       }
     } catch (error) {
-      console.warn('eBay API test error:', error);
+      console.error('eBay API test error:', error);
     }
   }
 
@@ -200,6 +204,15 @@ export function createEbayProductionService(): EbayProductionService | null {
     return null;
   }
 
-  console.log('Initializing eBay production service');
-  return new EbayProductionService(clientId, clientSecret);
+  console.log('✓ eBay production service initialized with OAuth integration');
+  const service = new EbayProductionService(clientId, clientSecret);
+  
+  // Test the service initialization
+  service.searchMarketplace('test').then(result => {
+    console.log('eBay service initialization test completed:', result.sampleSize > 0 ? 'SUCCESS' : 'NO_DATA');
+  }).catch(error => {
+    console.error('eBay service initialization test failed:', error.message);
+  });
+  
+  return service;
 }
