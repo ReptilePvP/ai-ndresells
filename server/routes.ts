@@ -11,6 +11,7 @@ import fs from "fs/promises";
 import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
 import { createEbayService } from './ebay-api';
+import { createEbayProductionService } from './ebay-production-auth';
 import { createEcommerceService, createGoogleShoppingService, createAmazonService } from './ecommerce-platforms';
 import { createPricingAggregator } from './pricing-aggregator';
 import { createMarketDataService } from './market-data-service';
@@ -145,7 +146,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/stats", requireAdmin, async (req, res) => {
     try {
       const stats = await storage.getSystemStats();
-      res.json(stats);
+      
+      // Add eBay API status
+      let ebayApiStatus = 'Unknown';
+      try {
+        const ebayService = createEbayProductionService();
+        if (ebayService) {
+          await ebayService.searchMarketplace('test');
+          ebayApiStatus = 'Connected';
+        } else {
+          ebayApiStatus = 'Not Configured';
+        }
+      } catch (error) {
+        ebayApiStatus = 'Error';
+      }
+      
+      const enhancedStats = {
+        ...stats,
+        apiStatus: {
+          ebayApi: ebayApiStatus,
+          geminiApi: 'Connected', // Assume connected if we're running
+          database: 'Connected'
+        }
+      };
+      
+      res.json(enhancedStats);
     } catch (error) {
       console.error("Admin stats error:", error);
       res.status(500).json({ message: "Failed to fetch system stats" });

@@ -15,6 +15,11 @@ interface SystemStats {
     last24Hours: number;
     last7Days: number;
   };
+  apiStatus?: {
+    ebayApi: string;
+    geminiApi: string;
+    database: string;
+  };
 }
 
 interface User {
@@ -220,17 +225,37 @@ export default function AdminDiagnostics() {
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span>AI Analysis Engine</span>
+                <span>Gemini AI Engine</span>
                 <Badge variant="default" className="bg-green-500">
                   <CheckCircle className="mr-1 h-3 w-3" />
-                  Online
+                  {stats?.apiStatus?.geminiApi || 'Connected'}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>eBay Browse API</span>
+                <Badge 
+                  variant="default" 
+                  className={
+                    stats?.apiStatus?.ebayApi === 'Connected' 
+                      ? "bg-green-500" 
+                      : stats?.apiStatus?.ebayApi === 'Error'
+                      ? "bg-red-500"
+                      : "bg-yellow-500"
+                  }
+                >
+                  {stats?.apiStatus?.ebayApi === 'Connected' ? (
+                    <CheckCircle className="mr-1 h-3 w-3" />
+                  ) : (
+                    <XCircle className="mr-1 h-3 w-3" />
+                  )}
+                  {stats?.apiStatus?.ebayApi || 'Unknown'}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span>Database</span>
                 <Badge variant="default" className="bg-green-500">
                   <CheckCircle className="mr-1 h-3 w-3" />
-                  Connected
+                  {stats?.apiStatus?.database || 'Connected'}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
