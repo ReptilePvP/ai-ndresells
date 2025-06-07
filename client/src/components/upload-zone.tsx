@@ -166,23 +166,6 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
             </p>
           </div>
           <div className="space-y-3">
-            <Button 
-              type="button" 
-              disabled={isLoading}
-              className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 w-full"
-            >
-              {isLoading ? "Analyzing..." : "Choose Product Image"}
-            </Button>
-            
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-300 dark:border-gray-600" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white dark:bg-gray-900 px-2 text-gray-500 dark:text-gray-400">Or</span>
-              </div>
-            </div>
-            
             {/* Upload options - Camera or File */}
             {!showOptions ? (
               <Button 
