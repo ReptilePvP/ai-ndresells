@@ -35,6 +35,17 @@ export class EbayProductionService {
   ) {}
 
   private async getProductionToken(): Promise<string> {
+    // Use the long-term auth token (expires 2026)
+    const longTermToken = 'v^1.1#i^1#f^0#r^1#p^3#I^3#t^Ul4xMF81OkM4MjE4M0M0NEFFNTdBREVCNjA2NzQ0NEJFNjMwMUVCXzFfMSNFXjI2MA==';
+    
+    if (longTermToken) {
+      console.log('Using long-term eBay auth token (expires 2026)');
+      this.accessToken = longTermToken;
+      this.tokenExpiry = new Date('2026-11-29').getTime();
+      await this.testApiAccess();
+      return this.accessToken;
+    }
+
     // Check if we have a valid cached token
     if (this.accessToken && Date.now() < this.tokenExpiry) {
       return this.accessToken;
