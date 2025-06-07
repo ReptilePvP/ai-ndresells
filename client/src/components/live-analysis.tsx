@@ -16,6 +16,7 @@ export function LiveAnalysis({ onAnalysis }: LiveAnalysisProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastAnalysis, setLastAnalysis] = useState<string>("");
   const [analysisCount, setAnalysisCount] = useState(0);
+  const [videoPlaying, setVideoPlaying] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -71,10 +72,27 @@ export function LiveAnalysis({ onAnalysis }: LiveAnalysisProps) {
           if (!videoRef.current) return reject(new Error('Video element not found'));
           
           videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play().then(resolve).catch(reject);
+            console.log('Video metadata loaded');
+            videoRef.current?.play().then(() => {
+              console.log('Video play() called successfully');
+              setVideoPlaying(true);
+              resolve(void 0);
+            }).catch(reject);
           };
           
-          videoRef.current.onerror = reject;
+          videoRef.current.onplaying = () => {
+            console.log('Video is now playing');
+            setVideoPlaying(true);
+          };
+          
+          videoRef.current.oncanplay = () => {
+            console.log('Video can start playing');
+          };
+          
+          videoRef.current.onerror = (e) => {
+            console.error('Video error:', e);
+            reject(new Error('Video playback failed'));
+          };
           
           // Timeout after 10 seconds
           setTimeout(() => reject(new Error('Video setup timeout')), 10000);
@@ -83,7 +101,14 @@ export function LiveAnalysis({ onAnalysis }: LiveAnalysisProps) {
         console.log('Video stream started successfully:', {
           videoWidth: videoRef.current.videoWidth,
           videoHeight: videoRef.current.videoHeight,
-          readyState: videoRef.current.readyState
+          readyState: videoRef.current.readyState,
+          srcObject: !!videoRef.current.srcObject,
+          streamActive: stream.active,
+          tracks: stream.getTracks().map(track => ({
+            kind: track.kind,
+            enabled: track.enabled,
+            readyState: track.readyState
+          }))
         });
       }
       
@@ -219,6 +244,7 @@ export function LiveAnalysis({ onAnalysis }: LiveAnalysisProps) {
     setLastAnalysis("");
     setAnalysisCount(0);
     setError(null);
+    setVideoPlaying(false);
     
     toast({
       title: "Live Analysis Stopped",
@@ -326,13 +352,28 @@ export function LiveAnalysis({ onAnalysis }: LiveAnalysisProps) {
           </div>
 
           {/* Video preview */}
-          <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
+          <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-600">
+            {/* Debug background pattern - only show when video isn't playing */}
+            {!videoPlaying && (
+              <div className="absolute inset-0 opacity-60 z-5">
+                <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20"></div>
+                <div className="absolute inset-4 border-2 border-dashed border-gray-400 dark:border-gray-500 rounded flex items-center justify-center">
+                  <div className="text-center">
+                    <Eye className="w-8 h-8 text-gray-500 dark:text-gray-400 mx-auto mb-2" />
+                    <span className="text-gray-600 dark:text-gray-400 text-sm">
+                      {videoStream ? 'Loading camera feed...' : 'Camera connecting...'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className="relative z-10 w-full h-full object-cover bg-black"
+              style={{ minHeight: '200px' }}
             />
             
             {/* Analysis Status Overlay */}
