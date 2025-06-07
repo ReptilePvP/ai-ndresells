@@ -1,4 +1,10 @@
-import { EbayPriceData } from './ebay-api';
+interface EbayPriceData {
+  averagePrice: number;
+  priceRange: string;
+  sampleSize: number;
+  currency: string;
+  recentSales: any[];
+}
 
 interface EbayProductSearch {
   itemSummaries?: Array<{

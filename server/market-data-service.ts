@@ -12,10 +12,12 @@ interface MarketDataResult {
 
 export class MarketDataService {
   private ebayService: EbayApiService | null;
+  private ebayProdService: EbayProductionService | null;
   private ecommerceService: EcommercePlatformService;
 
   constructor() {
     this.ebayService = createEbayService();
+    this.ebayProdService = createEbayProductionService();
     this.ecommerceService = createEcommerceService();
   }
 
@@ -38,22 +40,17 @@ export class MarketDataService {
     let retailPrices: number[] = [];
     let resellPrices: number[] = [];
 
-    // Try eBay market data
-    if (this.ebayService) {
+    // Try eBay production marketplace data
+    if (this.ebayProdService) {
       try {
-        const ebayData = await this.ebayService.getComprehensiveMarketData(productName);
+        const ebayData = await this.ebayProdService.searchMarketplace(productName);
         
-        if (ebayData.soldData.sampleSize > 0) {
-          resellPrices.push(ebayData.soldData.averagePrice);
-          sources.push(`eBay ${ebayData.soldData.sampleSize} sold`);
-        }
-        
-        if (ebayData.currentData.sampleSize > 0) {
-          retailPrices.push(ebayData.currentData.averagePrice);
-          sources.push(`eBay ${ebayData.currentData.sampleSize} active`);
+        if (ebayData.sampleSize > 0) {
+          retailPrices.push(ebayData.averagePrice);
+          sources.push(`eBay ${ebayData.sampleSize} listings`);
         }
       } catch (error) {
-        console.log('eBay data unavailable:', (error as Error).message || error);
+        console.log('eBay production data unavailable:', (error as Error).message || error);
       }
     }
 
