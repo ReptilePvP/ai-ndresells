@@ -1,9 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Camera, X, Zap, VideoOff, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCamera } from "@/hooks/useCamera";
 
 interface CameraCaptureProps {
   onCapture: (file: File) => void;
@@ -12,33 +11,80 @@ interface CameraCaptureProps {
 
 export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
-  
-  // Use the robust camera hook
-  const { 
-    videoRef, 
-    stream, 
-    error, 
-    isLoading, 
-    isPlaying, 
-    startCamera, 
-    stopCamera, 
-    playVideo 
-  } = useCamera({
-    facingMode: 'environment',
-    width: 1280,
-    height: 720
-  });
 
-  const openCamera = async () => {
+  const startCamera = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      
+      console.log('Camera stream obtained');
+      setStream(mediaStream);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.muted = true;
+        videoRef.current.playsInline = true;
+        
+        // Wait for video to load and play
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Video metadata loaded');
+          if (videoRef.current) {
+            videoRef.current.play()
+              .then(() => {
+                console.log('Video playing');
+                setIsPlaying(true);
+                setIsLoading(false);
+              })
+              .catch((err) => {
+                console.error('Play failed:', err);
+                setIsLoading(false);
+              });
+          }
+        };
+      }
+    } catch (err: any) {
+      console.error('Camera error:', err);
+      setError(err.message || 'Camera access failed');
+      setIsLoading(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsPlaying(false);
+    setError(null);
+    setIsLoading(false);
+  };
+
+  const openCamera = () => {
     setIsOpen(true);
-    await startCamera();
+    startCamera();
   };
 
   const closeCamera = () => {
-    setIsOpen(false);
     stopCamera();
+    setIsOpen(false);
   };
 
   const capturePhoto = () => {
@@ -55,23 +101,12 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
 
-    if (!context) {
-      toast({
-        title: "Capture Error",
-        description: "Unable to process image. Please try again.",
-        variant: "destructive"
-      });
-      return;
-    }
+    if (!context) return;
 
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
-    
-    // Draw the current video frame to canvas
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0);
 
-    // Convert canvas to blob and create file
     canvas.toBlob((blob) => {
       if (blob) {
         const file = new File([blob], `photo-${Date.now()}.jpg`, {
@@ -85,15 +120,13 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
         
         onCapture(file);
         closeCamera();
-      } else {
-        toast({
-          title: "Capture Failed",
-          description: "Unable to capture photo. Please try again.",
-          variant: "destructive"
-        });
       }
     }, 'image/jpeg', 0.9);
   };
+
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
 
   if (!isOpen) {
     return (
@@ -120,44 +153,25 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
             </Button>
           </div>
 
-          <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden">
+          <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+            {/* Loading State */}
+            {isLoading && (
+              <div className="absolute inset-0 bg-gray-800 flex items-center justify-center z-20">
+                <div className="text-center">
+                  <Loader2 className="w-8 h-8 text-white mx-auto mb-2 animate-spin" />
+                  <span className="text-white text-sm">Starting camera...</span>
+                </div>
+              </div>
+            )}
+
             {/* Error State */}
             {error && (
-              <div className="absolute inset-0 bg-red-50 dark:bg-red-900/20 flex items-center justify-center z-10">
+              <div className="absolute inset-0 bg-red-900/20 flex items-center justify-center z-20">
                 <div className="text-center">
-                  <VideoOff className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                  <p className="text-red-600 dark:text-red-400 text-sm mb-2">{error}</p>
-                  <Button 
-                    onClick={() => startCamera()} 
-                    size="sm"
-                  >
+                  <VideoOff className="w-8 h-8 text-red-400 mx-auto mb-2" />
+                  <p className="text-red-300 text-sm mb-2">{error}</p>
+                  <Button onClick={startCamera} size="sm" variant="secondary">
                     Retry Camera
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Loading State */}
-            {isLoading && !error && (
-              <div className="absolute inset-0 bg-gray-800 flex items-center justify-center z-10">
-                <div className="text-center">
-                  <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-2 animate-spin" />
-                  <span className="text-gray-300 text-sm">Starting camera...</span>
-                </div>
-              </div>
-            )}
-
-            {/* Video Not Playing State */}
-            {stream && !isPlaying && !error && !isLoading && (
-              <div className="absolute inset-0 bg-gray-800 flex items-center justify-center z-10">
-                <div className="text-center">
-                  <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <span className="text-gray-300 text-sm block mb-2">Camera ready</span>
-                  <Button 
-                    onClick={playVideo}
-                    size="sm"
-                  >
-                    Start Video
                   </Button>
                 </div>
               </div>
@@ -170,12 +184,16 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
               playsInline
               muted
               className="w-full h-full object-cover"
+              style={{ 
+                minHeight: '300px',
+                backgroundColor: 'black'
+              }}
             />
           </div>
 
           <Button
             onClick={capturePhoto}
-            disabled={!stream || !isPlaying || isAnalyzing || isLoading || !!error}
+            disabled={!isPlaying || isAnalyzing || isLoading || !!error}
             size="lg"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white"
           >

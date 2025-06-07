@@ -85,11 +85,32 @@ export function useCamera(config?: CameraConfig) {
         videoRef.current.playsInline = true;
         videoRef.current.autoplay = true;
         
+        // Set up video event listeners for better debugging
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Video metadata loaded:', {
+            width: videoRef.current?.videoWidth,
+            height: videoRef.current?.videoHeight
+          });
+        };
+
+        videoRef.current.oncanplay = () => {
+          console.log('Video can play');
+        };
+
+        videoRef.current.onplay = () => {
+          console.log('Video play event fired');
+          setIsPlaying(true);
+        };
+
+        videoRef.current.onplaying = () => {
+          console.log('Video is actually playing');
+          setIsPlaying(true);
+        };
+
         // Force video to play and display
         try {
           await videoRef.current.play();
-          setIsPlaying(true);
-          console.log('Video playing successfully');
+          console.log('Video play() method called successfully');
         } catch (playError) {
           console.warn('Auto-play failed, will require user interaction:', playError);
         }
