@@ -135,8 +135,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
           isDragOver
             ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
             : "border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400"
@@ -154,7 +153,10 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
               className="w-12 h-12 object-contain opacity-80"
             />
           </div>
-          <div>
+          <div 
+            onClick={() => fileInputRef.current?.click()}
+            className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg p-4 transition-colors"
+          >
             <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
               Drop your product image here or click to browse
             </p>
