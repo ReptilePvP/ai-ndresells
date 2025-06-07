@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -75,6 +75,12 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     }
   };
 
+  // Reset forms when switching modes or opening dialog
+  useEffect(() => {
+    loginForm.reset();
+    registerForm.reset();
+  }, [mode, open, loginForm, registerForm]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -142,7 +148,12 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                     <FormItem>
                       <FormLabel>First Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="John" {...field} />
+                        <Input 
+                          placeholder="John" 
+                          {...field}
+                          autoComplete="given-name"
+                          disabled={registerMutation.isPending}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -156,7 +167,12 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                     <FormItem>
                       <FormLabel>Last Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Doe" {...field} />
+                        <Input 
+                          placeholder="Doe" 
+                          {...field}
+                          autoComplete="family-name"
+                          disabled={registerMutation.isPending}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -171,7 +187,12 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="johndoe" {...field} />
+                      <Input 
+                        placeholder="johndoe" 
+                        {...field}
+                        autoComplete="username"
+                        disabled={registerMutation.isPending}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -185,7 +206,13 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="john@example.com" {...field} />
+                      <Input 
+                        type="email" 
+                        placeholder="john@example.com" 
+                        {...field}
+                        autoComplete="email"
+                        disabled={registerMutation.isPending}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -199,7 +226,13 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="At least 6 characters" {...field} />
+                      <Input 
+                        type="password" 
+                        placeholder="At least 6 characters" 
+                        {...field}
+                        autoComplete="new-password"
+                        disabled={registerMutation.isPending}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
