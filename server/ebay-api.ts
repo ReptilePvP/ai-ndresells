@@ -37,6 +37,16 @@ export class EbayApiService {
   ) {}
 
   private async getAccessToken(): Promise<string> {
+    // Use provided OAuth token directly
+    const providedToken = 'v^1.1#i^1#I^3#r^1#p^3#f^0#t^Ul4xMF8zOjI2QzA5QTlBQTZFREY0N0NEMzRBMjc0NDZCQUM3NjkzXzFfMSNFXjI2MA==';
+    
+    if (providedToken) {
+      console.log('Using provided eBay OAuth token');
+      this.accessToken = providedToken;
+      this.tokenExpiry = Date.now() + (3600 * 1000); // Set 1 hour expiry
+      return providedToken;
+    }
+
     if (this.accessToken && Date.now() < this.tokenExpiry) {
       return this.accessToken;
     }

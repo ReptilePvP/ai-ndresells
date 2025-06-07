@@ -14,6 +14,7 @@ import { createEbayService } from './ebay-api';
 import { createEcommerceService, createGoogleShoppingService, createAmazonService } from './ecommerce-platforms';
 import { createPricingAggregator } from './pricing-aggregator';
 import { createMarketDataService } from './market-data-service';
+import { createIntelligentPricing } from './intelligent-pricing';
 
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY || 
@@ -29,6 +30,7 @@ const googleShoppingService = createGoogleShoppingService();
 const amazonService = createAmazonService();
 const pricingAggregator = createPricingAggregator();
 const marketDataService = createMarketDataService();
+const intelligentPricing = createIntelligentPricing();
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -384,32 +386,44 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
         }
       }
 
-      // Enhance pricing with real market data
+      // Enhance pricing with eBay market data and intelligent analysis
       let enhancedResellPrice = analysisData.resellPrice || "Resell price not available";
       let enhancedAveragePrice = analysisData.averageSalePrice || "Price not available";
       
       if (analysisData.productName) {
         try {
+          // First try eBay market data with OAuth token
           const marketData = await marketDataService.getMarketData(
             analysisData.productName,
             analysisData.averageSalePrice || "",
             analysisData.resellPrice || ""
           );
           
-          if (marketData.retailPrice) {
-            enhancedAveragePrice = marketData.retailPrice;
-          }
-          
-          if (marketData.resellPrice) {
-            enhancedResellPrice = marketData.resellPrice;
-          }
-          
-          if (marketData.sources.length > 0) {
-            console.log(`Market data from: ${marketData.sources.join(', ')} (${marketData.dataQuality})`);
+          if (marketData.dataQuality === 'authenticated' && marketData.sources.length > 0) {
+            // Use authenticated eBay data
+            if (marketData.retailPrice) enhancedAveragePrice = marketData.retailPrice;
+            if (marketData.resellPrice) enhancedResellPrice = marketData.resellPrice;
+            
+            console.log(`eBay market data: ${marketData.sources.join(', ')}`);
+          } else {
+            // Fall back to intelligent pricing analysis
+            const pricingAnalysis = intelligentPricing.analyzeProductPricing(
+              analysisData.productName,
+              analysisData.description || "",
+              analysisData.averageSalePrice || "",
+              analysisData.resellPrice || ""
+            );
+            
+            if (pricingAnalysis.confidence > 0.7) {
+              enhancedAveragePrice = pricingAnalysis.retailPrice;
+              enhancedResellPrice = pricingAnalysis.resellPrice;
+              
+              console.log(`Intelligent pricing: ${pricingAnalysis.marketCondition} (confidence: ${Math.round(pricingAnalysis.confidence * 100)}%)`);
+            }
           }
           
         } catch (error) {
-          console.error('Market data error:', error);
+          console.error('Pricing enhancement error:', error);
         }
       }
 
