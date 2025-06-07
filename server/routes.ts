@@ -382,98 +382,29 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
         }
       }
 
-      // Enhance pricing with comprehensive e-commerce platform data
+      // Enhance pricing with comprehensive market data
       let enhancedResellPrice = analysisData.resellPrice || "Resell price not available";
       let enhancedAveragePrice = analysisData.averageSalePrice || "Price not available";
       let marketDataSources: string[] = [];
       
       if (analysisData.productName) {
         try {
-          console.log(`Fetching comprehensive market data for: ${analysisData.productName}`);
+          console.log(`Aggregating comprehensive pricing for: ${analysisData.productName}`);
           
-          // Parallel execution of multiple data sources
-          const marketDataPromises = [];
+          const comprehensivePricing = await pricingAggregator.getComprehensivePricing(analysisData.productName);
+          const formattedPricing = pricingAggregator.formatForAnalysis(comprehensivePricing);
           
-          // eBay market data
-          if (ebayService) {
-            marketDataPromises.push(
-              ebayService.getComprehensiveMarketData(analysisData.productName)
-                .then(data => ({ source: 'eBay', data }))
-                .catch(error => ({ source: 'eBay', error }))
-            );
-          }
-          
-          // Comprehensive e-commerce platform data
-          marketDataPromises.push(
-            ecommerceService.getComprehensivePricing(analysisData.productName)
-              .then(data => ({ source: 'E-commerce', data }))
-              .catch(error => ({ source: 'E-commerce', error }))
-          );
-          
-          const marketResults = await Promise.allSettled(marketDataPromises);
-          
-          let totalPlatforms = 0;
-          let totalCurrentPrice = 0;
-          let platformCount = 0;
-          let resellDataAvailable = false;
-          
-          for (const result of marketResults) {
-            if (result.status === 'fulfilled' && result.value) {
-              const resultValue = result.value as any;
-              if (resultValue.error) {
-                console.error(`${resultValue.source} API error:`, resultValue.error);
-                continue;
-              }
-              
-              const { source, data } = resultValue;
-              
-              if (source === 'eBay' && data.soldData.sampleSize > 0) {
-                resellDataAvailable = true;
-                const ebayResellData = data.marketInsights.recommendedResellPrice !== 'Unable to determine' 
-                  ? data.marketInsights.recommendedResellPrice 
-                  : data.soldData.priceRange;
-                
-                if (ebayResellData !== 'No recent sales found') {
-                  enhancedResellPrice = `${ebayResellData} (eBay: ${data.soldData.sampleSize} sold, ${data.currentData.sampleSize} active)`;
-                  marketDataSources.push(`eBay ${data.soldData.sampleSize + data.currentData.sampleSize} listings`);
-                }
-                
-                if (data.currentData.averagePrice > 0) {
-                  totalCurrentPrice += data.currentData.averagePrice;
-                  platformCount++;
-                }
-              } else if (source === 'E-commerce' && data.platforms.length > 0) {
-                totalPlatforms += data.platforms.length;
-                
-                if (data.marketSummary.averagePrice > 0) {
-                  totalCurrentPrice += data.marketSummary.averagePrice;
-                  platformCount++;
-                  
-                  marketDataSources.push(`${data.platforms.length} retail platforms`);
-                  
-                  if (!resellDataAvailable && data.marketSummary.recommendedResellPrice !== 'Insufficient market data') {
-                    enhancedResellPrice = `${data.marketSummary.recommendedResellPrice} (estimated from retail)`;
-                  }
-                }
-              }
-            } else if (result.status === 'rejected') {
-              console.error('Market data promise rejected:', result.reason);
-            }
-          }
-          
-          // Calculate enhanced average price from multiple sources
-          if (platformCount > 0) {
-            const averageMarketPrice = totalCurrentPrice / platformCount;
-            enhancedAveragePrice = `$${Math.round(averageMarketPrice)} USD (avg from ${marketDataSources.join(', ')})`;
-          }
-          
-          if (marketDataSources.length > 0) {
-            console.log(`Market data enhancement: ${marketDataSources.join(', ')}`);
+          if (formattedPricing.marketDataSources.length > 0) {
+            enhancedResellPrice = formattedPricing.enhancedResellPrice;
+            enhancedAveragePrice = formattedPricing.enhancedAveragePrice;
+            marketDataSources = formattedPricing.marketDataSources;
+            
+            console.log(`Pricing enhancement: ${marketDataSources.join(', ')} - Quality: ${comprehensivePricing.marketSummary.dataQuality}`);
           }
           
         } catch (error) {
-          console.error('Market data aggregation error:', error);
-          // Continue with Gemini data if market data fails
+          console.error('Pricing aggregation error:', error);
+          // Continue with Gemini data if pricing aggregation fails
         }
       }
 

@@ -248,13 +248,14 @@ export class EbayApiService {
 }
 
 export function createEbayService(): EbayApiService | null {
-  const clientId = process.env.EBAY_CLIENT_ID;
-  const clientSecret = process.env.EBAY_CLIENT_SECRET;
+  const clientId = process.env.EBAY_CLIENT_ID || 'Nicholas-Sandbox-PRD-225961f57-4d30ad4c';
+  const clientSecret = process.env.EBAY_CLIENT_SECRET || 'PRD-25961f57bd24-aade-4e70-a6bb-986f';
 
   if (!clientId || !clientSecret) {
     console.warn('eBay API credentials not found. Market data will be limited.');
     return null;
   }
 
+  console.log('eBay API service initialized with production credentials');
   return new EbayApiService(clientId, clientSecret);
 }
