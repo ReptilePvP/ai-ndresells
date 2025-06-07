@@ -10,6 +10,7 @@ import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
+import { createEbayService } from './ebay-api';
 
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY || 
@@ -17,6 +18,9 @@ const apiKey = process.env.GEMINI_API_KEY ||
                process.env.GOOGLE_GEMINI_API_KEY || 
                "";
 const genAI = new GoogleGenAI({ apiKey });
+
+// Initialize eBay API service
+const ebayService = createEbayService();
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -372,13 +376,44 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
         }
       }
 
+      // Enhance pricing with eBay market data if available
+      let enhancedResellPrice = analysisData.resellPrice || "Resell price not available";
+      let enhancedAveragePrice = analysisData.averageSalePrice || "Price not available";
+      
+      if (ebayService && analysisData.productName) {
+        try {
+          console.log(`Fetching eBay market data for: ${analysisData.productName}`);
+          const marketData = await ebayService.getComprehensiveMarketData(analysisData.productName);
+          
+          if (marketData.soldData.sampleSize > 0 || marketData.currentData.sampleSize > 0) {
+            // Combine eBay data with Gemini analysis
+            const ebayResellData = marketData.marketInsights.recommendedResellPrice !== 'Unable to determine' 
+              ? marketData.marketInsights.recommendedResellPrice 
+              : marketData.soldData.priceRange;
+              
+            enhancedResellPrice = ebayResellData !== 'No recent sales found' 
+              ? `${ebayResellData} (eBay: ${marketData.soldData.sampleSize} sold, ${marketData.currentData.sampleSize} active)` 
+              : analysisData.resellPrice || "Resell price not available";
+              
+            if (marketData.currentData.averagePrice > 0) {
+              enhancedAveragePrice = `$${marketData.currentData.averagePrice} ${marketData.currentData.currency} (eBay current average)`;
+            }
+            
+            console.log(`eBay enhancement: Sold ${marketData.soldData.sampleSize}, Active ${marketData.currentData.sampleSize}`);
+          }
+        } catch (error) {
+          console.error('eBay API error:', error);
+          // Continue with Gemini data if eBay fails
+        }
+      }
+
       // Validate and create analysis
       const analysisInput = {
         uploadId,
         productName: analysisData.productName || "Unknown Product",
         description: analysisData.description || "No description available",
-        averageSalePrice: analysisData.averageSalePrice || "Price not available",
-        resellPrice: analysisData.resellPrice || "Resell price not available",
+        averageSalePrice: enhancedAveragePrice,
+        resellPrice: enhancedResellPrice,
         referenceImageUrl: localReferenceImageUrl,
         confidence: 0.85, // Default confidence
       };
