@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Camera, X, Zap, VideoOff, Loader2 } from "lucide-react";
@@ -14,20 +14,21 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
   const [isOpen, setIsOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
-  
+
   // Use the same camera hook as live analysis
-  const { 
-    videoRef, 
-    stream, 
-    error, 
-    isLoading, 
-    isPlaying, 
-    startCamera, 
-    stopCamera 
+  const {
+    videoRef,
+    stream,
+    error,
+    isLoading,
+    isPlaying,
+    startCamera,
+    stopCamera,
+    playVideo,
   } = useCamera({
-    facingMode: 'environment',
+    facingMode: "environment",
     width: 1280,
-    height: 720
+    height: 720,
   });
 
   const openCamera = async () => {
@@ -45,14 +46,14 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
       toast({
         title: "Camera Error",
         description: "Camera not ready. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
+    const context = canvas.getContext("2d");
 
     if (!context) return;
 
@@ -60,22 +61,44 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
     canvas.height = video.videoHeight;
     context.drawImage(video, 0, 0);
 
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const file = new File([blob], `photo-${Date.now()}.jpg`, {
-          type: 'image/jpeg',
-        });
-        
-        toast({
-          title: "Photo Captured",
-          description: "Analyzing your product...",
-        });
-        
-        onCapture(file);
-        closeCamera();
-      }
-    }, 'image/jpeg', 0.9);
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          const file = new File([blob], `photo-${Date.now()}.jpg`, {
+            type: "image/jpeg",
+          });
+
+          toast({
+            title: "Photo Captured",
+            description: "Analyzing your product...",
+          });
+
+          onCapture(file);
+          closeCamera();
+        }
+      },
+      "image/jpeg",
+      0.9,
+    );
   };
+
+  // Attempt to play video when stream is available
+  useEffect(() => {
+    if (isOpen && stream && !isPlaying && !isLoading && !error) {
+      const playAttempt = async () => {
+        const success = await playVideo();
+        if (!success) {
+          toast({
+            title: "Camera Issue",
+            description:
+              "Camera feed may not display. Please interact with the page or refresh.",
+            variant: "destructive",
+          });
+        }
+      };
+      playAttempt();
+    }
+  }, [isOpen, stream, isPlaying, isLoading, error, playVideo, toast]);
 
   if (!isOpen) {
     return (
@@ -133,9 +156,9 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
               playsInline
               muted
               className="w-full h-full object-cover"
-              style={{ 
-                minHeight: '300px',
-                backgroundColor: 'black'
+              style={{
+                minHeight: "300px",
+                backgroundColor: "black",
               }}
             />
           </div>
