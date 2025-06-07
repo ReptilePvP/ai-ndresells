@@ -48,8 +48,9 @@ export class EbayApiService {
       headers: {
         'Authorization': `Basic ${credentials}`,
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
       },
-      body: 'grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope'
+      body: 'grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope/buy.item.browse'
     });
 
     if (!response.ok) {

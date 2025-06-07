@@ -29,146 +29,126 @@ interface ComprehensivePricing {
 
 export class EcommercePlatformService {
   
-  // Amazon price scraping with real implementation
+  // Amazon pricing via HTTP API approach
   async getAmazonPricing(productName: string): Promise<PlatformPricing[]> {
     try {
       const searchQuery = encodeURIComponent(productName.replace(/[^\w\s]/g, ' '));
-      const searchUrl = `https://www.amazon.com/s?k=${searchQuery}&ref=sr_pg_1`;
       
-      const browser = await puppeteer.launch({ 
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      // Use Amazon's public search API endpoint
+      const response = await axios.get(`https://www.amazon.com/api/s`, {
+        params: {
+          k: searchQuery,
+          ref: 'sr_pg_1'
+        },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1'
+        },
+        timeout: 10000
       });
-      const page = await browser.newPage();
-      
-      // Set user agent to avoid blocking
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-      
-      await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 10000 });
-      
+
+      const $ = cheerio.load(response.data);
       const results: PlatformPricing[] = [];
       
-      // Extract product listings
-      const products = await page.evaluate(() => {
-        const productElements = document.querySelectorAll('[data-component-type="s-search-result"]');
-        const products = [];
+      // Parse Amazon search results
+      $('[data-component-type="s-search-result"]').each((i, element) => {
+        if (i >= 10) return false; // Limit to 10 results
         
-        for (let i = 0; i < Math.min(productElements.length, 10); i++) {
-          const element = productElements[i];
+        const $element = $(element);
+        const title = $element.find('h2 a span').first().text().trim();
+        const priceText = $element.find('.a-price-whole, .a-offscreen').first().text();
+        const link = $element.find('h2 a').attr('href');
+        const rating = $element.find('.a-icon-alt').text();
+        
+        if (title && priceText) {
+          const price = parseFloat(priceText.replace(/[^0-9.]/g, ''));
           
-          const titleElement = element.querySelector('h2 a span');
-          const priceElement = element.querySelector('.a-price-whole, .a-offscreen');
-          const linkElement = element.querySelector('h2 a');
-          const ratingElement = element.querySelector('.a-icon-alt');
-          
-          if (titleElement && priceElement) {
-            const priceText = priceElement.textContent || '';
-            const price = parseFloat(priceText.replace(/[^0-9.]/g, ''));
-            
-            if (price > 0) {
-              products.push({
-                title: titleElement.textContent || '',
-                price: price,
-                url: linkElement ? 'https://amazon.com' + linkElement.getAttribute('href') : '',
-                rating: ratingElement ? ratingElement.textContent || '' : ''
-              });
-            }
+          if (price > 0) {
+            results.push({
+              platform: 'Amazon',
+              currentPrice: price,
+              priceRange: `$${price}`,
+              availability: 'Available',
+              url: link ? `https://amazon.com${link}` : '',
+              currency: 'USD',
+              condition: 'New',
+              seller: 'Amazon',
+              ratings: rating ? parseFloat(rating) : undefined
+            });
           }
         }
-        
-        return products;
       });
-      
-      for (const product of products) {
-        results.push({
-          platform: 'Amazon',
-          currentPrice: product.price,
-          priceRange: `$${product.price}`,
-          availability: 'Available',
-          url: product.url,
-          currency: 'USD',
-          condition: 'New',
-          seller: 'Amazon',
-          ratings: product.rating ? parseFloat(product.rating) : undefined
-        });
-      }
-      
-      await browser.close();
       
       console.log(`Amazon found ${results.length} products for: ${productName}`);
       return results;
       
     } catch (error) {
-      console.error('Amazon scraping error:', error);
+      console.error('Amazon API error:', error);
       return [];
     }
   }
 
-  // Walmart scraping implementation
+  // Walmart pricing via HTTP API approach
   async getWalmartPricing(productName: string): Promise<PlatformPricing[]> {
     try {
       const searchQuery = encodeURIComponent(productName.replace(/[^\w\s]/g, ' '));
-      const searchUrl = `https://www.walmart.com/search?q=${searchQuery}`;
       
-      const browser = await puppeteer.launch({ 
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      // Use Walmart's search endpoint
+      const response = await axios.get(`https://www.walmart.com/search`, {
+        params: {
+          q: searchQuery
+        },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate',
+          'Connection': 'keep-alive'
+        },
+        timeout: 10000
       });
-      const page = await browser.newPage();
-      
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-      await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 10000 });
-      
+
+      const $ = cheerio.load(response.data);
       const results: PlatformPricing[] = [];
       
-      const products = await page.evaluate(() => {
-        const productElements = document.querySelectorAll('[data-testid="list-view"], [data-automation-id="product-title"]');
-        const products = [];
+      // Parse Walmart search results
+      $('[data-automation-id="product-title"]').each((i, element) => {
+        if (i >= 8) return false; // Limit to 8 results
         
-        for (let i = 0; i < Math.min(productElements.length, 8); i++) {
-          const element = productElements[i].closest('[data-testid="item"]') || productElements[i].closest('div');
+        const $element = $(element);
+        const title = $element.text().trim();
+        const $parent = $element.closest('[data-testid="item"]');
+        const priceText = $parent.find('[itemprop="price"], .price-current').first().text();
+        const link = $parent.find('a[href*="/ip/"]').attr('href');
+        
+        if (title && priceText) {
+          const price = parseFloat(priceText.replace(/[^0-9.]/g, ''));
           
-          const titleElement = element?.querySelector('[data-automation-id="product-title"]');
-          const priceElement = element?.querySelector('[itemprop="price"], .price-current');
-          const linkElement = element?.querySelector('a[href*="/ip/"]');
-          
-          if (titleElement && priceElement) {
-            const priceText = priceElement.textContent || '';
-            const price = parseFloat(priceText.replace(/[^0-9.]/g, ''));
-            
-            if (price > 0) {
-              products.push({
-                title: titleElement.textContent || '',
-                price: price,
-                url: linkElement ? 'https://walmart.com' + linkElement.getAttribute('href') : ''
-              });
-            }
+          if (price > 0) {
+            results.push({
+              platform: 'Walmart',
+              currentPrice: price,
+              priceRange: `$${price}`,
+              availability: 'Available',
+              url: link ? `https://walmart.com${link}` : '',
+              currency: 'USD',
+              condition: 'New',
+              seller: 'Walmart'
+            });
           }
         }
-        
-        return products;
       });
-      
-      for (const product of products) {
-        results.push({
-          platform: 'Walmart',
-          currentPrice: product.price,
-          priceRange: `$${product.price}`,
-          availability: 'Available',
-          url: product.url,
-          currency: 'USD',
-          condition: 'New',
-          seller: 'Walmart'
-        });
-      }
-      
-      await browser.close();
       
       console.log(`Walmart found ${results.length} products for: ${productName}`);
       return results;
       
     } catch (error) {
-      console.error('Walmart scraping error:', error);
+      console.error('Walmart API error:', error);
       return [];
     }
   }

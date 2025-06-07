@@ -12,6 +12,7 @@ import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
 import { createEbayService } from './ebay-api';
 import { createEcommerceService, createGoogleShoppingService, createAmazonService } from './ecommerce-platforms';
+import { createPricingAggregator } from './pricing-aggregator';
 
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY || 
@@ -25,6 +26,7 @@ const ebayService = createEbayService();
 const ecommerceService = createEcommerceService();
 const googleShoppingService = createGoogleShoppingService();
 const amazonService = createAmazonService();
+const pricingAggregator = createPricingAggregator();
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
