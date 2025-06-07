@@ -88,7 +88,6 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
 
   const startLiveView = async () => {
     console.log("Starting live view...");
-    setIsConnecting(true);
     setError(null);
     
     try {
@@ -100,34 +99,27 @@ export function LiveView({ onAnalysis }: LiveViewProps) {
       console.log("Camera stream obtained:", stream);
       setVideoStream(stream);
       
+      // Immediately activate without waiting for video events
+      setIsConnecting(false);
+      setIsActive(true);
+      
+      // Set up video element
       if (videoRef.current) {
         console.log("Setting video srcObject");
-        const video = videoRef.current;
-        video.srcObject = stream;
-        
-        // Force video to play
-        video.play().catch(err => console.log("Play error:", err));
-        
-        const activateVideo = () => {
-          console.log("Activating video - readyState:", video.readyState);
-          setIsConnecting(false);
-          setIsActive(true);
-          
-          // Start periodic analysis every 3 seconds
-          intervalRef.current = setInterval(analyzeCurrentFrame, 3000);
-          
-          toast({
-            title: "Live View Started",
-            description: "AI is now analyzing your camera feed in real-time",
-          });
-        };
-
-        // Immediate activation since stream is ready
-        setTimeout(() => {
-          console.log("Force activation after 1 second");
-          activateVideo();
-        }, 1000);
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(err => console.log("Play error:", err));
       }
+      
+      // Start analysis after brief delay
+      setTimeout(() => {
+        intervalRef.current = setInterval(analyzeCurrentFrame, 3000);
+        
+        toast({
+          title: "Live View Started",
+          description: "AI is now analyzing your camera feed in real-time",
+        });
+      }, 1500);
+      
     } catch (err) {
       setIsConnecting(false);
       const errorMsg = err instanceof Error ? err.message : 'Failed to start live view';
