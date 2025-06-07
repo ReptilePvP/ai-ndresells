@@ -1,8 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer } from "ws";
 import { storage } from "./storage";
 import { insertUploadSchema, insertAnalysisSchema, insertFeedbackSchema, loginSchema, registerSchema } from "@shared/schema";
 import { hashPassword, verifyPassword, requireAuth, requireAdmin, optionalAuth } from "./auth";
+import { setupLiveAPI } from "./live-api";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
@@ -623,5 +625,14 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
   });
 
   const httpServer = createServer(app);
+  
+  // Setup WebSocket server for Live View
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/api/live'
+  });
+  
+  setupLiveAPI(wss);
+  
   return httpServer;
 }
