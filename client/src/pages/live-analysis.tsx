@@ -69,9 +69,16 @@ export function LiveAnalysisPage() {
       // Start camera first
       await startCamera();
       
+      // Wait a moment for the video ref to be properly set
+      let retries = 0;
+      while (!videoRef.current && retries < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        retries++;
+      }
+      
       // Wait for camera to fully initialize with better error handling
       if (!videoRef.current) {
-        throw new Error('Video element not available');
+        throw new Error('Video element not available after camera initialization');
       }
 
       const video = videoRef.current;
@@ -352,7 +359,11 @@ export function LiveAnalysisPage() {
         {/* Full Screen Video */}
         <div className="flex-1 relative">
           <video
-            ref={videoRef}
+            ref={(el) => {
+              if (videoRef) {
+                videoRef.current = el;
+              }
+            }}
             autoPlay
             playsInline
             muted
@@ -478,7 +489,11 @@ export function LiveAnalysisPage() {
                 </div>
               ) : stream ? (
                 <video
-                  ref={videoRef}
+                  ref={(el) => {
+                    if (videoRef) {
+                      videoRef.current = el;
+                    }
+                  }}
                   autoPlay
                   playsInline
                   muted
