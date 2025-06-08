@@ -80,40 +80,86 @@ export function useCamera(config?: CameraConfig) {
       setStream(mediaStream);
       
       if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.muted = true;
-        videoRef.current.playsInline = true;
-        videoRef.current.autoplay = true;
+        const video = videoRef.current;
         
-        // Set up video event listeners for better debugging
-        videoRef.current.onloadedmetadata = () => {
-          console.log('Video metadata loaded:', {
-            width: videoRef.current?.videoWidth,
-            height: videoRef.current?.videoHeight
-          });
-        };
+        // Configure video element properties
+        video.srcObject = mediaStream;
+        video.muted = true;
+        video.playsInline = true;
+        video.autoplay = true;
+        
+        // Wait for video to be ready with proper event handling
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Video setup timeout'));
+          }, 5000);
+          
+          const onMetadataLoaded = () => {
+            console.log('Video metadata loaded:', {
+              width: video.videoWidth,
+              height: video.videoHeight,
+              readyState: video.readyState
+            });
+            
+            // Only resolve if we have valid dimensions
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              clearTimeout(timeout);
+              cleanup();
+              resolve();
+            }
+          };
+          
+          const onCanPlay = () => {
+            console.log('Video can play');
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              clearTimeout(timeout);
+              cleanup();
+              resolve();
+            }
+          };
+          
+          const onError = (event: Event) => {
+            console.error('Video error during setup:', event);
+            clearTimeout(timeout);
+            cleanup();
+            reject(new Error('Video setup failed'));
+          };
+          
+          const cleanup = () => {
+            video.removeEventListener('loadedmetadata', onMetadataLoaded);
+            video.removeEventListener('canplay', onCanPlay);
+            video.removeEventListener('error', onError);
+          };
+          
+          // Set up event listeners
+          video.addEventListener('loadedmetadata', onMetadataLoaded);
+          video.addEventListener('canplay', onCanPlay);
+          video.addEventListener('error', onError);
+          
+          // Set up ongoing event listeners for state tracking
+          video.onplay = () => {
+            console.log('Video play event fired');
+            setIsPlaying(true);
+          };
 
-        videoRef.current.oncanplay = () => {
-          console.log('Video can play');
-        };
-
-        videoRef.current.onplay = () => {
-          console.log('Video play event fired');
-          setIsPlaying(true);
-        };
-
-        videoRef.current.onplaying = () => {
-          console.log('Video is actually playing');
-          setIsPlaying(true);
-        };
-
-        // Force video to play and display
-        try {
-          await videoRef.current.play();
-          console.log('Video play() method called successfully');
-        } catch (playError) {
-          console.warn('Auto-play failed, will require user interaction:', playError);
-        }
+          video.onplaying = () => {
+            console.log('Video is actually playing');
+            setIsPlaying(true);
+          };
+          
+          // Check if metadata is already available
+          if (video.readyState >= 1 && video.videoWidth > 0) {
+            onMetadataLoaded();
+          } else {
+            // Try to load metadata by playing
+            video.play().catch(playError => {
+              console.warn('Auto-play failed, will require user interaction:', playError);
+              // Don't reject here, metadata might still load
+            });
+          }
+        });
+        
+        console.log('Video setup completed successfully');
       }
       
     } catch (err: any) {

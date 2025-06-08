@@ -69,38 +69,48 @@ export function LiveAnalysisPage() {
       // Start camera first
       await startCamera();
       
-      // Wait for camera to fully initialize
-      let attempts = 0;
-      const maxAttempts = 15;
+      // Wait for camera to fully initialize with better error handling
+      if (!videoRef.current) {
+        throw new Error('Video element not available');
+      }
+
+      const video = videoRef.current;
       
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        attempts++;
-        
-        // Check if video element has valid dimensions
-        if (videoRef.current?.videoWidth && videoRef.current?.videoHeight) {
-          console.log('Camera ready:', {
-            width: videoRef.current.videoWidth,
-            height: videoRef.current.videoHeight,
-            playing: !videoRef.current.paused
-          });
-          break;
-        }
-        
-        // Try to play video if it's not playing
-        if (videoRef.current && videoRef.current.paused) {
-          try {
-            await playVideo();
-          } catch (playError) {
-            console.log('Video play attempt failed:', playError);
+      // Wait for video metadata to load
+      const waitForVideoReady = () => {
+        return new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Video metadata loading timeout'));
+          }, 10000);
+          
+          const checkReady = () => {
+            if (video.videoWidth && video.videoHeight && video.readyState >= 2) {
+              clearTimeout(timeout);
+              console.log('Camera ready:', {
+                width: video.videoWidth,
+                height: video.videoHeight,
+                readyState: video.readyState,
+                playing: !video.paused
+              });
+              resolve();
+            }
+          };
+          
+          // Check if already ready
+          checkReady();
+          
+          // Listen for metadata loaded event
+          video.addEventListener('loadedmetadata', checkReady);
+          video.addEventListener('canplay', checkReady);
+          
+          // Try to play video to trigger metadata loading
+          if (video.paused) {
+            video.play().catch(console.log);
           }
-        }
-      }
-      
-      // Final check for camera readiness
-      if (!videoRef.current || !videoRef.current.videoWidth) {
-        throw new Error('Camera initialization timeout - please check permissions');
-      }
+        });
+      };
+
+      await waitForVideoReady();
 
       // Create WebSocket connection to the correct path
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -124,6 +134,9 @@ export function LiveAnalysisPage() {
         console.log('WebSocket connected for live analysis');
         setConnectionStatus('connected');
         setIsActive(true);
+        
+        // Start frame capture immediately after connection
+        startFrameCapture();
         
         toast({
           title: "Live Analysis Started",
@@ -169,11 +182,22 @@ export function LiveAnalysisPage() {
         });
         setConnectionStatus('disconnected');
         
-        toast({
-          title: "Connection Error",
-          description: "Failed to connect to analysis service",
-          variant: "destructive",
-        });
+        // Try to continue with basic analysis functionality
+        if (videoRef.current && stream) {
+          console.log('WebSocket failed, continuing with basic camera functionality');
+          setIsActive(true);
+          toast({
+            title: "Limited Mode",
+            description: "Camera active but live analysis unavailable",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Connection Error",
+            description: "Failed to connect to analysis service",
+            variant: "destructive",
+          });
+        }
       };
       
     } catch (error) {
