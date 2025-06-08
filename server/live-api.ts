@@ -40,9 +40,11 @@ export function setupLiveAPI(wss: any) {
         await handleClientMessage(sessionId, message);
       } catch (error) {
         console.error('Error processing client message:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to process message';
         ws.send(JSON.stringify({
           type: 'error',
-          message: 'Failed to process message'
+          message: errorMessage,
+          details: error instanceof Error ? error.stack : String(error)
         }));
       }
     });
