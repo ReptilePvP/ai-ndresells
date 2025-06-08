@@ -100,6 +100,22 @@
     animation: slideUp 0.4s ease-out;
   }
   
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  .animate-wiggle {
+    animation: wiggle 2s ease-in-out infinite;
+  }
+  
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+  
+  .animate-scan-line {
+    animation: scanLine 2s linear infinite;
+  }
+  
   .animate-pulse-soft {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
@@ -122,5 +138,44 @@
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-5deg);
+  }
+  75% {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+  }
+  to {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.8), 0 0 40px rgba(147, 51, 234, 0.3);
+  }
+}
+
+@keyframes scanLine {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
   }
 }

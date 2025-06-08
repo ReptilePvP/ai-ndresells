@@ -394,12 +394,89 @@ export function LiveAnalysisPage() {
         {/* Full Screen Video */}
         <div className="flex-1 relative">
           {!stream && !cameraError && (
-            <div className="absolute inset-0 bg-gray-900 flex items-center justify-center text-white">
-              <div className="text-center">
-                <Camera className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-lg font-medium mb-2">Camera Initializing</p>
-                <p className="text-gray-400">Setting up video stream...</p>
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center text-white overflow-hidden">
+              {/* Floating Background Elements */}
+              <div className="absolute inset-0">
+                {[...Array(8)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="absolute w-2 h-2 bg-white/20 rounded-full animate-pulse"
+                    style={{
+                      left: `${20 + (i * 10)}%`,
+                      top: `${30 + (i * 5)}%`,
+                      animationDelay: `${i * 0.5}s`,
+                      animationDuration: `${2 + (i * 0.3)}s`
+                    }}
+                  />
+                ))}
               </div>
+              
+              {/* Main Content */}
+              <div className="text-center z-10 relative">
+                {/* Cute Product Mascot */}
+                <div className="relative mb-6">
+                  <div className="w-24 h-24 mx-auto mb-4 relative">
+                    {/* Main mascot body */}
+                    <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full mx-auto relative animate-float shadow-lg animate-glow">
+                      {/* Eyes */}
+                      <div className="absolute top-6 left-4 w-3 h-3 bg-white rounded-full">
+                        <div className="w-2 h-2 bg-black rounded-full animate-pulse" />
+                      </div>
+                      <div className="absolute top-6 right-4 w-3 h-3 bg-white rounded-full">
+                        <div className="w-2 h-2 bg-black rounded-full animate-pulse" />
+                      </div>
+                      {/* Animated mouth */}
+                      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-6 h-3 border-2 border-white rounded-full border-t-0 animate-pulse" />
+                      {/* Sparkles around mascot */}
+                      <div className="absolute -top-2 -right-2 text-yellow-300 animate-spin text-lg">✨</div>
+                      <div className="absolute -bottom-1 -left-3 text-pink-300 animate-wiggle text-lg">🔍</div>
+                      <div className="absolute top-0 -left-2 text-green-300 animate-bounce text-lg">💎</div>
+                      {/* Additional floating elements */}
+                      <div className="absolute -top-4 left-1/2 text-purple-300 animate-float text-sm" style={{ animationDelay: '1s' }}>⭐</div>
+                      <div className="absolute -right-4 top-1/2 text-cyan-300 animate-pulse text-sm" style={{ animationDelay: '1.5s' }}>🔮</div>
+                      
+                      {/* Scanning line effect */}
+                      <div className="absolute inset-0 rounded-full overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white to-transparent opacity-60 animate-scan-line" />
+                      </div>
+                    </div>
+                    
+                    {/* Camera scanning effect */}
+                    <div className="absolute inset-0 border-4 border-blue-400 rounded-full animate-ping opacity-50" />
+                    <div className="absolute inset-2 border-2 border-purple-400 rounded-full animate-pulse opacity-60" />
+                  </div>
+                </div>
+                
+                {/* Loading Text */}
+                <div className="space-y-3">
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">
+                    Getting Ready to Scan! 📱
+                  </h3>
+                  <p className="text-blue-200 font-medium">Setting up your smart camera...</p>
+                  
+                  {/* Loading dots */}
+                  <div className="flex justify-center space-x-2 mt-4">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="w-3 h-3 bg-blue-400 rounded-full animate-bounce"
+                        style={{ animationDelay: `${i * 0.2}s` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Fun loading messages */}
+                <div className="mt-6 text-sm text-blue-300/80">
+                  <p className="animate-pulse">🤖 Powering up AI vision systems...</p>
+                </div>
+              </div>
+              
+              {/* Floating icons */}
+              <div className="absolute top-20 left-10 text-3xl animate-bounce" style={{ animationDelay: '1s' }}>📦</div>
+              <div className="absolute top-32 right-16 text-2xl animate-pulse" style={{ animationDelay: '1.5s' }}>💰</div>
+              <div className="absolute bottom-32 left-20 text-2xl animate-bounce" style={{ animationDelay: '2s' }}>🏷️</div>
+              <div className="absolute bottom-20 right-12 text-3xl animate-pulse" style={{ animationDelay: '0.5s' }}>🎯</div>
             </div>
           )}
           
