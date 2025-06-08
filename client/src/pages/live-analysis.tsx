@@ -71,30 +71,56 @@ export function LiveAnalysisPage() {
       
       // Wait for camera to fully initialize
       let attempts = 0;
-      const maxAttempts = 10;
+      const maxAttempts = 15;
       
-      while ((!stream || !videoRef.current?.videoWidth) && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 300));
         attempts++;
         
-        if (!isPlaying && videoRef.current) {
-          await playVideo();
+        // Check if video element has valid dimensions
+        if (videoRef.current?.videoWidth && videoRef.current?.videoHeight) {
+          console.log('Camera ready:', {
+            width: videoRef.current.videoWidth,
+            height: videoRef.current.videoHeight,
+            playing: !videoRef.current.paused
+          });
+          break;
+        }
+        
+        // Try to play video if it's not playing
+        if (videoRef.current && videoRef.current.paused) {
+          try {
+            await playVideo();
+          } catch (playError) {
+            console.log('Video play attempt failed:', playError);
+          }
         }
       }
       
       // Final check for camera readiness
       if (!videoRef.current || !videoRef.current.videoWidth) {
-        throw new Error('Camera failed to initialize properly');
+        throw new Error('Camera initialization timeout - please check permissions');
       }
 
       // Create WebSocket connection to the correct path
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${wsProtocol}//${window.location.host}/api/live`;
       
+      console.log('Attempting WebSocket connection to:', wsUrl);
+      
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       
+      // Set up connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+          throw new Error('WebSocket connection timeout');
+        }
+      }, 10000);
+      
       ws.onopen = () => {
+        clearTimeout(connectionTimeout);
         console.log('WebSocket connected for live analysis');
         setConnectionStatus('connected');
         setIsActive(true);
@@ -108,6 +134,7 @@ export function LiveAnalysisPage() {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log('Received WebSocket message:', data);
           
           if (data.type === 'analysis_result') {
             setLastAnalysis(data.analysis);
@@ -123,13 +150,23 @@ export function LiveAnalysisPage() {
         }
       };
       
-      ws.onclose = () => {
-        console.log('WebSocket connection closed');
+      ws.onclose = (event) => {
+        clearTimeout(connectionTimeout);
+        console.log('WebSocket connection closed:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        });
         setConnectionStatus('disconnected');
       };
       
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        clearTimeout(connectionTimeout);
+        console.error('WebSocket error details:', {
+          error: error,
+          readyState: ws.readyState,
+          url: wsUrl
+        });
         setConnectionStatus('disconnected');
         
         toast({
@@ -143,11 +180,23 @@ export function LiveAnalysisPage() {
       setConnectionStatus('disconnected');
       console.error('Live analysis error:', error);
       
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      // Extract detailed error information
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        console.error('Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+      } else if (typeof error === 'object' && error !== null) {
+        console.error('Non-Error object:', error);
+        errorMessage = JSON.stringify(error);
+      }
       
       toast({
         title: "Setup Error",
-        description: cameraError || errorMessage,
+        description: cameraError || errorMessage || "Failed to start live analysis",
         variant: "destructive",
       });
     }
