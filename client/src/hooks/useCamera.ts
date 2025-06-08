@@ -19,6 +19,23 @@ export function useCamera(config?: CameraConfig) {
     setError(null);
     
     try {
+      // Check if camera API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera API not available in this browser. Please use a modern browser with HTTPS.');
+      }
+
+      // Check camera permissions first
+      try {
+        const permissions = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        console.log('Camera permission status:', permissions.state);
+        
+        if (permissions.state === 'denied') {
+          throw new Error('Camera access denied. Please enable camera permissions in your browser settings.');
+        }
+      } catch (permError) {
+        console.log('Permission query not supported, proceeding with direct access');
+      }
+
       // Stop existing stream if any
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
