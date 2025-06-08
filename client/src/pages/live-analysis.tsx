@@ -69,27 +69,32 @@ export function LiveAnalysisPage() {
       // Start camera first
       await startCamera();
       
-      // Wait a moment for the video ref to be properly set
-      let retries = 0;
-      while (!videoRef.current && retries < 10) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        retries++;
+      // Wait for both video ref and stream to be available
+      let attempts = 0;
+      const maxAttempts = 30;
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        attempts++;
+        
+        console.log(`Attempt ${attempts}: Video ref available: ${!!videoRef.current}, Stream available: ${!!stream}`);
+        
+        if (videoRef.current && stream) {
+          console.log('Both video element and stream are available');
+          break;
+        }
       }
       
-      // Wait for camera to fully initialize with better error handling
       if (!videoRef.current) {
         throw new Error('Video element not available after camera initialization');
       }
 
-      const video = videoRef.current;
-      
-      // Simplified approach - just ensure we have a stream and proceed
-      console.log('Video element found, proceeding with stream-based setup...');
-      
-      // Check if we have the camera stream
       if (!stream) {
-        throw new Error('No camera stream available');
+        throw new Error('Camera stream not available - please check camera permissions');
       }
+
+      const video = videoRef.current;
+      console.log('Video element found with stream, proceeding with setup...');
       
       // Ensure video has the stream assigned
       if (!video.srcObject) {
