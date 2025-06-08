@@ -28,6 +28,15 @@ export function LiveAnalysisPage() {
     width: 1920,
     height: 1080
   });
+
+  // Debug stream state changes
+  useEffect(() => {
+    console.log('Stream state changed:', {
+      hasStream: !!stream,
+      streamId: stream?.id,
+      tracks: stream?.getTracks().length
+    });
+  }, [stream]);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -313,6 +322,25 @@ export function LiveAnalysisPage() {
     });
   };
 
+  // Ensure video element gets the stream when available
+  useEffect(() => {
+    if (videoRef.current && stream && isActive) {
+      console.log('Assigning stream to video element');
+      const video = videoRef.current;
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.autoplay = true;
+      
+      // Force play
+      video.play().then(() => {
+        console.log('Video playing with stream');
+      }).catch(err => {
+        console.error('Video play error:', err);
+      });
+    }
+  }, [stream, isActive, videoRef.current]);
+
   // Start frame capture when video starts playing
   useEffect(() => {
     if (isPlaying && connectionStatus === 'connected') {
@@ -366,11 +394,17 @@ export function LiveAnalysisPage() {
               if (videoRef) {
                 videoRef.current = el;
               }
+              // Ensure the video gets the stream immediately when element is ready
+              if (el && stream) {
+                el.srcObject = stream;
+                el.play().catch(console.log);
+              }
             }}
             autoPlay
             playsInline
             muted
             className="w-full h-full object-cover"
+            style={{ backgroundColor: '#000' }}
           />
 
           {/* Analysis Overlay */}

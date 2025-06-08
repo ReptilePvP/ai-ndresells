@@ -94,6 +94,7 @@ export function useCamera(config?: CameraConfig) {
         throw new Error('Failed to obtain camera stream');
       }
 
+      console.log('Setting stream state with media stream:', !!mediaStream);
       setStream(mediaStream);
       
       if (videoRef.current) {
