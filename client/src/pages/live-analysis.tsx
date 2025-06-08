@@ -75,57 +75,31 @@ export function LiveAnalysisPage() {
     try {
       setConnectionStatus('connecting');
       
-      // Start camera first
+      // Start camera and get direct access to stream
       await startCamera();
       
-      // Wait for both video ref and stream to be available
-      let attempts = 0;
-      const maxAttempts = 30;
-      
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        attempts++;
-        
-        console.log(`Attempt ${attempts}: Video ref available: ${!!videoRef.current}, Stream available: ${!!stream}`);
-        
-        if (videoRef.current && stream) {
-          console.log('Both video element and stream are available');
-          break;
-        }
-      }
+      // Give camera hook time to update and check video element directly
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       if (!videoRef.current) {
-        throw new Error('Video element not available after camera initialization');
-      }
-
-      if (!stream) {
-        throw new Error('Camera stream not available - please check camera permissions');
+        throw new Error('Video element not available');
       }
 
       const video = videoRef.current;
-      console.log('Video element found with stream, proceeding with setup...');
       
-      // Ensure video has the stream assigned
+      // Wait for video to have an active stream
+      let streamCheckAttempts = 0;
+      while (streamCheckAttempts < 10 && !video.srcObject) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        streamCheckAttempts++;
+        console.log(`Checking for video stream: attempt ${streamCheckAttempts}`);
+      }
+
       if (!video.srcObject) {
-        video.srcObject = stream;
-        video.muted = true;
-        video.playsInline = true;
-        video.autoplay = true;
+        throw new Error('Video stream not assigned - camera access may have failed');
       }
-      
-      // Try to play the video
-      try {
-        await video.play();
-        console.log('Video playing successfully');
-      } catch (playError) {
-        console.log('Video play attempt:', playError);
-        // Continue anyway - some browsers block autoplay but still work
-      }
-      
-      // Wait a short time for basic setup
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Camera setup completed - proceeding with live analysis');
+
+      console.log('Video stream confirmed, proceeding with WebSocket connection');
 
       // Create WebSocket connection to the correct path
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -150,12 +124,9 @@ export function LiveAnalysisPage() {
         setConnectionStatus('connected');
         setIsActive(true);
         
-        // Start frame capture immediately after connection
-        startFrameCapture();
-        
         toast({
-          title: "Live Analysis Started",
-          description: "Point your camera at products for real-time analysis",
+          title: "Live Analysis Ready",
+          description: "Tap the scan button to analyze products",
         });
       };
       
@@ -341,12 +312,12 @@ export function LiveAnalysisPage() {
     }
   }, [stream, isActive, videoRef.current]);
 
-  // Start frame capture when video starts playing
-  useEffect(() => {
-    if (isPlaying && connectionStatus === 'connected') {
-      startFrameCapture();
-    }
-  }, [isPlaying, connectionStatus]);
+  // Remove automatic frame capture - now manual only
+  // useEffect(() => {
+  //   if (isPlaying && connectionStatus === 'connected') {
+  //     startFrameCapture();
+  //   }
+  // }, [isPlaying, connectionStatus]);
 
   useEffect(() => {
     return () => {
@@ -417,21 +388,44 @@ export function LiveAnalysisPage() {
             </div>
           )}
 
-          {/* Center Focus Ring */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          {/* Center Focus Ring with Scan Button */}
+          <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-64 h-64 border-2 border-white/50 rounded-2xl relative">
               <div className="absolute -top-1 -left-1 w-6 h-6 border-l-2 border-t-2 border-white rounded-tl-lg" />
               <div className="absolute -top-1 -right-1 w-6 h-6 border-r-2 border-t-2 border-white rounded-tr-lg" />
               <div className="absolute -bottom-1 -left-1 w-6 h-6 border-l-2 border-b-2 border-white rounded-bl-lg" />
               <div className="absolute -bottom-1 -right-1 w-6 h-6 border-r-2 border-b-2 border-white rounded-br-lg" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-white/80 text-center">
-                  <Camera className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-sm font-medium">Focus on product</p>
-                </div>
+                {!isAnalyzing ? (
+                  <Button
+                    onClick={analyzeCurrentFrame}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-full w-16 h-16 p-0 pointer-events-auto"
+                    disabled={!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN}
+                  >
+                    <Zap className="w-8 h-8" />
+                  </Button>
+                ) : (
+                  <div className="text-white/80 text-center">
+                    <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin" />
+                    <p className="text-sm font-medium">Analyzing...</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+
+          {/* Analysis Results Overlay */}
+          {lastAnalysis && (
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-4 h-4 text-blue-400" />
+                  <span className="text-sm font-medium">Analysis Result</span>
+                </div>
+                <p className="text-sm">{lastAnalysis}</p>
+              </div>
+            </div>
+          )}
 
           {/* Error State Overlay */}
           {cameraError && (

@@ -353,7 +353,7 @@ If no clear product is visible, return: {"productName": "No product detected", "
 `;
 
     const result = await genAI.models.generateContent({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-1.5-flash',
       contents: [{
         role: "user",
         parts: [
