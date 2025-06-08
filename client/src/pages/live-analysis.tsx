@@ -69,11 +69,22 @@ export function LiveAnalysisPage() {
       // Start camera first
       await startCamera();
       
-      // Wait a moment for camera to stabilize
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait for camera to fully initialize
+      let attempts = 0;
+      const maxAttempts = 10;
       
-      if (!stream) {
-        throw new Error('Camera not available');
+      while ((!stream || !videoRef.current?.videoWidth) && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+        
+        if (!isPlaying && videoRef.current) {
+          await playVideo();
+        }
+      }
+      
+      // Final check for camera readiness
+      if (!videoRef.current || !videoRef.current.videoWidth) {
+        throw new Error('Camera failed to initialize properly');
       }
 
       // Create WebSocket connection
@@ -132,27 +143,40 @@ export function LiveAnalysisPage() {
       setConnectionStatus('disconnected');
       console.error('Live analysis error:', error);
       
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
       toast({
         title: "Setup Error",
-        description: cameraError || "Failed to start live analysis",
+        description: cameraError || errorMessage,
         variant: "destructive",
       });
     }
   };
 
   const analyzeCurrentFrame = () => {
-    if (!videoRef.current || !canvasRef.current || !stream || !wsRef.current || isAnalyzing) {
+    if (!videoRef.current || !canvasRef.current || !wsRef.current || isAnalyzing) {
+      return;
+    }
+
+    const video = videoRef.current;
+    
+    // Check if video has valid dimensions and is playing
+    if (!video.videoWidth || !video.videoHeight || video.paused || video.ended) {
+      console.log('Video not ready for analysis');
       return;
     }
 
     setIsAnalyzing(true);
+    console.log('Capturing frame for analysis');
     
     try {
       const canvas = canvasRef.current;
-      const video = videoRef.current;
       const ctx = canvas.getContext('2d');
       
-      if (!ctx) return;
+      if (!ctx) {
+        setIsAnalyzing(false);
+        return;
+      }
 
       // Set canvas dimensions to match video
       canvas.width = video.videoWidth;
@@ -164,11 +188,16 @@ export function LiveAnalysisPage() {
       // Convert to base64 and send via WebSocket
       const imageData = canvas.toDataURL('image/jpeg', 0.7);
       
-      wsRef.current.send(JSON.stringify({
-        type: 'analyze_frame',
-        imageData,
-        sessionId: getSessionId()
-      }));
+      if (wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'analyze_frame',
+          imageData,
+          sessionId: getSessionId()
+        }));
+      } else {
+        console.log('WebSocket not ready');
+        setIsAnalyzing(false);
+      }
       
     } catch (error) {
       console.error('Frame capture error:', error);
