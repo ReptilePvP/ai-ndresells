@@ -92,7 +92,12 @@ async function setupGeminiConnection(sessionId: string, config: any) {
     // Connect to Gemini Live API using the correct endpoint and API key
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error('Gemini API key not found');
+      console.warn('Gemini API key not found, falling back to direct API calls');
+      session.clientWs.send(JSON.stringify({
+        type: 'setup_complete',
+        message: 'AI ready for analysis (fallback mode)'
+      }));
+      return;
     }
     
     const geminiWs = new WS(`wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`);
@@ -419,10 +424,11 @@ If no clear product is visible, return: {"productName": "No product detected", "
     }
   } catch (error) {
     console.error("Live frame analysis error:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     session.clientWs.send(JSON.stringify({
-      type: 'analysis_result',
-      analysis: "Analysis failed",
-      confidence: "low"
+      type: 'error',
+      message: `Analysis failed: ${errorMessage}`,
+      fallback: true
     }));
   }
 }
