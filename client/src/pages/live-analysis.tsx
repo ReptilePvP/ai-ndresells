@@ -22,7 +22,8 @@ export function LiveAnalysisPage() {
     isPlaying, 
     startCamera, 
     stopCamera, 
-    playVideo 
+    playVideo,
+    requestPermissions
   } = useCamera({
     facingMode: 'environment',
     width: 1920,
@@ -441,9 +442,22 @@ export function LiveAnalysisPage() {
                 <VideoOff className="w-12 h-12 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Camera Error</h3>
                 <p className="text-red-200 mb-4">{cameraError}</p>
-                <Button onClick={startLiveAnalysis} variant="secondary">
-                  Try Again
-                </Button>
+                <div className="flex flex-col gap-3">
+                  <Button 
+                    onClick={async () => {
+                      const granted = await requestPermissions();
+                      if (granted) {
+                        startLiveAnalysis();
+                      }
+                    }} 
+                    variant="secondary"
+                  >
+                    Reset Permissions & Try Again
+                  </Button>
+                  <Button onClick={startLiveAnalysis} variant="outline" size="sm">
+                    Try Again
+                  </Button>
+                </div>
               </div>
             </div>
           )}

@@ -299,6 +299,7 @@ export function useCamera(config?: CameraConfig) {
     isPlaying,
     startCamera, 
     stopCamera,
-    playVideo
+    playVideo,
+    requestPermissions
   };
 }
