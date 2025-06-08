@@ -139,6 +139,13 @@ export function LiveAnalysisPage() {
             setLastAnalysis(data.analysis);
             setAnalysisCount(prev => prev + 1);
             setIsAnalyzing(false);
+          } else if (data.type === 'rate_limited') {
+            toast({
+              title: "Rate Limited",
+              description: data.message,
+              variant: "destructive",
+            });
+            setIsAnalyzing(false);
           } else if (data.type === 'error') {
             console.error('Analysis error:', data.message);
             setIsAnalyzing(false);

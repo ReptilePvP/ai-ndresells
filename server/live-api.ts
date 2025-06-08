@@ -20,6 +20,32 @@ interface LiveSession {
 
 const activeSessions = new Map<string, LiveSession>();
 
+// Rate limiting to prevent API quota exhaustion
+const rateLimiter = {
+  requests: [] as number[],
+  maxRequests: 8, // Stay under 10 requests per minute limit
+  windowMs: 60000, // 1 minute window
+  
+  canMakeRequest(): boolean {
+    const now = Date.now();
+    // Remove requests older than the window
+    this.requests = this.requests.filter(time => now - time < this.windowMs);
+    
+    if (this.requests.length >= this.maxRequests) {
+      return false;
+    }
+    
+    this.requests.push(now);
+    return true;
+  },
+  
+  getNextAvailableTime(): number {
+    if (this.requests.length === 0) return 0;
+    const oldestRequest = Math.min(...this.requests);
+    return Math.max(0, this.windowMs - (Date.now() - oldestRequest));
+  }
+};
+
 export function setupLiveAPI(wss: any) {
   wss.on('connection', (ws: WS, request: any) => {
     const sessionId = generateSessionId();
@@ -337,6 +363,17 @@ async function directFrameAnalysis(sessionId: string, imageData: string) {
   const session = activeSessions.get(sessionId);
   if (!session || !session.clientWs) return;
 
+  // Check rate limiting
+  if (!rateLimiter.canMakeRequest()) {
+    const waitTime = rateLimiter.getNextAvailableTime();
+    session.clientWs.send(JSON.stringify({
+      type: 'rate_limited',
+      message: `Analysis rate limited. Try again in ${Math.ceil(waitTime / 1000)} seconds.`,
+      retryAfter: waitTime
+    }));
+    return;
+  }
+
   try {
     // Convert base64 data URL to base64 string
     const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
@@ -353,7 +390,7 @@ If no clear product is visible, return: {"productName": "No product detected", "
 `;
 
     const result = await genAI.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash-exp',
       contents: [{
         role: "user",
         parts: [
