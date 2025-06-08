@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, VideoOff, Loader2, Camera, ArrowLeft } from "lucide-react";
+import { Eye, VideoOff, Loader2, Camera, ArrowLeft, X, Zap, ShoppingBag, DollarSign, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCamera } from "@/hooks/useCamera";
 import { Link } from "wouter";
@@ -48,33 +47,11 @@ export function LiveAnalysisPage() {
     if (!videoRef.current || !canvasRef.current || !stream) return;
     
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-    
     console.log('Starting frame capture');
     
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    
-    // Start capturing frames every 2 seconds for live analysis
     intervalRef.current = setInterval(() => {
-      if (video.readyState === video.HAVE_ENOUGH_DATA && connectionStatus === 'connected') {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const frameData = canvas.toDataURL('image/jpeg', 0.8);
-        
-        console.log('Capturing frame for analysis');
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
-            type: 'video_frame',
-            data: frameData.split(',')[1],
-            timestamp: Date.now()
-          }));
-        }
-      }
-    }, 2000);
+      analyzeCurrentFrame();
+    }, 3000); // Analyze every 3 seconds
   };
 
   const stopFrameCapture = () => {
@@ -86,68 +63,69 @@ export function LiveAnalysisPage() {
   };
 
   const startLiveAnalysis = async () => {
-    setConnectionStatus('connecting');
-    
     try {
-      // Start camera
+      setConnectionStatus('connecting');
+      
+      // Start camera first
       await startCamera();
       
-      // Set up WebSocket connection
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/api/live`;
+      // Wait a moment for camera to stabilize
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!stream) {
+        throw new Error('Camera not available');
+      }
+
+      // Create WebSocket connection
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${window.location.host}`;
+      
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       
       ws.onopen = () => {
-        console.log("WebSocket connected for live analysis");
+        console.log('WebSocket connected for live analysis');
         setConnectionStatus('connected');
         setIsActive(true);
         
-        // Start frame capture once video is playing
-        if (isPlaying) {
-          startFrameCapture();
-        }
-        
         toast({
           title: "Live Analysis Started",
-          description: "Real-time product identification active",
+          description: "Point your camera at products for real-time analysis",
         });
       };
       
       ws.onmessage = (event) => {
         try {
-          const response = JSON.parse(event.data);
-          if (response.type === 'analysis') {
-            setLastAnalysis(response.productName || "Analyzing...");
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'analysis_result') {
+            setLastAnalysis(data.analysis);
             setAnalysisCount(prev => prev + 1);
             setIsAnalyzing(false);
-            
-            if (response.productName && response.productName !== "No product detected") {
-              toast({
-                title: "Product Detected",
-                description: response.productName,
-              });
-            }
+          } else if (data.type === 'error') {
+            console.error('Analysis error:', data.message);
+            setIsAnalyzing(false);
           }
         } catch (error) {
-          console.error('Error parsing WebSocket response:', error);
+          console.error('WebSocket message parsing error:', error);
+          setIsAnalyzing(false);
         }
+      };
+      
+      ws.onclose = () => {
+        console.log('WebSocket connection closed');
+        setConnectionStatus('disconnected');
       };
       
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
         setConnectionStatus('disconnected');
+        
         toast({
           title: "Connection Error",
           description: "Failed to connect to analysis service",
-          variant: "destructive"
+          variant: "destructive",
         });
-      };
-      
-      ws.onclose = () => {
-        console.log("WebSocket connection closed");
-        setIsActive(false);
-        setConnectionStatus('disconnected');
       };
       
     } catch (error) {
@@ -236,203 +214,227 @@ export function LiveAnalysisPage() {
     };
   }, []);
 
+  // Mobile-first immersive UI when active
+  if (isActive) {
+    return (
+      <div className="fixed inset-0 bg-black z-50 flex flex-col">
+        {/* Top Status Bar - Mobile Style */}
+        <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/70 to-transparent p-4 safe-area-inset-top">
+          <div className="flex items-center justify-between text-white">
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={stopLiveAnalysis}
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/20 p-2 h-auto w-auto rounded-full"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                <span className="text-sm font-medium">LIVE</span>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+                {analysisCount} scans
+              </Badge>
+              {connectionStatus === 'connected' && (
+                <div className="w-2 h-2 bg-green-500 rounded-full" />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Full Screen Video */}
+        <div className="flex-1 relative">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+          />
+
+          {/* Analysis Overlay */}
+          {isAnalyzing && (
+            <div className="absolute inset-0 bg-blue-600/20 flex items-center justify-center">
+              <div className="bg-blue-600 text-white px-6 py-3 rounded-2xl flex items-center gap-3">
+                <Zap className="w-5 h-5 animate-pulse" />
+                <span className="font-medium">Analyzing product...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Center Focus Ring */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-64 h-64 border-2 border-white/50 rounded-2xl relative">
+              <div className="absolute -top-1 -left-1 w-6 h-6 border-l-2 border-t-2 border-white rounded-tl-lg" />
+              <div className="absolute -top-1 -right-1 w-6 h-6 border-r-2 border-t-2 border-white rounded-tr-lg" />
+              <div className="absolute -bottom-1 -left-1 w-6 h-6 border-l-2 border-b-2 border-white rounded-bl-lg" />
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-r-2 border-b-2 border-white rounded-br-lg" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-white/80 text-center">
+                  <Camera className="w-8 h-8 mx-auto mb-2" />
+                  <p className="text-sm font-medium">Focus on product</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Error State Overlay */}
+          {cameraError && (
+            <div className="absolute inset-0 bg-red-900/80 flex items-center justify-center text-white text-center p-8">
+              <div>
+                <VideoOff className="w-12 h-12 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Camera Error</h3>
+                <p className="text-red-200 mb-4">{cameraError}</p>
+                <Button onClick={startLiveAnalysis} variant="secondary">
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Analysis Results - Slide Up Panel */}
+        {lastAnalysis && (
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 max-h-96 overflow-y-auto safe-area-inset-bottom">
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 text-white">
+              <div className="flex items-center gap-2 mb-3">
+                <ShoppingBag className="w-5 h-5 text-green-400" />
+                <span className="font-semibold">Product Analysis</span>
+              </div>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                {lastAnalysis}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Instruction Text */}
+        {!lastAnalysis && (
+          <div className="absolute bottom-8 left-4 right-4 text-center safe-area-inset-bottom">
+            <div className="bg-black/50 backdrop-blur-sm rounded-2xl px-6 py-3">
+              <p className="text-white/90 text-sm">
+                Point camera at any product for instant market analysis
+              </p>
+            </div>
+          </div>
+        )}
+
+        <canvas ref={canvasRef} className="hidden" />
+      </div>
+    );
+  }
+
+  // Landing/Setup Screen
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto px-4 py-6">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-8">
           <Link href="/">
             <Button variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Home
+              Back
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Live Analysis</h1>
-            <p className="text-gray-600 dark:text-gray-400">Real-time product identification through camera</p>
+            <h1 className="text-3xl font-bold">Live Analysis</h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Real-time product identification and market insights
+            </p>
           </div>
         </div>
 
-        {/* Status Bar */}
-        <div className="flex items-center justify-between mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-          <div className="flex items-center gap-4">
-            <Badge variant={connectionStatus === 'connected' ? 'default' : 'secondary'}>
-              {connectionStatus === 'connected' && <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />}
-              {connectionStatus.charAt(0).toUpperCase() + connectionStatus.slice(1)}
-            </Badge>
-            
-            {analysisCount > 0 && (
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {analysisCount} analysis{analysisCount !== 1 ? 'es' : ''} completed
-              </span>
-            )}
+        {/* Error Banner */}
+        {cameraError && (
+          <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <VideoOff className="h-5 w-5 text-red-600 dark:text-red-400" />
+              <div>
+                <p className="font-medium text-red-900 dark:text-red-100">Camera Access Required</p>
+                <p className="text-sm text-red-700 dark:text-red-300">{cameraError}</p>
+              </div>
+            </div>
           </div>
-          
-          <div className="flex gap-2">
-            {!isActive ? (
-              <Button 
-                onClick={startLiveAnalysis} 
+        )}
+
+        {/* Main Setup Card */}
+        <div className="max-w-md mx-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+            {/* Preview Area */}
+            <div className="aspect-video bg-black relative">
+              {cameraLoading ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center text-white">
+                    <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin" />
+                    <p className="text-sm">Preparing camera...</p>
+                  </div>
+                </div>
+              ) : stream ? (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-white">
+                  <div className="text-center">
+                    <Camera className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p className="text-sm opacity-75">Camera preview</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Controls */}
+            <div className="p-6 space-y-4">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold mb-2">Ready to Analyze</h2>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  Start live analysis to identify products and get instant market insights
+                </p>
+              </div>
+
+              <Button
+                onClick={startLiveAnalysis}
                 disabled={cameraLoading}
-                className="bg-green-600 hover:bg-green-700"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-medium"
+                size="lg"
               >
                 {cameraLoading ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                 ) : (
-                  <Camera className="h-4 w-4 mr-2" />
+                  <Zap className="h-5 w-5 mr-2" />
                 )}
                 Start Live Analysis
               </Button>
-            ) : (
-              <Button onClick={stopLiveAnalysis} variant="destructive">
-                <VideoOff className="h-4 w-4 mr-2" />
-                Stop Analysis
-              </Button>
-            )}
-          </div>
-        </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Camera Feed */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="h-5 w-5" />
-                  Live Camera Feed
-                  {isPlaying && (
-                    <Badge variant="outline" className="text-green-600 border-green-600">
-                      Live Analysis Ready
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden">
-                  {/* Error State */}
-                  {cameraError && (
-                    <div className="absolute inset-0 bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
-                      <div className="text-center">
-                        <VideoOff className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                        <p className="text-red-600 dark:text-red-400 text-sm">{cameraError}</p>
-                        <Button 
-                          onClick={() => startCamera()} 
-                          size="sm" 
-                          className="mt-2"
-                        >
-                          Retry Camera
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Loading State */}
-                  {cameraLoading && !cameraError && (
-                    <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                      <div className="text-center">
-                        <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-2 animate-spin" />
-                        <span className="text-gray-300 text-sm">Connecting to camera...</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Video Not Playing State */}
-                  {stream && !isPlaying && !cameraError && !cameraLoading && (
-                    <div className="absolute inset-0 bg-gray-800 z-5 flex items-center justify-center">
-                      <div className="text-center">
-                        <Eye className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <span className="text-gray-300 text-sm block mb-2">Camera ready</span>
-                        <Button 
-                          onClick={playVideo}
-                          className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                        >
-                          Start Video Feed
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Video Element */}
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="relative z-10 w-full h-full object-cover"
-                    style={{ minHeight: '400px' }}
-                  />
-                  
-                  {/* Hidden canvas for frame capture */}
-                  <canvas
-                    ref={canvasRef}
-                    className="hidden"
-                    width="640"
-                    height="480"
-                  />
-                  
-                  {/* Analysis Status Overlay */}
-                  {isActive && (
-                    <div className="absolute top-4 left-4 right-4 z-20">
-                      <div className="bg-black/70 text-white px-3 py-2 rounded-lg text-sm">
-                        {isAnalyzing ? (
-                          <div className="flex items-center gap-2">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Analyzing frame...
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-between">
-                            <span>Live analysis active</span>
-                            <Button 
-                              onClick={analyzeCurrentFrame}
-                              size="sm"
-                              disabled={isAnalyzing}
-                              className="text-xs h-6"
-                            >
-                              Analyze Now
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+              {/* Features */}
+              <div className="space-y-3 pt-4 border-t dark:border-gray-700">
+                <div className="flex items-center gap-3 text-sm">
+                  <Eye className="w-4 h-4 text-blue-600" />
+                  <span>Real-time product identification</span>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Analysis Results */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Analysis Results</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {lastAnalysis ? (
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Latest Detection</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded">
-                        {lastAnalysis}
-                      </p>
-                    </div>
-                    
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                        Total Analyses: {analysisCount}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Eye className="h-8 w-8 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-500 dark:text-gray-400">
-                      Point your camera at products for instant AI identification. Results will appear here.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                <div className="flex items-center gap-3 text-sm">
+                  <DollarSign className="w-4 h-4 text-green-600" />
+                  <span>Instant market pricing analysis</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <Info className="w-4 h-4 text-purple-600" />
+                  <span>Detailed product insights</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
+        <canvas ref={canvasRef} className="hidden" />
       </div>
     </div>
   );
