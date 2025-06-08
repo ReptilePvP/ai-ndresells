@@ -30,13 +30,38 @@ export function LiveAnalysisPage() {
     height: 1080
   });
 
-  // Debug stream state changes
+  // Debug stream state changes and ensure video element gets the stream
   useEffect(() => {
     console.log('Stream state changed:', {
       hasStream: !!stream,
       streamId: stream?.id,
-      tracks: stream?.getTracks().length
+      tracks: stream?.getTracks().length,
+      videoElement: !!videoRef.current,
+      videoSrcObject: videoRef.current?.srcObject
     });
+    
+    // Ensure video element gets the stream when available
+    if (videoRef.current && stream) {
+      console.log('Assigning stream to video element');
+      videoRef.current.srcObject = stream;
+      
+      // Force video to load and play
+      videoRef.current.load();
+      videoRef.current.play().then(() => {
+        console.log('Video started playing successfully');
+      }).catch(error => {
+        console.log('Video play failed:', error);
+        // Try again after a short delay
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.play().catch(console.log);
+          }
+        }, 1000);
+      });
+    } else if (videoRef.current && !stream) {
+      console.log('Clearing video srcObject');
+      videoRef.current.srcObject = null;
+    }
   }, [stream]);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -368,22 +393,27 @@ export function LiveAnalysisPage() {
 
         {/* Full Screen Video */}
         <div className="flex-1 relative">
+          {!stream && !cameraError && (
+            <div className="absolute inset-0 bg-gray-900 flex items-center justify-center text-white">
+              <div className="text-center">
+                <Camera className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-lg font-medium mb-2">Camera Initializing</p>
+                <p className="text-gray-400">Setting up video stream...</p>
+              </div>
+            </div>
+          )}
+          
           <video
-            ref={(el) => {
-              if (videoRef) {
-                videoRef.current = el;
-              }
-              // Ensure the video gets the stream immediately when element is ready
-              if (el && stream) {
-                el.srcObject = stream;
-                el.play().catch(console.log);
-              }
-            }}
+            ref={videoRef}
             autoPlay
             playsInline
             muted
             className="w-full h-full object-cover"
             style={{ backgroundColor: '#000' }}
+            onLoadedMetadata={() => console.log('Video metadata loaded')}
+            onCanPlay={() => console.log('Video can play')}
+            onPlay={() => console.log('Video playing')}
+            onError={(e) => console.error('Video error:', e)}
           />
 
           {/* Analysis Overlay */}
