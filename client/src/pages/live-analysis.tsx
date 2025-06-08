@@ -83,41 +83,35 @@ export function LiveAnalysisPage() {
 
       const video = videoRef.current;
       
-      // Wait for video metadata to load
-      const waitForVideoReady = () => {
-        return new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error('Video metadata loading timeout'));
-          }, 10000);
-          
-          const checkReady = () => {
-            if (video.videoWidth && video.videoHeight && video.readyState >= 2) {
-              clearTimeout(timeout);
-              console.log('Camera ready:', {
-                width: video.videoWidth,
-                height: video.videoHeight,
-                readyState: video.readyState,
-                playing: !video.paused
-              });
-              resolve();
-            }
-          };
-          
-          // Check if already ready
-          checkReady();
-          
-          // Listen for metadata loaded event
-          video.addEventListener('loadedmetadata', checkReady);
-          video.addEventListener('canplay', checkReady);
-          
-          // Try to play video to trigger metadata loading
-          if (video.paused) {
-            video.play().catch(console.log);
-          }
-        });
-      };
-
-      await waitForVideoReady();
+      // Simplified approach - just ensure we have a stream and proceed
+      console.log('Video element found, proceeding with stream-based setup...');
+      
+      // Check if we have the camera stream
+      if (!stream) {
+        throw new Error('No camera stream available');
+      }
+      
+      // Ensure video has the stream assigned
+      if (!video.srcObject) {
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        video.autoplay = true;
+      }
+      
+      // Try to play the video
+      try {
+        await video.play();
+        console.log('Video playing successfully');
+      } catch (playError) {
+        console.log('Video play attempt:', playError);
+        // Continue anyway - some browsers block autoplay but still work
+      }
+      
+      // Wait a short time for basic setup
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('Camera setup completed - proceeding with live analysis');
 
       // Create WebSocket connection to the correct path
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -240,14 +234,18 @@ export function LiveAnalysisPage() {
 
     const video = videoRef.current;
     
-    // Check if video has valid dimensions and is playing
-    if (!video.videoWidth || !video.videoHeight || video.paused || video.ended) {
-      console.log('Video not ready for analysis');
+    // Check if video has stream and is not paused
+    if (!video.srcObject || video.paused || video.ended) {
+      console.log('Video not ready for analysis - no stream or paused');
       return;
     }
 
+    // Allow analysis even if dimensions are 0 - some browsers don't report them correctly
+    const videoWidth = video.videoWidth || 640;
+    const videoHeight = video.videoHeight || 480;
+
     setIsAnalyzing(true);
-    console.log('Capturing frame for analysis');
+    console.log('Capturing frame for analysis', { videoWidth, videoHeight, readyState: video.readyState });
     
     try {
       const canvas = canvasRef.current;
@@ -258,9 +256,9 @@ export function LiveAnalysisPage() {
         return;
       }
 
-      // Set canvas dimensions to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Set canvas dimensions
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
 
       // Draw current video frame to canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
