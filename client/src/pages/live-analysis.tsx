@@ -87,9 +87,9 @@ export function LiveAnalysisPage() {
         throw new Error('Camera failed to initialize properly');
       }
 
-      // Create WebSocket connection
+      // Create WebSocket connection to the correct path
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProtocol}//${window.location.host}`;
+      const wsUrl = `${wsProtocol}//${window.location.host}/api/live`;
       
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;

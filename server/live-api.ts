@@ -363,8 +363,8 @@ If no clear product is visible, return: {"productName": "No product detected", "
 
     if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
       session.clientWs.send(JSON.stringify({
-        type: 'analysis',
-        productName: "No product detected",
+        type: 'analysis_result',
+        analysis: "No product detected",
         confidence: "low"
       }));
       return;
@@ -373,8 +373,8 @@ If no clear product is visible, return: {"productName": "No product detected", "
     const text = result.candidates[0].content.parts?.[0]?.text;
     if (!text) {
       session.clientWs.send(JSON.stringify({
-        type: 'analysis',
-        productName: "Analysis failed",
+        type: 'analysis_result',
+        analysis: "Analysis failed",
         confidence: "low"
       }));
       return;
@@ -395,30 +395,31 @@ If no clear product is visible, return: {"productName": "No product detected", "
       const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         session.clientWs.send(JSON.stringify({
-          type: 'analysis',
-          productName: "No product detected",
+          type: 'analysis_result',
+          analysis: "No product detected",
           confidence: "low"
         }));
         return;
       }
       
-      const analysis = JSON.parse(jsonMatch[0]);
+      const analysisResult = JSON.parse(jsonMatch[0]);
       session.clientWs.send(JSON.stringify({
-        type: 'analysis',
-        ...analysis
+        type: 'analysis_result',
+        analysis: analysisResult.productName || "Product identified",
+        confidence: analysisResult.confidence || "medium"
       }));
     } catch (parseError) {
       session.clientWs.send(JSON.stringify({
-        type: 'analysis',
-        productName: "Analyzing...",
+        type: 'analysis_result',
+        analysis: "Analyzing...",
         confidence: "low"
       }));
     }
   } catch (error) {
     console.error("Live frame analysis error:", error);
     session.clientWs.send(JSON.stringify({
-      type: 'analysis',
-      productName: "Analysis failed",
+      type: 'analysis_result',
+      analysis: "Analysis failed",
       confidence: "low"
     }));
   }
