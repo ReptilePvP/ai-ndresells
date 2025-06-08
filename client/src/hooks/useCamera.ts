@@ -24,13 +24,17 @@ export function useCamera(config?: CameraConfig) {
         throw new Error('Camera API not available in this browser. Please use a modern browser with HTTPS.');
       }
 
-      // Check camera permissions first
+      // Check camera permissions first with mobile compatibility
       try {
-        const permissions = await navigator.permissions.query({ name: 'camera' as PermissionName });
-        console.log('Camera permission status:', permissions.state);
-        
-        if (permissions.state === 'denied') {
-          throw new Error('Camera access denied. Please enable camera permissions in your browser settings.');
+        if (navigator.permissions && navigator.permissions.query) {
+          const permissions = await navigator.permissions.query({ name: 'camera' as PermissionName });
+          console.log('Camera permission status:', permissions.state);
+          
+          if (permissions.state === 'denied') {
+            throw new Error('Camera access denied. Please enable camera permissions in your browser settings and refresh the page.');
+          }
+        } else {
+          console.log('Permission API not available (mobile browser), proceeding with direct access');
         }
       } catch (permError) {
         console.log('Permission query not supported, proceeding with direct access');
@@ -43,14 +47,24 @@ export function useCamera(config?: CameraConfig) {
 
       const finalConfig = { ...config, ...customConfig };
       
-      // Progressive fallback configurations
+      // Mobile-optimized progressive fallback configurations
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
       const streamConfigs = [
-        // High quality with specified facing mode
+        // Mobile-optimized primary config
+        {
+          video: {
+            facingMode: { exact: finalConfig.facingMode || 'environment' },
+            width: { ideal: isMobile ? 1280 : (finalConfig.width || 1920), max: isMobile ? 1280 : 1920 },
+            height: { ideal: isMobile ? 720 : (finalConfig.height || 1080), max: isMobile ? 720 : 1080 }
+          }
+        },
+        // Fallback without exact facingMode constraint
         {
           video: {
             facingMode: finalConfig.facingMode || 'environment',
-            width: { ideal: finalConfig.width || 1920, max: 1920 },
-            height: { ideal: finalConfig.height || 1080, max: 1080 }
+            width: { ideal: isMobile ? 1280 : 1920 },
+            height: { ideal: isMobile ? 720 : 1080 }
           }
         },
         // Standard quality with facing mode
@@ -68,7 +82,13 @@ export function useCamera(config?: CameraConfig) {
             height: { ideal: 720 }
           }
         },
-        // Basic fallback
+        // Mobile basic fallback
+        {
+          video: {
+            facingMode: 'environment'
+          }
+        },
+        // Final fallback
         {
           video: true
         }
@@ -100,17 +120,36 @@ export function useCamera(config?: CameraConfig) {
       if (videoRef.current) {
         const video = videoRef.current;
         
-        // Configure video element properties
+        // Configure video element properties with enhanced mobile support
         video.srcObject = mediaStream;
         video.muted = true;
         video.playsInline = true;
         video.autoplay = true;
         
-        // Wait for video to be ready with proper event handling
+        // Enhanced mobile compatibility attributes
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('webkit-playsinline', 'true');
+        video.setAttribute('x5-video-player-type', 'h5');
+        video.setAttribute('x5-video-orientation', 'portraint');
+        
+        // Force video dimensions for mobile
+        if (isMobile) {
+          video.style.width = '100%';
+          video.style.height = 'auto';
+          video.style.objectFit = 'cover';
+        }
+        
+        // Wait for video to be ready with mobile-optimized timing
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
-            reject(new Error('Video setup timeout'));
-          }, 5000);
+            console.warn('Video setup timeout, proceeding anyway for mobile compatibility');
+            cleanup();
+            if (isMobile) {
+              resolve(); // Don't fail on mobile, just proceed
+            } else {
+              reject(new Error('Video setup timeout'));
+            }
+          }, isMobile ? 10000 : 5000); // Longer timeout for mobile
           
           const onMetadataLoaded = () => {
             console.log('Video metadata loaded:', {
@@ -229,6 +268,21 @@ export function useCamera(config?: CameraConfig) {
       }
     }
     return false;
+  };
+
+  const requestPermissions = async () => {
+    try {
+      // Force fresh permission request
+      const testStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      testStream.getTracks().forEach(track => track.stop());
+      console.log('Camera permissions granted successfully');
+      return true;
+    } catch (error) {
+      console.error('Permission request failed:', error);
+      return false;
+    }
   };
 
   useEffect(() => {
