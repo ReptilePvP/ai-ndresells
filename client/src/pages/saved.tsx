@@ -73,8 +73,14 @@ export default function Saved() {
 
       {savedAnalyses.length > 0 ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {savedAnalyses.map((analysis) => (
-            <AnalysisCard key={analysis.id} analysis={analysis} />
+          {savedAnalyses.map((analysis, index) => (
+            <div
+              key={analysis.id}
+              className="animate-scale-fade-in animate-stagger"
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
+              <AnalysisCard analysis={analysis} />
+            </div>
           ))}
         </div>
       ) : (

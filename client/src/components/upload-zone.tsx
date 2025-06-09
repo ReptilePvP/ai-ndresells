@@ -174,19 +174,19 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
                 type="button" 
                 onClick={() => setShowOptions(true)}
                 disabled={isLoading}
-                className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 w-full"
+                className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 w-full animate-scale-fade-in transition-all duration-300 hover:scale-105"
               >
                 {isLoading ? "Analyzing..." : "Choose Product Image"}
               </Button>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 animate-slide-in-left">
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={startCamera}
                     disabled={isLoading}
-                    className="flex flex-col items-center gap-2 h-auto py-4"
+                    className="flex flex-col items-center gap-2 h-auto py-4 animate-slide-in-left animate-stagger animate-stagger-1 transition-all duration-300 hover:scale-105"
                   >
                     <Camera className="h-6 w-6" />
                     <span className="text-sm">Take Photo</span>
@@ -196,7 +196,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
                     variant="outline"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading}
-                    className="flex flex-col items-center gap-2 h-auto py-4"
+                    className="flex flex-col items-center gap-2 h-auto py-4 animate-slide-in-right animate-stagger animate-stagger-2 transition-all duration-300 hover:scale-105"
                   >
                     <Upload className="h-6 w-6" />
                     <span className="text-sm">Upload File</span>
@@ -207,7 +207,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowOptions(false)}
-                  className="w-full"
+                  className="w-full animate-scale-fade-in animate-stagger animate-stagger-3"
                 >
                   Cancel
                 </Button>
