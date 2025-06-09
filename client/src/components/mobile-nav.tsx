@@ -42,6 +42,14 @@ export function MobileNav() {
             <span className="text-xs">History</span>
           </button>
         </Link>
+        <Link href="/animations">
+          <button className={`flex flex-col items-center py-2 px-3 transition-colors ${
+            isActive("/animations") ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
+          }`}>
+            <i className="fas fa-magic text-lg mb-1"></i>
+            <span className="text-xs">Demo</span>
+          </button>
+        </Link>
         {isAuthenticated ? (
           <Link href="/saved">
             <button className={`flex flex-col items-center py-2 px-3 transition-colors ${
