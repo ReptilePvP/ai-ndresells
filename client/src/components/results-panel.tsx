@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import AnalysisProgress from "@/components/analysis-progress";
 
 interface ResultsPanelProps {
@@ -13,6 +14,19 @@ interface ResultsPanelProps {
 export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
+
+  // Helper functions for guest save functionality
+  const getGuestSavedAnalyses = (): number[] => {
+    const saved = localStorage.getItem('guestSavedAnalyses');
+    return saved ? JSON.parse(saved) : [];
+  };
+
+  const setGuestSavedAnalyses = (analysisIds: number[]) => {
+    localStorage.setItem('guestSavedAnalyses', JSON.stringify(analysisIds));
+  };
+
+  const isGuestSaved = analysis ? getGuestSavedAnalyses().includes(analysis.id) : false;
 
   // Check if feedback already exists for this analysis
   const { data: existingFeedback, isLoading: feedbackLoading } = useQuery({
@@ -25,6 +39,18 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
       return response.json();
     },
     enabled: !!analysis?.id,
+  });
+
+  // Check if analysis is saved for authenticated users
+  const { data: saveStatus, isLoading: saveStatusLoading } = useQuery({
+    queryKey: ["/api/save/check", analysis?.id],
+    queryFn: async () => {
+      if (!analysis?.id || !isAuthenticated) return { isSaved: false };
+      const response = await fetch(`/api/save/check/${analysis.id}`);
+      if (!response.ok) return { isSaved: false };
+      return response.json();
+    },
+    enabled: !!analysis?.id && isAuthenticated,
   });
 
   const feedbackMutation = useMutation({
@@ -52,6 +78,57 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
     },
   });
 
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (isAuthenticated) {
+        // Authenticated user save/unsave
+        if (saveStatus?.isSaved) {
+          const response = await apiRequest("DELETE", `/api/save/${analysis.id}`);
+          return response.json();
+        } else {
+          const response = await apiRequest("POST", `/api/save/${analysis.id}`);
+          return response.json();
+        }
+      } else {
+        // Guest user local save/unsave
+        const currentSaved = getGuestSavedAnalyses();
+        if (isGuestSaved) {
+          const updated = currentSaved.filter(id => id !== analysis.id);
+          setGuestSavedAnalyses(updated);
+          return { removed: true };
+        } else {
+          const updated = [...currentSaved, analysis.id];
+          setGuestSavedAnalyses(updated);
+          return { saved: true };
+        }
+      }
+    },
+    onSuccess: (data) => {
+      const isSaved = isAuthenticated ? saveStatus?.isSaved : isGuestSaved;
+      toast({
+        title: isSaved ? "Analysis removed" : "Analysis saved",
+        description: isSaved 
+          ? "Analysis removed from your saved collection" 
+          : isAuthenticated 
+            ? "Analysis added to your saved collection"
+            : "Analysis saved locally to your browser",
+      });
+      
+      if (isAuthenticated) {
+        queryClient.invalidateQueries({ queryKey: ["/api/save/check", analysis.id] });
+        queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/analyses"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save analysis",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (isLoading) {
     return <AnalysisProgress />;
   }
@@ -63,10 +140,32 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
           <i className="fas fa-chart-line text-emerald-500 mr-3"></i>
           Analysis Complete!
         </h2>
-        <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 rounded-full text-sm font-medium animate-bounce-in animate-stagger-2">
-          <i className="fas fa-check-circle mr-1"></i>
-          Analyzed
-        </span>
+        <div className="flex items-center space-x-3">
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending || (isAuthenticated && saveStatusLoading)}
+            variant={(isAuthenticated ? saveStatus?.isSaved : isGuestSaved) ? "default" : "outline"}
+            className={`${
+              (isAuthenticated ? saveStatus?.isSaved : isGuestSaved)
+                ? 'bg-blue-500 hover:bg-blue-600 text-white' 
+                : 'border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+            } animate-scale-fade-in animate-stagger-2`}
+          >
+            <i className={`${
+              (isAuthenticated ? saveStatus?.isSaved : isGuestSaved) ? 'fas fa-bookmark' : 'far fa-bookmark'
+            } mr-2`}></i>
+            {saveMutation.isPending 
+              ? 'Saving...' 
+              : (isAuthenticated ? saveStatus?.isSaved : isGuestSaved)
+                ? 'Saved' 
+                : 'Save'
+            }
+          </Button>
+          <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 rounded-full text-sm font-medium animate-bounce-in animate-stagger-3">
+            <i className="fas fa-check-circle mr-1"></i>
+            Analyzed
+          </span>
+        </div>
       </div>
       
       <div className="space-y-6">
