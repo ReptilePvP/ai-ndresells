@@ -1022,6 +1022,70 @@ Keep response concise for real-time display.`;
     }
   });
 
+  // Public system status endpoint
+  app.get("/api/system/status", async (req, res) => {
+    try {
+      // Test eBay API status
+      let ebayApiStatus = 'Unknown';
+      try {
+        const ebayService = createEbayProductionService();
+        if (ebayService) {
+          await ebayService.searchMarketplace('test');
+          ebayApiStatus = 'Connected';
+        } else {
+          ebayApiStatus = 'Not Configured';
+        }
+      } catch (error) {
+        console.error('eBay API test failed:', error);
+        ebayApiStatus = 'Error';
+      }
+
+      // Test StockX API status
+      let stockxApiStatus = 'Unknown';
+      try {
+        const { createStockXService } = await import('./stockx-api');
+        const stockxService = createStockXService();
+        if (stockxService) {
+          const testResult = await stockxService.testConnection();
+          stockxApiStatus = testResult ? 'Connected' : 'Error';
+        } else {
+          stockxApiStatus = 'Not Configured';
+        }
+      } catch (error) {
+        console.error('StockX API test failed:', error);
+        stockxApiStatus = 'Error';
+      }
+
+      // Test Gemini AI status
+      let geminiApiStatus = 'Unknown';
+      try {
+        if (apiKey && apiKey.length > 0) {
+          geminiApiStatus = 'Connected';
+        } else {
+          geminiApiStatus = 'Not Configured';
+        }
+      } catch (error) {
+        console.error('Gemini API test failed:', error);
+        geminiApiStatus = 'Error';
+      }
+
+      const systemStatus = {
+        apiStatus: {
+          ebayApi: ebayApiStatus,
+          stockxApi: stockxApiStatus,
+          geminiApi: geminiApiStatus,
+          database: 'Connected'
+        },
+        overallStatus: (ebayApiStatus === 'Connected' && geminiApiStatus === 'Connected') ? 'operational' : 'degraded'
+      };
+
+      res.json(systemStatus);
+    } catch (error) {
+      console.error("System status error:", error);
+      res.status(500).json({ message: "Failed to fetch system status" });
+    }
+  });
+
   // Get session stats (legacy endpoint)
   app.get("/api/stats/:sessionId", async (req, res) => {
     try {

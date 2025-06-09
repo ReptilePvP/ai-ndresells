@@ -53,6 +53,16 @@ export default function Dashboard() {
     },
   });
 
+  const { data: systemStatus } = useQuery({
+    queryKey: ["/api/system/status"],
+    queryFn: async () => {
+      const response = await fetch("/api/system/status");
+      if (!response.ok) throw new Error('Failed to fetch system status');
+      return response.json();
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
   const recentAnalyses = analyses.slice(0, 6);
   const displayAnalyses = activeTab === 'recent' ? recentAnalyses : savedAnalyses.slice(0, 6);
 
@@ -80,9 +90,20 @@ export default function Dashboard() {
             <i className="fas fa-server text-blue-500 mr-2"></i>
             System Status
           </h2>
-          <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-sm font-medium">
-            <i className="fas fa-check-circle mr-1"></i>
-            All Systems Operational
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            systemStatus?.overallStatus === 'operational' 
+              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+              : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'
+          }`}>
+            <i className={`mr-1 ${
+              systemStatus?.overallStatus === 'operational' 
+                ? 'fas fa-check-circle' 
+                : 'fas fa-exclamation-triangle'
+            }`}></i>
+            {systemStatus?.overallStatus === 'operational' 
+              ? 'All Systems Operational' 
+              : 'System Issues Detected'
+            }
           </span>
         </div>
         
@@ -104,12 +125,26 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">StockX OAuth</h3>
-              <i className="fas fa-key text-green-500"></i>
+              <i className={`fas fa-key ${
+                systemStatus?.apiStatus?.stockxApi === 'Connected' 
+                  ? 'text-green-500' 
+                  : 'text-red-500'
+              }`}></i>
             </div>
             <p className="text-xs text-gray-600 dark:text-gray-400">Authenticated sneaker and streetwear pricing</p>
             <div className="mt-2 flex items-center">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              <span className="text-xs text-green-600 dark:text-green-400">Authenticated</span>
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                systemStatus?.apiStatus?.stockxApi === 'Connected' 
+                  ? 'bg-green-500' 
+                  : 'bg-red-500'
+              }`}></div>
+              <span className={`text-xs ${
+                systemStatus?.apiStatus?.stockxApi === 'Connected' 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {systemStatus?.apiStatus?.stockxApi || 'Unknown'}
+              </span>
             </div>
           </div>
 
@@ -117,12 +152,26 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">eBay Marketplace</h3>
-              <i className="fas fa-shopping-cart text-green-500"></i>
+              <i className={`fas fa-shopping-cart ${
+                systemStatus?.apiStatus?.ebayApi === 'Connected' 
+                  ? 'text-green-500' 
+                  : 'text-red-500'
+              }`}></i>
             </div>
             <p className="text-xs text-gray-600 dark:text-gray-400">Real-time marketplace pricing and listings</p>
             <div className="mt-2 flex items-center">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              <span className="text-xs text-green-600 dark:text-green-400">Connected</span>
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                systemStatus?.apiStatus?.ebayApi === 'Connected' 
+                  ? 'bg-green-500' 
+                  : 'bg-red-500'
+              }`}></div>
+              <span className={`text-xs ${
+                systemStatus?.apiStatus?.ebayApi === 'Connected' 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {systemStatus?.apiStatus?.ebayApi || 'Unknown'}
+              </span>
             </div>
           </div>
 
@@ -130,12 +179,26 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Gemini AI + Search</h3>
-              <i className="fas fa-search text-green-500"></i>
+              <i className={`fas fa-search ${
+                systemStatus?.apiStatus?.geminiApi === 'Connected' 
+                  ? 'text-green-500' 
+                  : 'text-red-500'
+              }`}></i>
             </div>
             <p className="text-xs text-gray-600 dark:text-gray-400">AI with Google Search for verified product data</p>
             <div className="mt-2 flex items-center">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              <span className="text-xs text-green-600 dark:text-green-400">Search-Enhanced</span>
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                systemStatus?.apiStatus?.geminiApi === 'Connected' 
+                  ? 'bg-green-500' 
+                  : 'bg-red-500'
+              }`}></div>
+              <span className={`text-xs ${
+                systemStatus?.apiStatus?.geminiApi === 'Connected' 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {systemStatus?.apiStatus?.geminiApi === 'Connected' ? 'Search-Enhanced' : systemStatus?.apiStatus?.geminiApi || 'Unknown'}
+              </span>
             </div>
           </div>
         </div>
