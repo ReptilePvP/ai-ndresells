@@ -16,6 +16,7 @@ import { createEcommerceService, createGoogleShoppingService, createAmazonServic
 import { createPricingAggregator } from './pricing-aggregator';
 import { createMarketDataService } from './market-data-service';
 import { createIntelligentPricing } from './intelligent-pricing';
+import { accuracyValidator } from './accuracy-validator';
 
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY || 
@@ -348,53 +349,74 @@ If no clear product is visible, return: {"productName": "No product detected", "
       const imageBuffer = await fs.readFile(upload.filePath);
       const base64Image = imageBuffer.toString('base64');
 
+      // Validate image quality before processing
+      const imageValidation = accuracyValidator.validateImageQuality(base64Image);
+      if (!imageValidation.isValid) {
+        return res.status(400).json({ 
+          message: "Image quality insufficient for analysis",
+          issues: imageValidation.issues 
+        });
+      }
+
       // Use Gemini to analyze the image
       const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 
       const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `
-You are an expert product research analyst. Your task is to analyze the provided image to accurately identify the product, then perform real-time research using Google Search to return verified, up-to-date resale intelligence.
+You are an expert product research analyst specializing in resale market intelligence. Your task is to analyze the provided image with extreme precision and perform comprehensive market research to return verified, actionable data for resellers.
 
-GOAL:
-Return a structured JSON object with detailed and factual data for resale evaluation.
+ANALYSIS METHODOLOGY:
+1. VISUAL EXAMINATION:
+   - Identify ALL visible text, logos, model numbers, serial numbers, and distinctive features
+   - Note product condition indicators (packaging, wear, accessories)
+   - Classify product category (electronics, clothing, collectibles, etc.)
+   - Extract specific model identifiers and generation/version markers
 
-ALWAYS follow this output structure:
+2. PRODUCT IDENTIFICATION:
+   - Cross-reference visual elements with known product databases
+   - Use Google Search with specific model numbers and brand combinations
+   - Verify authenticity markers and distinguish from replicas/counterfeits
+   - Confirm exact product variant (color, storage size, regional version)
+
+3. MARKET RESEARCH:
+   - Research current retail prices from major retailers (Amazon, Best Buy, Walmart, Target)
+   - Analyze recent sold listings on eBay, Facebook Marketplace, Mercari, OfferUp
+   - Factor in product condition, completeness, and market demand
+   - Consider seasonal trends and market saturation
+
+4. VALIDATION:
+   - Cross-check pricing across multiple platforms
+   - Verify product specifications and features
+   - Ensure reference image accuracy and source credibility
+
+OUTPUT FORMAT (JSON):
 {
-  "productName": "string (Full name including brand and model. E.g., 'Sony WH-1000XM4 Wireless Noise-Cancelling Headphones')",
-  "description": "string (A rich, detailed product description covering features, specs, and common use cases. Write it like an Amazon product summary.)",
-  "averageSalePrice": "string (Retail pricing range for NEW condition items from major stores like Amazon, Walmart, Best Buy. E.g., '$249 - $299 USD')",
-  "resellPrice": "string (Recently SOLD listing prices for USED condition, based on eBay, Facebook Marketplace, Mercari, etc. Give a range like '$150 - $200 USD')",
-  "referenceImageUrl": "string (URL to a high-quality matching product image from a trusted site like amazon.com/images/, ebayimg.com, walmart.com, or bestbuy.com)"
+  "productName": "Complete product name with brand, model, and key specifications",
+  "description": "Comprehensive description including features, specifications, condition notes, and market positioning",
+  "category": "Primary product category (Electronics, Fashion, Home, Collectibles, etc.)",
+  "brand": "Brand name",
+  "model": "Model number or identifier",
+  "condition": "Apparent condition from image (New, Like New, Good, Fair)",
+  "averageSalePrice": "Current retail price range for new items ($X - $Y USD)",
+  "resellPrice": "Recent sold price range for similar condition ($X - $Y USD)",
+  "marketDemand": "High/Medium/Low based on search volume and listing frequency",
+  "profitMargin": "Estimated profit percentage for resellers",
+  "referenceImageUrl": "High-quality product image URL from trusted retailer"
 }
 
-STEP-BY-STEP STRATEGY:
-1. VISUAL IDENTITY:
-  - Extract brand name, product type, and possible model number from the image.
-  - Look for visual clues (logos, packaging, labels, colors, patterns).
+ACCURACY REQUIREMENTS:
+- Use only verified data from actual search results
+- Provide specific price ranges with 90%+ confidence
+- Include model-specific details when identifiable
+- Flag uncertainty with conservative estimates
+- Prioritize recent market data (last 30-60 days)
 
-2. PRODUCT CONFIRMATION:
-  - Use Google Search to confirm identification (e.g., '[visual details] site:amazon.com').
+QUALITY STANDARDS:
+- Product identification must be 85%+ confident or state limitations
+- Price data must reflect current market conditions
+- Reference images must match exact product variant
+- All URLs must be from established retailers or marketplaces
 
-3. PRICING RESEARCH:
-  - Find current NEW prices from retailers using '[brand model] site:amazon.com OR site:walmart.com'.
-  - Find SOLD prices for USED items using 'site:ebay.com "[brand model]" sold'.
-
-4. REFERENCE IMAGE:
-  - Find a clear, accurate product image from Amazon, eBay, or other major retail sources.
-  - Prioritize URLs ending in jpg/png from:
-    • amazon.com/images/
-    • i.ebayimg.com
-    • bestbuy.com
-    • walmartimages.com
-
-RULES:
-- All data MUST be derived from actual search results — do NOT guess or fabricate.
-- Only include ONE product in your analysis (the most prominent item in the image).
-- If multiple possible matches exist, pick the one with the strongest visual and data alignment.
-
-IF IN DOUBT:
-Be conservative — prefer slightly generic but accurate identification over uncertain specifics.
-
-This prompt should always be followed when analyzing product images for resale. Respond only with the completed JSON object.
+Analyze the image thoroughly and return only the JSON object with accurate, research-backed data.
 `;
 
       const result = await genAI.models.generateContent({
@@ -404,26 +426,23 @@ This prompt should always be followed when analyzing product images for resale. 
             role: "user",
             parts: [
               { text: SYSTEM_PROMPT_PRODUCT_ANALYSIS },
-              { text: `Please analyze this product image and provide detailed resale information.
+              { text: `TASK: Analyze this product image for resale market intelligence.
 
-Your task:
-- Identify the specific product shown in the image (brand, model, version).
-- Look up verified information online to determine:
-  • The product's name and description
-  • Current retail price (brand new)
-  • Current resale value (used/sold listings)
-  • A matching high-quality product image from a trusted source
+REQUIREMENTS:
+1. Examine the image for ALL visible details: brand logos, model numbers, text, distinctive features
+2. Use Google Search to verify product identification and gather current market data
+3. Research pricing from multiple sources: retail stores and recent sold listings
+4. Provide specific, data-backed pricing ranges with high confidence
 
-Only return your answer in the following JSON format:
-{
-  "productName": "...",
-  "description": "...",
-  "averageSalePrice": "...",
-  "resellPrice": "...",
-  "referenceImageUrl": "..."
-}
+SEARCH STRATEGY:
+- Start with visible text/model numbers: "[exact text from image]"
+- Cross-reference with: "[brand] [product type] [model]" 
+- Verify pricing: "[product name] price site:amazon.com OR site:bestbuy.com"
+- Check resale value: "[product name] sold site:ebay.com"
 
-Be accurate, concise, and use real data from Google Search and trusted sites like Amazon, eBay, Walmart, Best Buy, etc.` },
+CRITICAL: Use only current, verified data from actual search results. Do not estimate or guess pricing.
+
+Return the complete JSON object with accurate market intelligence.` },
               {
                 inlineData: {
                   mimeType: upload.mimeType,
@@ -546,7 +565,31 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
         }
       }
 
-      // Validate and create analysis
+      // Validate product data accuracy
+      const dataValidation = accuracyValidator.validateProductData({
+        productName: analysisData.productName || "",
+        brand: analysisData.brand,
+        model: analysisData.model,
+        category: analysisData.category,
+        condition: analysisData.condition,
+        averageSalePrice: enhancedAveragePrice,
+        resellPrice: enhancedResellPrice,
+        marketDemand: analysisData.marketDemand
+      });
+
+      // Generate comprehensive accuracy report
+      const accuracyReport = accuracyValidator.generateAccuracyReport(imageValidation, dataValidation);
+      
+      // Use validated confidence score
+      const confidenceScore = accuracyReport.overallConfidence;
+      
+      // Log accuracy insights for monitoring
+      console.log(`Analysis accuracy: ${accuracyReport.status} (${Math.round(confidenceScore * 100)}% confidence)`);
+      if (accuracyReport.improvements.length > 0) {
+        console.log('Recommendations:', accuracyReport.improvements.join(', '));
+      }
+
+      // Validate and create analysis with enhanced data
       const analysisInput = {
         uploadId,
         productName: analysisData.productName || "Unknown Product",
@@ -554,7 +597,7 @@ Be accurate, concise, and use real data from Google Search and trusted sites lik
         averageSalePrice: enhancedAveragePrice,
         resellPrice: enhancedResellPrice,
         referenceImageUrl: localReferenceImageUrl,
-        confidence: 0.85, // Default confidence
+        confidence: confidenceScore,
       };
 
       const validatedAnalysis = insertAnalysisSchema.parse(analysisInput);
