@@ -10,7 +10,7 @@ const AnalysisProgress = () => {
       title: "Processing Image",
       description: "Analyzing visual elements and extracting product details",
       icon: "fas fa-eye",
-      duration: 3000,
+      duration: 2500,
       color: "from-blue-500 to-blue-600"
     },
     {
@@ -18,7 +18,7 @@ const AnalysisProgress = () => {
       title: "Google Search",
       description: "Searching for exact product matches and specifications",
       icon: "fas fa-search",
-      duration: 4000,
+      duration: 5000,
       color: "from-green-500 to-green-600"
     },
     {
@@ -26,7 +26,7 @@ const AnalysisProgress = () => {
       title: "Market Data",
       description: "Gathering pricing from eBay and verified retailers",
       icon: "fas fa-chart-line",
-      duration: 6000,
+      duration: 8000,
       color: "from-purple-500 to-purple-600"
     },
     {
@@ -34,7 +34,7 @@ const AnalysisProgress = () => {
       title: "Price Analysis",
       description: "Calculating retail and resale value estimates",
       icon: "fas fa-calculator",
-      duration: 4000,
+      duration: 3500,
       color: "from-orange-500 to-orange-600"
     },
     {
@@ -50,36 +50,50 @@ const AnalysisProgress = () => {
       title: "Final Analysis",
       description: "Compiling comprehensive market intelligence",
       icon: "fas fa-brain",
-      duration: 3000,
+      duration: 2000,
       color: "from-pink-500 to-pink-600"
     }
   ];
 
   useEffect(() => {
-    const totalDuration = steps.reduce((sum, step) => sum + step.duration, 0);
-    let elapsed = 0;
+    let stepIndex = 0;
+    let stepStartTime = Date.now();
     
-    const progressInterval = setInterval(() => {
-      elapsed += 100;
-      const newProgress = Math.min((elapsed / totalDuration) * 100, 100);
-      setProgress(newProgress);
+    const updateProgress = () => {
+      if (stepIndex >= steps.length) return;
       
-      // Calculate current step based on elapsed time
-      let stepElapsed = 0;
-      for (let i = 0; i < steps.length; i++) {
-        if (elapsed <= stepElapsed + steps[i].duration) {
-          setCurrentStep(i);
-          break;
-        }
-        stepElapsed += steps[i].duration;
-      }
+      const currentStepDuration = steps[stepIndex].duration;
+      const elapsed = Date.now() - stepStartTime;
+      const stepProgress = Math.min(elapsed / currentStepDuration, 1);
       
-      if (elapsed >= totalDuration) {
-        clearInterval(progressInterval);
+      // Calculate overall progress
+      const completedSteps = stepIndex;
+      const totalSteps = steps.length;
+      const overallProgress = ((completedSteps + stepProgress) / totalSteps) * 100;
+      
+      setProgress(Math.min(overallProgress, 95)); // Keep at 95% until actual completion
+      setCurrentStep(stepIndex);
+      
+      // Move to next step when current is complete
+      if (stepProgress >= 1 && stepIndex < steps.length - 1) {
+        stepIndex++;
+        stepStartTime = Date.now();
       }
-    }, 100);
-
-    return () => clearInterval(progressInterval);
+    };
+    
+    const progressInterval = setInterval(updateProgress, 150);
+    
+    // Auto-complete after reasonable time
+    const autoComplete = setTimeout(() => {
+      setProgress(100);
+      setCurrentStep(steps.length - 1);
+      clearInterval(progressInterval);
+    }, 25000); // 25 seconds max
+    
+    return () => {
+      clearInterval(progressInterval);
+      clearTimeout(autoComplete);
+    };
   }, []);
 
   return (
