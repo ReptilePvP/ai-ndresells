@@ -9,11 +9,11 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
   const timeAgo = formatDistanceToNow(new Date(analysis.analyzedAt), { addSuffix: true });
   
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-all duration-300 hover:scale-105 animate-scale-fade-in">
+      <div className="flex items-center justify-between mb-3 animate-slide-in-left animate-stagger animate-stagger-1">
         <span className="text-sm text-gray-500 dark:text-gray-400">{timeAgo}</span>
         {analysis.feedback && (
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+          <span className={`px-2 py-1 rounded-full text-xs font-medium animate-bounce-in animate-stagger-2 ${
             analysis.feedback.isAccurate
               ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200"
               : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"

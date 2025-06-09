@@ -69,25 +69,25 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 animate-in slide-in-from-bottom-5 duration-500">
-      <div className="flex items-center justify-between mb-6">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 animate-slide-in-right overflow-hidden">
+      <div className="flex items-center justify-between mb-6 animate-scale-fade-in animate-stagger animate-stagger-1">
         <h2 className="text-2xl font-bold flex items-center">
           <i className="fas fa-chart-line text-emerald-500 mr-3"></i>
-          Analysis Results
+          Analysis Complete!
         </h2>
-        <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 rounded-full text-sm font-medium">
+        <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 rounded-full text-sm font-medium animate-bounce-in animate-stagger-2">
           <i className="fas fa-check-circle mr-1"></i>
           Analyzed
         </span>
       </div>
       
       <div className="space-y-6">
-        <div className="border-l-4 border-blue-500 pl-4">
+        <div className="border-l-4 border-blue-500 pl-4 animate-slide-in-left animate-stagger animate-stagger-2">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Product Name</h3>
-          <p className="text-lg">{analysis.productName}</p>
+          <p className="text-lg font-medium">{analysis.productName}</p>
         </div>
         
-        <div className="border-l-4 border-purple-500 pl-4">
+        <div className="border-l-4 border-purple-500 pl-4 animate-slide-in-left animate-stagger animate-stagger-3">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Description</h3>
           <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
             {analysis.description}
@@ -95,7 +95,7 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
         </div>
 
         {analysis.referenceImageUrl && (
-          <div className="border-l-4 border-indigo-500 pl-4">
+          <div className="border-l-4 border-indigo-500 pl-4 animate-scale-fade-in animate-stagger animate-stagger-4">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Reference Match</h3>
             <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
               <img
@@ -116,34 +116,34 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
         )}
 
         
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
+        <div className="grid md:grid-cols-2 gap-4 animate-stagger animate-stagger-4">
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 animate-slide-in-left">
             <div className="flex items-center mb-2">
               <i className="fas fa-tag text-emerald-600 mr-2"></i>
-              <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">New Price</h4>
+              <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">Average New Price</h4>
             </div>
-            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{analysis.averageSalePrice}</p>
-            <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">Current retail price</p>
+            <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{analysis.averageSalePrice}</p>
+            <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">Estimated market value when new</p>
           </div>
           
-          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 animate-slide-in-right">
             <div className="flex items-center mb-2">
-              <i className="fas fa-recycle text-amber-600 mr-2"></i>
-              <h4 className="font-semibold text-amber-900 dark:text-amber-100">Resell Price</h4>
+              <i className="fas fa-coins text-blue-600 mr-2"></i>
+              <h4 className="font-semibold text-blue-900 dark:text-blue-100">Estimated Resell Value</h4>
             </div>
-            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{analysis.resellPrice}</p>
-            <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">Used market value</p>
+            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{analysis.resellPrice}</p>
+            <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">Your potential earnings</p>
           </div>
         </div>
         
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 animate-scale-fade-in animate-stagger animate-stagger-4">
           <h4 className="font-semibold mb-3 flex items-center">
             <i className="fas fa-thumbs-up text-blue-500 mr-2"></i>
             How accurate is this analysis?
           </h4>
           
           {existingFeedback ? (
-            <div className="text-center">
+            <div className="text-center animate-bounce-in">
               <div className={`inline-flex items-center px-4 py-2 rounded-lg font-medium ${
                 existingFeedback.isAccurate 
                   ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200'
@@ -161,7 +161,7 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
               <Button
                 onClick={() => feedbackMutation.mutate(true)}
                 disabled={feedbackMutation.isPending || feedbackLoading}
-                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white animate-slide-in-left animate-stagger animate-stagger-1"
               >
                 <i className="fas fa-check mr-2"></i>
                 {feedbackMutation.isPending ? 'Submitting...' : 'Accurate'}
@@ -169,7 +169,7 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
               <Button
                 onClick={() => feedbackMutation.mutate(false)}
                 disabled={feedbackMutation.isPending || feedbackLoading}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white animate-slide-in-right animate-stagger animate-stagger-2"
               >
                 <i className="fas fa-times mr-2"></i>
                 {feedbackMutation.isPending ? 'Submitting...' : 'Not Accurate'}

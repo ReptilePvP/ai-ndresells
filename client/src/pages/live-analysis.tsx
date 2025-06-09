@@ -531,13 +531,13 @@ export function LiveAnalysisPage() {
 
           {/* Analysis Results Overlay */}
           {lastAnalysis && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-white">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm font-medium">Analysis Result</span>
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 animate-slide-in-right">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-white animate-scale-fade-in">
+                <div className="flex items-center gap-2 mb-2 animate-slide-in-left animate-stagger animate-stagger-1">
+                  <Zap className="w-4 h-4 text-blue-400 animate-bounce-in" />
+                  <span className="text-sm font-medium">Analysis Complete!</span>
                 </div>
-                <p className="text-sm">{lastAnalysis}</p>
+                <p className="text-sm animate-slide-in-left animate-stagger animate-stagger-2">{lastAnalysis}</p>
               </div>
             </div>
           )}
