@@ -142,34 +142,52 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
         }`}
       >
         <div className="space-y-4">
-          <div className={`w-20 h-20 mx-auto rounded-xl flex items-center justify-center transition-all duration-300 ${
-            isDragOver 
-              ? "bg-gradient-to-br from-blue-100 to-green-100 dark:from-blue-900/40 dark:to-green-900/40 scale-105" 
-              : "bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 hover:scale-105"
-          }`}>
-            <img 
-              src={cameraIconPath} 
-              alt="Upload Camera Icon" 
-              className="w-12 h-12 object-contain opacity-80"
-            />
-          </div>
-          <div 
-            onClick={() => fileInputRef.current?.click()}
-            className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg p-4 transition-colors"
-          >
-            <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-              Drop your product image here or click to browse
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              AI will analyze and price your product instantly
-            </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              Supports JPG, PNG, WEBP up to 10MB
-            </p>
-          </div>
+          {preview ? (
+            <div className="relative">
+              <img
+                src={preview}
+                alt="Uploaded product"
+                className="w-full h-64 object-contain bg-gray-50 dark:bg-gray-700 rounded-xl"
+              />
+              <button
+                onClick={clearPreview}
+                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition-colors shadow-lg"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className={`w-20 h-20 mx-auto rounded-xl flex items-center justify-center transition-all duration-300 ${
+                isDragOver 
+                  ? "bg-gradient-to-br from-blue-100 to-green-100 dark:from-blue-900/40 dark:to-green-900/40 scale-105" 
+                  : "bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 hover:scale-105"
+              }`}>
+                <img 
+                  src={cameraIconPath} 
+                  alt="Upload Camera Icon" 
+                  className="w-12 h-12 object-contain opacity-80"
+                />
+              </div>
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg p-4 transition-colors"
+              >
+                <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                  Drop your product image here or click to browse
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  AI will analyze and price your product instantly
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  Supports JPG, PNG, WEBP up to 10MB
+                </p>
+              </div>
+            </>
+          )}
           <div className="space-y-3">
             {/* Upload options - Camera or File */}
-            {!showOptions ? (
+            {!preview && !showOptions ? (
               <Button 
                 type="button" 
                 onClick={() => setShowOptions(true)}
@@ -178,7 +196,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
               >
                 {isLoading ? "Analyzing..." : "Choose Product Image"}
               </Button>
-            ) : (
+            ) : !preview ? (
               <div className="space-y-3 animate-slide-in-left">
                 <div className="grid grid-cols-2 gap-3">
                   <Button
@@ -212,8 +230,22 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
                   Cancel
                 </Button>
               </div>
-            )}
+            ) : null}
             
+            {preview && (
+              <div className="space-y-3 animate-slide-in-up">
+                <Button 
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowOptions(true)}
+                  disabled={isLoading}
+                  className="w-full border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Choose Different Image
+                </Button>
+              </div>
+            )}
 
           </div>
         </div>
@@ -269,27 +301,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
         className="hidden"
       />
 
-      {preview && (
-        <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-          <div className="relative">
-            <img
-              src={preview}
-              alt="Preview"
-              className="w-16 h-16 object-cover rounded-lg"
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-gray-900 dark:text-gray-100 text-sm">Image Selected</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Ready for analysis</p>
-          </div>
-          <button
-            onClick={clearPreview}
-            className="text-gray-400 hover:text-red-500 transition-colors p-1"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+
     </div>
   );
 }
