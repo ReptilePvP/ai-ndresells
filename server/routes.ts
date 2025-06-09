@@ -442,6 +442,13 @@ SEARCH STRATEGY:
 - Cross-reference with: "[brand] [product type] [model]" 
 - Verify pricing: "[product name] price site:amazon.com OR site:bestbuy.com"
 - Check resale value: "[product name] sold site:ebay.com"
+- FIND REFERENCE IMAGE: Search for high-quality product images from retailers like Amazon, Best Buy, or official brand websites
+
+REFERENCE IMAGE REQUIREMENTS:
+- Must be from a verified retailer or marketplace
+- Should show the exact same product variant (color, model, size)
+- High resolution and clear product visibility
+- Direct image URL from trusted domain (amazon.com, bestbuy.com, target.com, etc.)
 
 CRITICAL: Use only current, verified data from actual search results. Do not estimate or guess pricing.
 
@@ -945,15 +952,32 @@ Keep response concise for real-time display.`;
     }
   });
 
-  // Serve uploaded images
-  app.get("/api/image/:filename", async (req, res) => {
+  // Serve uploaded images by filename or upload ID
+  app.get("/api/image/:identifier", async (req, res) => {
     try {
-      const { filename } = req.params;
-      const imagePath = path.join(uploadDir, filename);
+      const { identifier } = req.params;
+      let imagePath: string;
+
+      // Check if identifier is a number (upload ID) or filename
+      if (/^\d+$/.test(identifier)) {
+        // It's an upload ID, get the filename from database
+        const uploadId = parseInt(identifier);
+        const upload = await storage.getUpload(uploadId);
+        
+        if (!upload) {
+          return res.status(404).json({ message: "Upload not found" });
+        }
+        
+        imagePath = path.join(uploadDir, upload.filename);
+      } else {
+        // It's a filename
+        imagePath = path.join(uploadDir, identifier);
+      }
 
       await fs.access(imagePath);
       res.sendFile(imagePath);
-    } catch {
+    } catch (error) {
+      console.error('Image serve error:', error);
       res.status(404).json({ message: "Image not found" });
     }
   });
