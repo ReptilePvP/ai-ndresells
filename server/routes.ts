@@ -59,33 +59,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register", async (req, res) => {
     try {
       const validatedData = registerSchema.parse(req.body);
-      
+
       // Check if user already exists
       const existingEmail = await storage.getUserByEmail(validatedData.email);
       if (existingEmail) {
         return res.status(409).json({ message: "Email already registered" });
       }
-      
+
       const existingUsername = await storage.getUserByUsername(validatedData.username);
       if (existingUsername) {
         return res.status(409).json({ message: "Username already taken" });
       }
-      
+
       // Hash password and create user
       const hashedPassword = await hashPassword(validatedData.password);
       const user = await storage.createUser({ ...validatedData, password: hashedPassword });
-      
+
       // Set session and explicitly save it
       req.session.userId = user.id;
       req.session.userRole = user.role;
-      
+
       // Force session save for mobile compatibility
       req.session.save((err) => {
         if (err) {
           console.error("Session save error:", err);
           return res.status(500).json({ message: "Session creation failed" });
         }
-        
+
         res.json({ user });
       });
     } catch (error) {
@@ -97,28 +97,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const validatedData = loginSchema.parse(req.body);
-      
+
       const user = await storage.getUserByEmail(validatedData.email);
       if (!user || !user.isActive) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
-      
+
       const isValidPassword = await verifyPassword(validatedData.password, user.password);
       if (!isValidPassword) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
-      
+
       // Set session and explicitly save it
       req.session.userId = user.id;
       req.session.userRole = user.role;
-      
+
       // Force session save for mobile compatibility
       req.session.save((err) => {
         if (err) {
           console.error("Session save error:", err);
           return res.status(500).json({ message: "Session creation failed" });
         }
-        
+
         const { password, ...userWithoutPassword } = user;
         res.json({ user: userWithoutPassword });
       });
@@ -147,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/stats", requireAdmin, async (req, res) => {
     try {
       const stats = await storage.getSystemStats();
-      
+
       // Add eBay API status
       let ebayApiStatus = 'Unknown';
       try {
@@ -161,7 +161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         ebayApiStatus = 'Error';
       }
-      
+
       const enhancedStats = {
         ...stats,
         apiStatus: {
@@ -170,7 +170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           database: 'Connected'
         }
       };
-      
+
       res.json(enhancedStats);
     } catch (error) {
       console.error("Admin stats error:", error);
@@ -201,14 +201,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/analyze-live", async (req, res) => {
     try {
       const { imageData, sessionId } = req.body;
-      
+
       if (!imageData || !sessionId) {
         return res.status(400).json({ message: "Image data and session ID required" });
       }
 
       // Convert base64 data URL to base64 string
       const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
-      
+
       // Quick analysis with simpler prompt for live view
       const LIVE_ANALYSIS_PROMPT = `
 Analyze this image and identify the main product. Respond with only a JSON object:
@@ -254,14 +254,14 @@ If no clear product is visible, return: {"productName": "No product detected", "
       // Parse JSON response
       try {
         let cleanText = text.trim();
-        
+
         // Remove markdown code blocks if present
         if (cleanText.startsWith('```json')) {
           cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
         } else if (cleanText.startsWith('```')) {
           cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
         }
-        
+
         // Extract JSON object
         const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
@@ -270,7 +270,7 @@ If no clear product is visible, return: {"productName": "No product detected", "
             confidence: "low"
           });
         }
-        
+
         const analysis = JSON.parse(jsonMatch[0]);
         res.json(analysis);
       } catch (parseError) {
@@ -366,27 +366,27 @@ You are an expert product research analyst specializing in resale market intelli
 
 ANALYSIS METHODOLOGY:
 1. VISUAL EXAMINATION:
-   - Identify ALL visible text, logos, model numbers, serial numbers, and distinctive features
-   - Note product condition indicators (packaging, wear, accessories)
-   - Classify product category (electronics, clothing, collectibles, etc.)
-   - Extract specific model identifiers and generation/version markers
+   - Identify ALL visible text, logos, model numbers, serial numbers, and distinctive features.
+   - Note product condition indicators (packaging, wear, accessories).
+   - Classify product category (electronics, clothing, collectibles, etc.).
+   - Extract specific model identifiers and generation/version markers.
 
 2. PRODUCT IDENTIFICATION:
-   - Cross-reference visual elements with known product databases
-   - Use Google Search with specific model numbers and brand combinations
-   - Verify authenticity markers and distinguish from replicas/counterfeits
-   - Confirm exact product variant (color, storage size, regional version)
+   - Cross-reference visual elements with known product databases.
+   - Use Google Search with specific model numbers and brand combinations.
+   - Verify authenticity markers and distinguish from replicas/counterfeits.
+   - Confirm exact product variant (color, storage size, regional version).
 
 3. MARKET RESEARCH:
-   - Research current retail prices from major retailers (Amazon, Best Buy, Walmart, Target)
-   - Analyze recent sold listings on eBay, Facebook Marketplace, Mercari, OfferUp
-   - Factor in product condition, completeness, and market demand
-   - Consider seasonal trends and market saturation
+   - Research current retail prices from major retailers (Amazon, Best Buy, Walmart, Target).
+   - Analyze recent sold listings on eBay, Facebook Marketplace, Mercari, OfferUp.
+   - Factor in product condition, completeness, and market demand.
+   - Consider seasonal trends and market saturation.
 
 4. VALIDATION:
-   - Cross-check pricing across multiple platforms
-   - Verify product specifications and features
-   - Ensure reference image accuracy and source credibility
+   - Cross-check pricing across multiple platforms.
+   - Verify product specifications and features.
+   - Ensure reference image accuracy and source credibility.
 
 OUTPUT FORMAT (JSON):
 {
@@ -400,21 +400,24 @@ OUTPUT FORMAT (JSON):
   "resellPrice": "Recent sold price range for similar condition ($X - $Y USD)",
   "marketDemand": "High/Medium/Low based on search volume and listing frequency",
   "profitMargin": "Estimated profit percentage for resellers",
-  "referenceImageUrl": "High-quality product image URL from trusted retailer"
+  "referenceImageUrl": "High-quality product image URL from trusted retailer",
+  "confidence": "Overall confidence in the analysis (0.0 to 1.0)",
+  "sources": ["List of sources or platforms used for pricing data"]
 }
 
 ACCURACY REQUIREMENTS:
-- Use only verified data from actual search results
-- Provide specific price ranges with 90%+ confidence
-- Include model-specific details when identifiable
-- Flag uncertainty with conservative estimates
-- Prioritize recent market data (last 30-60 days)
+- Use only verified data from actual search results.
+- Provide specific price ranges with 90%+ confidence.
+- Include model-specific details when identifiable.
+- Flag uncertainty with conservative estimates and lower confidence scores.
+- Prioritize recent market data (last 30-60 days).
 
 QUALITY STANDARDS:
-- Product identification must be 85%+ confident or state limitations
-- Price data must reflect current market conditions
-- Reference images must match exact product variant
-- All URLs must be from established retailers or marketplaces
+- Product identification must be 85%+ confident or state limitations in the description.
+- Price data must reflect current market conditions.
+- Reference images must match exact product variant.
+- All URLs must be from established retailers or marketplaces.
+- Return ONLY the JSON object, without any additional text or markdown, to ensure parsing reliability.
 
 Analyze the image thoroughly and return only the JSON object with accurate, research-backed data.
 `;
@@ -473,26 +476,38 @@ Return the complete JSON object with accurate market intelligence.` },
       try {
         // Clean the response to extract JSON, removing markdown formatting
         let cleanText = text.trim();
-        
+
         // Remove markdown code blocks if present
         if (cleanText.startsWith('```json')) {
           cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
         } else if (cleanText.startsWith('```')) {
           cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
         }
-        
-        // Extract JSON object
+
+        // Extract JSON object with improved robustness
         const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
+          console.error("No JSON object found in Gemini response:", cleanText);
           throw new Error("No JSON found in response");
         }
-        
-        analysisData = JSON.parse(jsonMatch[0]);
+
+        const jsonStr = jsonMatch[0];
+        // Handle potential trailing commas or incomplete JSON
+        try {
+          analysisData = JSON.parse(jsonStr);
+        } catch (e) {
+          // Attempt to fix common JSON issues (e.g., trailing commas)
+          const fixedJsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+          analysisData = JSON.parse(fixedJsonStr);
+        }
         console.log("Parsed analysis data:", JSON.stringify(analysisData, null, 2));
       } catch (parseError) {
         console.error("Failed to parse Gemini response:", text);
         console.error("Raw response text:", text);
-        return res.status(500).json({ message: "Failed to parse AI response" });
+        return res.status(500).json({ 
+          message: "Failed to parse AI response", 
+          errorDetails: parseError instanceof Error ? parseError.message : "Unknown parsing error" 
+        });
       }
 
       // Generate reference image using AI if web image fails
@@ -504,13 +519,13 @@ Return the complete JSON object with accurate market intelligence.` },
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
           });
-          
+
           if (response.ok) {
             const imageBuffer = await response.arrayBuffer();
             const imageHash = crypto.createHash('md5').update(Buffer.from(imageBuffer)).digest('hex');
             const extension = analysisData.referenceImageUrl.split('.').pop()?.split('?')[0] || 'jpg';
             const referenceImagePath = path.join(uploadDir, `ref_${imageHash}.${extension}`);
-            
+
             await fs.writeFile(referenceImagePath, Buffer.from(imageBuffer));
             localReferenceImageUrl = `ref_${imageHash}.${extension}`;
             console.log('Reference image downloaded and stored:', localReferenceImageUrl);
@@ -525,23 +540,24 @@ Return the complete JSON object with accurate market intelligence.` },
       // Enhance pricing with eBay market data and intelligent analysis
       let enhancedResellPrice = analysisData.resellPrice || "Resell price not available";
       let enhancedAveragePrice = analysisData.averageSalePrice || "Price not available";
-      
+      let marketData: any = null;
+
       if (analysisData.productName) {
         try {
           // First try eBay market data with OAuth token
           console.log('Fetching market data for product:', analysisData.productName);
-          const marketData = await marketDataService.getMarketData(
+          marketData = await marketDataService.getMarketData(
             analysisData.productName,
             analysisData.averageSalePrice || "",
             analysisData.resellPrice || ""
           );
           console.log('Market data result:', marketData);
-          
+
           if (marketData.dataQuality === 'authenticated' && marketData.sources.length > 0) {
             // Use authenticated eBay data
             if (marketData.retailPrice) enhancedAveragePrice = marketData.retailPrice;
             if (marketData.resellPrice) enhancedResellPrice = marketData.resellPrice;
-            
+
             console.log(`eBay market data: ${marketData.sources.join(', ')}`);
           } else {
             // Fall back to intelligent pricing analysis
@@ -551,15 +567,15 @@ Return the complete JSON object with accurate market intelligence.` },
               analysisData.averageSalePrice || "",
               analysisData.resellPrice || ""
             );
-            
+
             if (pricingAnalysis.confidence > 0.7) {
               enhancedAveragePrice = pricingAnalysis.retailPrice;
               enhancedResellPrice = pricingAnalysis.resellPrice;
-              
+
               console.log(`Intelligent pricing: ${pricingAnalysis.marketCondition} (confidence: ${Math.round(pricingAnalysis.confidence * 100)}%)`);
             }
           }
-          
+
         } catch (error) {
           console.error('Pricing enhancement error:', error);
         }
@@ -579,10 +595,10 @@ Return the complete JSON object with accurate market intelligence.` },
 
       // Generate comprehensive accuracy report
       const accuracyReport = accuracyValidator.generateAccuracyReport(imageValidation, dataValidation);
-      
+
       // Use validated confidence score
       const confidenceScore = accuracyReport.overallConfidence;
-      
+
       // Log accuracy insights for monitoring
       console.log(`Analysis accuracy: ${accuracyReport.status} (${Math.round(confidenceScore * 100)}% confidence)`);
       if (accuracyReport.improvements.length > 0) {
@@ -597,6 +613,7 @@ Return the complete JSON object with accurate market intelligence.` },
         averageSalePrice: enhancedAveragePrice,
         resellPrice: enhancedResellPrice,
         referenceImageUrl: localReferenceImageUrl,
+        marketSummary: marketData?.marketSummary || "AI analysis based pricing",
         confidence: confidenceScore,
       };
 
@@ -616,17 +633,17 @@ Return the complete JSON object with accurate market intelligence.` },
   app.post("/api/analyze-live", async (req, res) => {
     try {
       const { imageData, sessionId } = req.body;
-      
+
       if (!imageData) {
         return res.status(400).json({ message: "Image data required" });
       }
 
       // Remove data URL prefix if present
       const base64Image = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
-      
+
       // Use Gemini to analyze the image with simplified prompt for live analysis
       const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
-      
+
       const LIVE_ANALYSIS_PROMPT = `
 Analyze this product image quickly for live viewing. Provide a brief analysis focusing on:
 1. Product identification (brand/type)
@@ -676,13 +693,13 @@ Keep response concise for real-time display.`;
       }
 
       const geminiResponse = await response.json();
-      
+
       if (!geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text) {
         throw new Error('Invalid response from Gemini API');
       }
 
       const analysisText = geminiResponse.candidates[0].content.parts[0].text;
-      
+
       // Parse JSON response
       let analysisData;
       try {
@@ -716,13 +733,13 @@ Keep response concise for real-time display.`;
   app.post("/api/feedback", async (req, res) => {
     try {
       const validatedData = insertFeedbackSchema.parse(req.body);
-      
+
       // Check if feedback already exists for this analysis
       const existingFeedback = await storage.getFeedbackByAnalysis(validatedData.analysisId);
       if (existingFeedback) {
         return res.status(409).json({ message: "Feedback already exists for this analysis" });
       }
-      
+
       const feedback = await storage.createFeedback(validatedData);
       res.json(feedback);
     } catch (error) {
@@ -736,11 +753,11 @@ Keep response concise for real-time display.`;
     try {
       const analysisId = parseInt(req.params.analysisId);
       const feedback = await storage.getFeedbackByAnalysis(analysisId);
-      
+
       if (!feedback) {
         return res.status(404).json({ message: "Feedback not found" });
       }
-      
+
       res.json(feedback);
     } catch (error) {
       console.error("Get feedback error:", error);
@@ -753,13 +770,13 @@ Keep response concise for real-time display.`;
     try {
       const analysisId = parseInt(req.params.analysisId);
       const user = (req as any).user;
-      
+
       // Check if already saved
       const isAlreadySaved = await storage.isAnalysisSaved(user.id, analysisId);
       if (isAlreadySaved) {
         return res.status(409).json({ message: "Analysis already saved" });
       }
-      
+
       const saved = await storage.saveAnalysis(user.id, analysisId);
       res.json(saved);
     } catch (error) {
@@ -773,7 +790,7 @@ Keep response concise for real-time display.`;
     try {
       const analysisId = parseInt(req.params.analysisId);
       const user = (req as any).user;
-      
+
       await storage.unsaveAnalysis(user.id, analysisId);
       res.json({ message: "Analysis unsaved successfully" });
     } catch (error) {
@@ -799,7 +816,7 @@ Keep response concise for real-time display.`;
     try {
       const analysisId = parseInt(req.params.analysisId);
       const user = (req as any).user;
-      
+
       const isSaved = await storage.isAnalysisSaved(user.id, analysisId);
       res.json({ isSaved });
     } catch (error) {
@@ -874,7 +891,7 @@ Keep response concise for real-time display.`;
         const totalAnalyses = analyses.length;
         const accuracyRate = totalAnalyses > 0 ? 85 : 0; // Default accuracy
         const totalValue = 0; // We'd need to parse prices to calculate this
-        
+
         stats = {
           totalAnalyses,
           accuracyRate,
@@ -917,7 +934,7 @@ Keep response concise for real-time display.`;
       }
 
       const deletedCount = await storage.clearUserHistory(user.id, timeframe);
-      
+
       res.json({ 
         message: "History cleared successfully",
         deletedCount 
@@ -933,7 +950,7 @@ Keep response concise for real-time display.`;
     try {
       const { filename } = req.params;
       const imagePath = path.join(uploadDir, filename);
-      
+
       await fs.access(imagePath);
       res.sendFile(imagePath);
     } catch {
@@ -942,14 +959,14 @@ Keep response concise for real-time display.`;
   });
 
   const httpServer = createServer(app);
-  
+
   // Setup WebSocket server for Live View
   const wss = new WebSocketServer({ 
     server: httpServer, 
     path: '/api/live'
   });
-  
+
   setupLiveAPI(wss);
-  
+
   return httpServer;
 }

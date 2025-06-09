@@ -94,26 +94,77 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
           </p>
         </div>
 
-        {analysis.referenceImageUrl && (
-          <div className="border-l-4 border-indigo-500 pl-4 animate-scale-fade-in animate-stagger animate-stagger-4">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Reference Match</h3>
+        {/* Image Comparison Section */}
+        <div className="border-l-4 border-indigo-500 pl-4 animate-scale-fade-in animate-stagger animate-stagger-4">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+            <i className="fas fa-images mr-2"></i>
+            Visual Comparison
+          </h3>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* User's Uploaded Image */}
             <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+              <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3 text-center">Your Upload</h4>
               <img
-                src={`/api/image/${analysis.referenceImageUrl}`}
-                alt="Reference product match"
-                className="w-full max-w-sm h-48 object-contain rounded-lg mx-auto block"
-                onLoad={() => console.log('Reference image loaded:', analysis.referenceImageUrl)}
+                src={`/api/image/${analysis.uploadId}`}
+                alt="Your uploaded product"
+                className="w-full h-48 object-contain rounded-lg"
                 onError={(e) => {
-                  console.error('Reference image failed to load:', analysis.referenceImageUrl);
+                  console.error('User image failed to load:', analysis.uploadId);
                   e.currentTarget.style.display = 'none';
                 }}
               />
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 text-center">
-                Closest match found in search results
+                Original submission
               </p>
             </div>
+
+            {/* Gemini's Reference Match */}
+            {analysis.referenceImageUrl ? (
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3 text-center flex items-center justify-center">
+                  <i className="fas fa-search mr-2 text-blue-500"></i>
+                  AI Match Found
+                </h4>
+                <img
+                  src={`/api/image/${analysis.referenceImageUrl}`}
+                  alt="AI reference match"
+                  className="w-full h-48 object-contain rounded-lg"
+                  onLoad={() => console.log('Reference image loaded:', analysis.referenceImageUrl)}
+                  onError={(e) => {
+                    console.error('Reference image failed to load:', analysis.referenceImageUrl);
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 text-center">
+                  Marketplace reference
+                </p>
+              </div>
+            ) : (
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 flex items-center justify-center">
+                <div className="text-center">
+                  <i className="fas fa-search-plus text-gray-400 text-3xl mb-3"></i>
+                  <h4 className="font-medium text-gray-500 dark:text-gray-400 mb-2">No Reference Found</h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-500">
+                    Analysis based on AI recognition only
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+          
+          {/* Comparison Insights */}
+          <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+            <p className="text-sm text-blue-800 dark:text-blue-200 flex items-start">
+              <i className="fas fa-lightbulb text-blue-500 mr-2 mt-0.5"></i>
+              <span>
+                {analysis.referenceImageUrl 
+                  ? "AI found a visual match in marketplace data to verify pricing accuracy"
+                  : "Analysis based on product recognition and market data without visual reference"
+                }
+              </span>
+            </p>
+          </div>
+        </div>
 
         
         <div className="grid md:grid-cols-2 gap-4 animate-stagger animate-stagger-4">
