@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import AnalysisProgress from "@/components/analysis-progress";
 
 interface ResultsPanelProps {
   analysis: Analysis;
@@ -52,20 +53,7 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
   });
 
   if (isLoading) {
-    return (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-4 animate-pulse">
-            <i className="fas fa-brain text-white text-xl"></i>
-          </div>
-          <h3 className="text-xl font-semibold mb-2">Analyzing Your Product...</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">Our AI is examining the image and gathering market data</p>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full animate-pulse w-2/3"></div>
-          </div>
-        </div>
-      </div>
-    );
+    return <AnalysisProgress />;
   }
 
   return (
