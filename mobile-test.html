@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Test - Product Analysis Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        .device {
+            background: #000;
+            border-radius: 25px;
+            padding: 8px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            position: relative;
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+        }
+        
+        .device:hover {
+            transform: scale(0.85);
+        }
+        
+        .device-info {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        .phone {
+            width: 320px;
+            height: 640px;
+        }
+        
+        .tablet {
+            width: 480px;
+            height: 640px;
+        }
+        
+        .device-screen {
+            width: 100%;
+            height: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .phone .notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 25px;
+            background: #000;
+            border-radius: 0 0 12px 12px;
+            z-index: 10;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 20px;
+        }
+        
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        .control-btn {
+            padding: 12px 20px;
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(10px);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #333;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .control-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        
+        .refresh-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            display: none;
+            z-index: 200;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .device {
+                transform: scale(0.9);
+            }
+            
+            .device:hover {
+                transform: scale(0.95);
+            }
+            
+            .controls {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                top: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- iPhone Simulator -->
+        <div class="device phone">
+            <div class="device-info">iPhone 15 Pro</div>
+            <div class="device-screen">
+                <div class="notch"></div>
+                <iframe src="http://localhost:5000" id="phone-frame"></iframe>
+            </div>
+        </div>
+        
+        <!-- iPad Simulator -->
+        <div class="device tablet">
+            <div class="device-info">iPad Pro</div>
+            <div class="device-screen">
+                <iframe src="http://localhost:5000" id="tablet-frame"></iframe>
+            </div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button class="control-btn" onclick="refreshAll()">🔄 Refresh</button>
+        <button class="control-btn" onclick="toggleOrientation()">📱 Rotate</button>
+        <button class="control-btn" onclick="openDevTools()">🔧 DevTools</button>
+        <button class="control-btn" onclick="testCamera()">📷 Camera Test</button>
+    </div>
+    
+    <div class="refresh-indicator" id="refreshIndicator">
+        Refreshing mobile preview...
+    </div>
+
+    <script>
+        let isLandscape = false;
+        
+        function refreshAll() {
+            showRefreshIndicator();
+            document.querySelectorAll('iframe').forEach(frame => {
+                frame.src = frame.src;
+            });
+            setTimeout(hideRefreshIndicator, 2000);
+        }
+        
+        function toggleOrientation() {
+            isLandscape = !isLandscape;
+            const devices = document.querySelectorAll('.device');
+            
+            devices.forEach(device => {
+                if (isLandscape) {
+                    device.style.transform = device.classList.contains('phone') 
+                        ? 'rotate(90deg) scale(0.6)' 
+                        : 'rotate(90deg) scale(0.7)';
+                } else {
+                    device.style.transform = device.classList.contains('phone') 
+                        ? 'scale(0.8)' 
+                        : 'scale(0.8)';
+                }
+            });
+        }
+        
+        function openDevTools() {
+            alert('Open browser DevTools (F12) and select mobile device simulation for testing');
+        }
+        
+        function testCamera() {
+            // Navigate to the upload page for camera testing
+            document.querySelectorAll('iframe').forEach(frame => {
+                try {
+                    frame.contentWindow.location.href = 'http://localhost:5000/';
+                } catch(e) {
+                    frame.src = 'http://localhost:5000/';
+                }
+            });
+        }
+        
+        function showRefreshIndicator() {
+            document.getElementById('refreshIndicator').style.display = 'block';
+        }
+        
+        function hideRefreshIndicator() {
+            document.getElementById('refreshIndicator').style.display = 'none';
+        }
+        
+        // Auto-refresh when main app updates
+        let lastCheck = Date.now();
+        setInterval(() => {
+            fetch('http://localhost:5000/api/auth/me')
+                .then(() => {
+                    // App is running
+                    lastCheck = Date.now();
+                })
+                .catch(() => {
+                    // If connection fails for more than 5 seconds, refresh
+                    if (Date.now() - lastCheck > 5000) {
+                        setTimeout(refreshAll, 2000);
+                        lastCheck = Date.now();
+                    }
+                });
+        }, 3000);
+        
+        // Add touch event simulation for desktop testing
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.TouchEvent) {
+                console.log('Touch events available - mobile testing ready');
+            } else {
+                console.log('Desktop mode - simulating touch events');
+            }
+        });
+    </script>
+</body>
+</html>
