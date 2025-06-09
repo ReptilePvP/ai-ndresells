@@ -400,7 +400,7 @@ OUTPUT FORMAT (JSON):
   "resellPrice": "Recent sold price range for similar condition ($X - $Y USD)",
   "marketDemand": "High/Medium/Low based on search volume and listing frequency",
   "profitMargin": "Estimated profit percentage for resellers",
-  "referenceImageUrl": "High-quality product image URL from trusted retailer",
+  "referenceImageUrl": "REQUIRED: Direct image URL from verified retailer (amazon.com, bestbuy.com, target.com, walmart.com, skechers.com, etc.). Must be actual product photo, not placeholder.",
   "confidence": "Overall confidence in the analysis (0.0 to 1.0)",
   "sources": ["List of sources or platforms used for pricing data"]
 }
@@ -442,13 +442,17 @@ SEARCH STRATEGY:
 - Cross-reference with: "[brand] [product type] [model]" 
 - Verify pricing: "[product name] price site:amazon.com OR site:bestbuy.com"
 - Check resale value: "[product name] sold site:ebay.com"
-- FIND REFERENCE IMAGE: Search for high-quality product images from retailers like Amazon, Best Buy, or official brand websites
+- FIND REFERENCE IMAGE: Search for product images using these methods:
+  1. Official retailer sites: "[product name] site:amazon.com" or "site:bestbuy.com" 
+  2. Brand official website: "[product name] site:skechers.com" (for Skechers products)
+  3. Google Images: "[exact product name]" then look for retailer results
 
 REFERENCE IMAGE REQUIREMENTS:
-- Must be from a verified retailer or marketplace
-- Should show the exact same product variant (color, model, size)
+- PRIORITY: Use retailer domains (.com sites from major stores)
+- Must show exact same product variant (color, model, size)
 - High resolution and clear product visibility
-- Direct image URL from trusted domain (amazon.com, bestbuy.com, target.com, etc.)
+- Extract direct image URL from search results
+- If no retailer image found, use high-quality marketplace image as fallback
 
 CRITICAL: Use only current, verified data from actual search results. Do not estimate or guess pricing.
 
@@ -548,6 +552,7 @@ Return the complete JSON object with accurate market intelligence.` },
       let enhancedResellPrice = analysisData.resellPrice || "Resell price not available";
       let enhancedAveragePrice = analysisData.averageSalePrice || "Price not available";
       let marketData: any = null;
+      let fallbackImageUrl = null;
 
       if (analysisData.productName) {
         try {
@@ -559,6 +564,26 @@ Return the complete JSON object with accurate market intelligence.` },
             analysisData.resellPrice || ""
           );
           console.log('Market data result:', marketData);
+
+          // If no reference image from Gemini, try to get one from eBay results
+          if (!localReferenceImageUrl && marketData?.sources?.includes('eBay')) {
+            try {
+              const ebayService = createEbayProductionService();
+              if (ebayService) {
+                const ebayData = await ebayService.searchMarketplace(analysisData.productName);
+                if (ebayData.recentSales && ebayData.recentSales.length > 0) {
+                  // Find the first listing with an image
+                  const listingWithImage = ebayData.recentSales.find(sale => sale.image?.imageUrl);
+                  if (listingWithImage) {
+                    fallbackImageUrl = listingWithImage.image.imageUrl;
+                    console.log('Found eBay fallback image:', fallbackImageUrl);
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching eBay fallback image:', error);
+            }
+          }
 
           if (marketData.dataQuality === 'authenticated' && marketData.sources.length > 0) {
             // Use authenticated eBay data
@@ -585,6 +610,33 @@ Return the complete JSON object with accurate market intelligence.` },
 
         } catch (error) {
           console.error('Pricing enhancement error:', error);
+        }
+      }
+
+      // Download fallback image if no Gemini reference but eBay image available
+      if (!localReferenceImageUrl && fallbackImageUrl) {
+        try {
+          console.log('Attempting to download eBay fallback image:', fallbackImageUrl);
+          const response = await fetch(fallbackImageUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+          });
+
+          if (response.ok) {
+            const imageBuffer = await response.arrayBuffer();
+            const imageHash = crypto.createHash('md5').update(Buffer.from(imageBuffer)).digest('hex');
+            const extension = fallbackImageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+            const referenceImagePath = path.join(uploadDir, `ebay_${imageHash}.${extension}`);
+
+            await fs.writeFile(referenceImagePath, Buffer.from(imageBuffer));
+            localReferenceImageUrl = `ebay_${imageHash}.${extension}`;
+            console.log('eBay fallback image downloaded and stored:', localReferenceImageUrl);
+          } else {
+            console.log('Failed to download eBay fallback image:', response.status);
+          }
+        } catch (error) {
+          console.error('Error downloading eBay fallback image:', error);
         }
       }
 
