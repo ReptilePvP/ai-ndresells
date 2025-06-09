@@ -17,6 +17,7 @@ interface SystemStats {
   };
   apiStatus?: {
     ebayApi: string;
+    stockxApi: string;
     geminiApi: string;
     database: string;
   };
@@ -249,6 +250,26 @@ export default function AdminDiagnostics() {
                     <XCircle className="mr-1 h-3 w-3" />
                   )}
                   {stats?.apiStatus?.ebayApi || 'Unknown'}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>StockX API</span>
+                <Badge 
+                  variant="default" 
+                  className={
+                    stats?.apiStatus?.stockxApi === 'Connected' 
+                      ? "bg-green-500" 
+                      : stats?.apiStatus?.stockxApi === 'Error'
+                      ? "bg-red-500"
+                      : "bg-yellow-500"
+                  }
+                >
+                  {stats?.apiStatus?.stockxApi === 'Connected' ? (
+                    <CheckCircle className="mr-1 h-3 w-3" />
+                  ) : (
+                    <XCircle className="mr-1 h-3 w-3" />
+                  )}
+                  {stats?.apiStatus?.stockxApi || 'Unknown'}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">

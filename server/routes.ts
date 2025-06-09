@@ -148,7 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const stats = await storage.getSystemStats();
 
-      // Add eBay API status
+      // Test eBay API status
       let ebayApiStatus = 'Unknown';
       try {
         const ebayService = createEbayProductionService();
@@ -159,14 +159,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ebayApiStatus = 'Not Configured';
         }
       } catch (error) {
+        console.error('eBay API test failed:', error);
         ebayApiStatus = 'Error';
+      }
+
+      // Test StockX API status
+      let stockxApiStatus = 'Unknown';
+      try {
+        const { createStockXService } = await import('./stockx-api');
+        const stockxService = createStockXService();
+        if (stockxService) {
+          const testResult = await stockxService.testConnection();
+          stockxApiStatus = testResult ? 'Connected' : 'Error';
+        } else {
+          stockxApiStatus = 'Not Configured';
+        }
+      } catch (error) {
+        console.error('StockX API test failed:', error);
+        stockxApiStatus = 'Error';
+      }
+
+      // Test Gemini AI status
+      let geminiApiStatus = 'Unknown';
+      try {
+        if (apiKey && apiKey.length > 0) {
+          geminiApiStatus = 'Connected';
+        } else {
+          geminiApiStatus = 'Not Configured';
+        }
+      } catch (error) {
+        console.error('Gemini API test failed:', error);
+        geminiApiStatus = 'Error';
       }
 
       const enhancedStats = {
         ...stats,
         apiStatus: {
           ebayApi: ebayApiStatus,
-          geminiApi: 'Connected', // Assume connected if we're running
+          stockxApi: stockxApiStatus,
+          geminiApi: geminiApiStatus,
           database: 'Connected'
         }
       };
