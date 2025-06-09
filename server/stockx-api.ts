@@ -42,61 +42,103 @@ interface StockXPriceData {
 }
 
 export class StockXApiService {
-  private readonly baseUrl = 'https://stockx.com/api';
-  private readonly searchUrl = 'https://stockx.com/api/graphql';
-  private readonly publicSearchUrl = 'https://stockx.com/api/browse';
+  private readonly baseUrl = 'https://gateway.stockx.com/public/v1';
+  private readonly searchUrl = 'https://gateway.stockx.com/public/v1/search';
+  private readonly tokenUrl = 'https://gateway.stockx.com/api/v3/oauth/token';
   private apiKey: string | null = null;
+  private clientId: string | null = null;
+  private clientSecret: string | null = null;
+  private accessToken: string | null = null;
+  private tokenExpiry: number = 0;
   private userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
 
-  constructor(apiKey?: string) {
+  constructor(apiKey?: string, clientId?: string, clientSecret?: string) {
     this.apiKey = apiKey || process.env.STOCKX_API_KEY || null;
+    this.clientId = clientId || process.env.STOCKX_CLIENT_ID || null;
+    this.clientSecret = clientSecret || process.env.STOCKX_CLIENT_SECRET || null;
     
-    if (this.apiKey) {
-      console.log('✓ StockX API service initialized with authentication');
-      // Note: StockX requires specific API access approval and may use different auth methods
+    if (this.apiKey && this.clientId && this.clientSecret) {
+      console.log('✓ StockX API service initialized with full OAuth credentials');
+    } else if (this.apiKey) {
+      console.log('✓ StockX API service initialized with API key authentication');
     } else {
       console.log('⚠ StockX API service initialized without authentication - limited functionality');
     }
   }
 
-  private async makeRequest(url: string, options: RequestInit = {}): Promise<any> {
-    const headers: Record<string, string> = {
-      'User-Agent': this.userAgent,
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Origin': 'https://stockx.com',
-      'Referer': 'https://stockx.com/',
-      ...options.headers as Record<string, string>
-    };
-
-    // StockX authentication approaches
-    if (this.apiKey) {
-      // Try multiple authentication header formats
-      headers['X-API-Key'] = this.apiKey;
-      headers['Authorization'] = `Bearer ${this.apiKey}`;
-      headers['X-Requested-With'] = 'XMLHttpRequest';
+  private async getAccessToken(): Promise<string> {
+    // Check if current token is still valid
+    if (this.accessToken && Date.now() < this.tokenExpiry) {
+      return this.accessToken;
     }
 
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error('StockX OAuth credentials not configured');
+    }
+
+    console.log('Generating StockX OAuth token...');
+
     try {
+      const response = await fetch(this.tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': this.userAgent,
+        },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          scope: 'read'
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`StockX OAuth error: ${response.status} ${response.statusText}`, errorText);
+        throw new Error(`StockX OAuth failed: ${response.status} ${response.statusText}`);
+      }
+
+      const tokenData = await response.json();
+      this.accessToken = tokenData.access_token;
+      this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000) - 60000; // 1 minute buffer
+
+      console.log('✓ StockX OAuth token generated successfully');
+      return this.accessToken || '';
+    } catch (error) {
+      console.error('StockX OAuth token generation failed:', error);
+      throw error;
+    }
+  }
+
+  private async makeRequest(url: string, options: RequestInit = {}): Promise<any> {
+    try {
+      const token = await this.getAccessToken();
+      
+      const headers: Record<string, string> = {
+        'User-Agent': this.userAgent,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'X-API-Key': this.apiKey || '',
+        ...options.headers as Record<string, string>
+      };
+
       const response = await fetch(url, {
         ...options,
         headers
       });
 
       if (!response.ok) {
-        console.error(`StockX API error: ${response.status} ${response.statusText}`);
-        // Try public endpoint fallback
-        if (response.status === 403 || response.status === 401) {
-          return this.makePublicRequest(url, options);
-        }
+        const errorText = await response.text();
+        console.error(`StockX API error: ${response.status} ${response.statusText}`, errorText);
         throw new Error(`StockX API error: ${response.status} ${response.statusText}`);
       }
 
       return await response.json();
     } catch (error) {
       console.error('StockX API request failed:', error);
-      // Fallback to public search if authenticated fails
-      return this.makePublicRequest(url, options);
+      throw error;
     }
   }
 
@@ -168,14 +210,14 @@ export class StockXApiService {
 
   private async searchViaPublicAPI(query: string): Promise<StockXSearchResult> {
     const searchQuery = encodeURIComponent(query);
-    const url = `${this.publicSearchUrl}?_search=${searchQuery}&limit=20`;
+    const url = `${this.searchUrl}?query=${searchQuery}&limit=20`;
     
-    const data = await this.makePublicRequest(url);
+    const data = await this.makeRequest(url);
     
-    if (data && data.Products) {
+    if (data && data.results) {
       return {
-        products: data.Products.map((product: any) => this.mapProduct(product)),
-        total: data.Products.length,
+        products: data.results.map((product: any) => this.mapProduct(product)),
+        total: data.results.length,
         page: 1,
         limit: 20
       };
