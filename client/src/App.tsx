@@ -12,6 +12,7 @@ import History from "@/pages/history";
 import Saved from "@/pages/saved";
 import AdminDiagnostics from "@/pages/admin";
 import { LiveAnalysisPage } from "@/pages/live-analysis";
+import MobileAccess from "@/pages/mobile-access";
 
 import NotFound from "@/pages/not-found";
 
@@ -23,7 +24,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/history" component={History} />
       <Route path="/saved" component={Saved} />
-
+      <Route path="/mobile" component={MobileAccess} />
       <Route path="/admin" component={AdminDiagnostics} />
       <Route component={NotFound} />
     </Switch>
