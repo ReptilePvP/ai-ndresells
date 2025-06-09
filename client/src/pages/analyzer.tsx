@@ -95,6 +95,48 @@ export default function Analyzer() {
 
   const isLoading = uploadMutation.isPending || analyzeMutation.isPending;
 
+  // When analysis is in progress, show full-screen progress
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-green-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <ResultsPanel analysis={analysis!} isLoading={isLoading} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // When analysis is complete, show results in full-screen layout
+  if (analysis) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-green-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-6xl mx-auto">
+            {/* Back to Upload Button */}
+            <div className="mb-6">
+              <Button
+                onClick={() => {
+                  setAnalysis(null);
+                  setSelectedFile(null);
+                }}
+                variant="outline"
+                className="bg-white/80 backdrop-blur-sm border-gray-300 hover:bg-white"
+              >
+                <i className="fas fa-arrow-left mr-2"></i>
+                New Analysis
+              </Button>
+            </div>
+            
+            <ResultsPanel analysis={analysis} isLoading={false} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Default upload interface
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="grid lg:grid-cols-2 gap-8">
@@ -151,21 +193,17 @@ export default function Analyzer() {
         
         {/* Results Section */}
         <div className="space-y-6 animate-slide-in-right animate-stagger animate-stagger-3">
-          {(isLoading || analysis) ? (
-            <ResultsPanel analysis={analysis!} isLoading={isLoading} />
-          ) : (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center animate-scale-fade-in">
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-in animate-stagger-1">
-                <i className="fas fa-chart-line text-gray-400 text-2xl"></i>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                Ready to Analyze
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Upload an image to get started with AI-powered product analysis
-              </p>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center animate-scale-fade-in">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-in animate-stagger-1">
+              <i className="fas fa-chart-line text-gray-400 text-2xl"></i>
             </div>
-          )}
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Ready to Analyze
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Upload an image to get started with AI-powered product analysis
+            </p>
+          </div>
         </div>
       </div>
 
