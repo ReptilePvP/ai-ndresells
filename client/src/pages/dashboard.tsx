@@ -75,8 +75,8 @@ export default function Dashboard() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Stats Overview */}
       <div className="grid md:grid-cols-4 gap-6 mb-12">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center">
-          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center animate-scale-fade-in animate-stagger animate-stagger-1">
+          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce-in animate-stagger-2">
             <i className="fas fa-search text-blue-600 dark:text-blue-400"></i>
           </div>
           <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -85,8 +85,8 @@ export default function Dashboard() {
           <p className="text-sm text-gray-600 dark:text-gray-400">Total Analyses</p>
         </div>
         
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center">
-          <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center animate-scale-fade-in animate-stagger animate-stagger-2">
+          <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce-in animate-stagger-3">
             <i className="fas fa-check-circle text-emerald-600 dark:text-emerald-400"></i>
           </div>
           <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -95,8 +95,8 @@ export default function Dashboard() {
           <p className="text-sm text-gray-600 dark:text-gray-400">Accuracy Rate</p>
         </div>
         
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center">
-          <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center animate-scale-fade-in animate-stagger animate-stagger-3">
+          <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce-in animate-stagger-4">
             <i className="fas fa-dollar-sign text-amber-600 dark:text-amber-400"></i>
           </div>
           <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -105,8 +105,8 @@ export default function Dashboard() {
           <p className="text-sm text-gray-600 dark:text-gray-400">Total Value Analyzed</p>
         </div>
         
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center">
-          <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center animate-scale-fade-in animate-stagger animate-stagger-4">
+          <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce-in animate-stagger-4">
             <i className="fas fa-clock text-purple-600 dark:text-purple-400"></i>
           </div>
           <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">1.8s</h3>
@@ -115,9 +115,9 @@ export default function Dashboard() {
       </div>
 
       {/* Analysis Section */}
-      <section>
+      <section className="animate-slide-in-left animate-stagger animate-stagger-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
-          <h2 className="text-2xl sm:text-3xl font-bold flex items-center">
+          <h2 className="text-2xl sm:text-3xl font-bold flex items-center animate-scale-fade-in">
             <i className="fas fa-chart-line text-blue-500 mr-2 sm:mr-3"></i>
             <span className="truncate">Your Analyses</span>
           </h2>
@@ -152,8 +152,14 @@ export default function Dashboard() {
         
         {displayAnalyses.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {displayAnalyses.map((analysis) => (
-              <AnalysisCard key={analysis.id} analysis={analysis} />
+            {displayAnalyses.map((analysis, index) => (
+              <div
+                key={analysis.id}
+                className="animate-scale-fade-in animate-stagger"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <AnalysisCard analysis={analysis} />
+              </div>
             ))}
           </div>
         ) : (

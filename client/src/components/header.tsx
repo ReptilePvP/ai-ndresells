@@ -103,15 +103,7 @@ export function Header() {
                   </button>
                 </Link>
               )}
-              <Link href="/animations">
-                <button className={`font-medium transition-colors ${
-                  isActive("/animations") 
-                    ? "text-blue-600 dark:text-blue-400" 
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                }`}>
-                  Animations
-                </button>
-              </Link>
+
             </nav>
             
             <ThemeToggle />
