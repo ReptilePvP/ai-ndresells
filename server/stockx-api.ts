@@ -43,8 +43,8 @@ interface StockXPriceData {
 
 export class StockXApiService {
   private readonly baseUrl = 'https://stockx.com/api';
-  private readonly publicUrl = 'https://stockx.com/en-us/api/browse';
-  private readonly searchUrl = 'https://stockx.com/api/browse';
+  private readonly searchUrl = 'https://stockx.com/api/graphql';
+  private readonly publicSearchUrl = 'https://stockx.com/api/browse';
   private apiKey: string | null = null;
   private userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
 
@@ -53,8 +53,9 @@ export class StockXApiService {
     
     if (this.apiKey) {
       console.log('✓ StockX API service initialized with authentication');
+      // Note: StockX requires specific API access approval and may use different auth methods
     } else {
-      console.log('⚠ StockX API service initialized without authentication - using public endpoints');
+      console.log('⚠ StockX API service initialized without authentication - limited functionality');
     }
   }
 
@@ -63,11 +64,17 @@ export class StockXApiService {
       'User-Agent': this.userAgent,
       'Accept': 'application/json',
       'Content-Type': 'application/json',
+      'Origin': 'https://stockx.com',
+      'Referer': 'https://stockx.com/',
       ...options.headers as Record<string, string>
     };
 
+    // StockX authentication approaches
     if (this.apiKey) {
+      // Try multiple authentication header formats
+      headers['X-API-Key'] = this.apiKey;
       headers['Authorization'] = `Bearer ${this.apiKey}`;
+      headers['X-Requested-With'] = 'XMLHttpRequest';
     }
 
     try {
@@ -77,33 +84,57 @@ export class StockXApiService {
       });
 
       if (!response.ok) {
+        console.error(`StockX API error: ${response.status} ${response.statusText}`);
+        // Try public endpoint fallback
+        if (response.status === 403 || response.status === 401) {
+          return this.makePublicRequest(url, options);
+        }
         throw new Error(`StockX API error: ${response.status} ${response.statusText}`);
       }
 
       return await response.json();
     } catch (error) {
       console.error('StockX API request failed:', error);
+      // Fallback to public search if authenticated fails
+      return this.makePublicRequest(url, options);
+    }
+  }
+
+  private async makePublicRequest(url: string, options: RequestInit = {}): Promise<any> {
+    const headers: Record<string, string> = {
+      'User-Agent': this.userAgent,
+      'Accept': 'application/json',
+      'Origin': 'https://stockx.com',
+      'Referer': 'https://stockx.com/',
+      ...options.headers as Record<string, string>
+    };
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error(`StockX public API error: ${response.status} ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('StockX public API request failed:', error);
       throw error;
     }
   }
 
   private async searchProducts(query: string): Promise<StockXSearchResult> {
     try {
-      // Use public search endpoint
-      const searchQuery = encodeURIComponent(query);
-      const url = `${this.publicUrl}?_search=${searchQuery}&limit=20`;
-      
       console.log(`StockX search: ${query}`);
       
-      const data = await this.makeRequest(url);
+      // Try multiple StockX search approaches
+      const searchResults = await this.tryMultipleSearchMethods(query);
       
-      if (data && data.Products) {
-        return {
-          products: data.Products.map((product: any) => this.mapProduct(product)),
-          total: data.Products.length,
-          page: 1,
-          limit: 20
-        };
+      if (searchResults && searchResults.products && searchResults.products.length > 0) {
+        return searchResults;
       }
       
       return { products: [], total: 0, page: 1, limit: 20 };
@@ -111,6 +142,121 @@ export class StockXApiService {
       console.error('StockX search error:', error);
       return { products: [], total: 0, page: 1, limit: 20 };
     }
+  }
+
+  private async tryMultipleSearchMethods(query: string): Promise<StockXSearchResult> {
+    const searchMethods = [
+      () => this.searchViaPublicAPI(query),
+      () => this.searchViaGraphQL(query),
+      () => this.searchViaBrowseAPI(query)
+    ];
+
+    for (const method of searchMethods) {
+      try {
+        const result = await method();
+        if (result && result.products && result.products.length > 0) {
+          return result;
+        }
+      } catch (error) {
+        console.log(`Search method failed, trying next: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        continue;
+      }
+    }
+
+    return { products: [], total: 0, page: 1, limit: 20 };
+  }
+
+  private async searchViaPublicAPI(query: string): Promise<StockXSearchResult> {
+    const searchQuery = encodeURIComponent(query);
+    const url = `${this.publicSearchUrl}?_search=${searchQuery}&limit=20`;
+    
+    const data = await this.makePublicRequest(url);
+    
+    if (data && data.Products) {
+      return {
+        products: data.Products.map((product: any) => this.mapProduct(product)),
+        total: data.Products.length,
+        page: 1,
+        limit: 20
+      };
+    }
+    
+    return { products: [], total: 0, page: 1, limit: 20 };
+  }
+
+  private async searchViaGraphQL(query: string): Promise<StockXSearchResult> {
+    const graphqlQuery = {
+      query: `
+        query searchProducts($query: String!, $first: Int) {
+          search(query: $query, first: $first) {
+            edges {
+              node {
+                ... on Product {
+                  id
+                  title
+                  brand
+                  colorway
+                  retailPrice
+                  market {
+                    averagePrice
+                    lowestAsk
+                    highestBid
+                    lastSale
+                    salesLast72Hours
+                    changeValue
+                    changePercentage
+                  }
+                  media {
+                    imageUrl
+                  }
+                  releaseDate
+                  category
+                }
+              }
+            }
+          }
+        }
+      `,
+      variables: {
+        query: query,
+        first: 20
+      }
+    };
+
+    const data = await this.makeRequest(this.searchUrl, {
+      method: 'POST',
+      body: JSON.stringify(graphqlQuery)
+    });
+
+    if (data && data.data && data.data.search && data.data.search.edges) {
+      const products = data.data.search.edges.map((edge: any) => this.mapProduct(edge.node));
+      return {
+        products,
+        total: products.length,
+        page: 1,
+        limit: 20
+      };
+    }
+
+    return { products: [], total: 0, page: 1, limit: 20 };
+  }
+
+  private async searchViaBrowseAPI(query: string): Promise<StockXSearchResult> {
+    const searchQuery = encodeURIComponent(query);
+    const url = `${this.baseUrl}/browse?_search=${searchQuery}&limit=20`;
+    
+    const data = await this.makeRequest(url);
+    
+    if (data && data.Products) {
+      return {
+        products: data.Products.map((product: any) => this.mapProduct(product)),
+        total: data.Products.length,
+        page: 1,
+        limit: 20
+      };
+    }
+    
+    return { products: [], total: 0, page: 1, limit: 20 };
   }
 
   private mapProduct(rawProduct: any): StockXProduct {
