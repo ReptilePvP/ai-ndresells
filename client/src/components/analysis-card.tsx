@@ -42,23 +42,44 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (saveStatus?.isSaved) {
-        const response = await apiRequest("DELETE", `/api/save/${analysis.id}`);
-        return response.json();
+      if (isAuthenticated) {
+        // Authenticated user save/unsave
+        if (saveStatus?.isSaved) {
+          const response = await apiRequest("DELETE", `/api/save/${analysis.id}`);
+          return response.json();
+        } else {
+          const response = await apiRequest("POST", `/api/save/${analysis.id}`);
+          return response.json();
+        }
       } else {
-        const response = await apiRequest("POST", `/api/save/${analysis.id}`);
-        return response.json();
+        // Guest user local save/unsave
+        const currentSaved = getGuestSavedAnalyses();
+        if (isGuestSaved) {
+          const updated = currentSaved.filter(id => id !== analysis.id);
+          setGuestSavedAnalyses(updated);
+          return { removed: true };
+        } else {
+          const updated = [...currentSaved, analysis.id];
+          setGuestSavedAnalyses(updated);
+          return { saved: true };
+        }
       }
     },
     onSuccess: () => {
+      const isSaved = isAuthenticated ? saveStatus?.isSaved : isGuestSaved;
       toast({
-        title: saveStatus?.isSaved ? "Analysis removed" : "Analysis saved",
-        description: saveStatus?.isSaved 
+        title: isSaved ? "Analysis removed" : "Analysis saved",
+        description: isSaved 
           ? "Analysis removed from your saved collection" 
-          : "Analysis added to your saved collection",
+          : isAuthenticated 
+            ? "Analysis added to your saved collection"
+            : "Analysis saved locally to your browser",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/save/check", analysis.id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      
+      if (isAuthenticated) {
+        queryClient.invalidateQueries({ queryKey: ["/api/save/check", analysis.id] });
+        queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/analyses"] });
     },
     onError: (error: any) => {
@@ -113,19 +134,17 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
           Confidence: {analysis.confidence ? Math.round(analysis.confidence * 100) : 85}%
         </span>
         <div className="flex items-center space-x-2">
-          {isAuthenticated && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending || saveStatusLoading}
-              className="p-1 h-6 w-6"
-            >
-              <i className={`${
-                saveStatus?.isSaved ? 'fas fa-bookmark text-blue-500' : 'far fa-bookmark text-gray-400'
-              } text-xs`}></i>
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending || (isAuthenticated && saveStatusLoading)}
+            className="p-1 h-6 w-6"
+          >
+            <i className={`${
+              (isAuthenticated ? saveStatus?.isSaved : isGuestSaved) ? 'fas fa-bookmark text-blue-500' : 'far fa-bookmark text-gray-400'
+            } text-xs`}></i>
+          </Button>
           <button className="text-blue-500 hover:text-blue-700 text-sm transition-colors">
             <i className="fas fa-external-link-alt"></i>
           </button>
