@@ -1,5 +1,6 @@
 import { EbayApiService, createEbayService } from './ebay-api';
 import { EcommercePlatformService, createEcommerceService } from './ecommerce-platforms';
+import { StockXApiService, createStockXService } from './stockx-api';
 
 interface PricingData {
   platform: string;
@@ -30,10 +31,12 @@ interface ComprehensivePricing {
 export class PricingAggregator {
   private ebayService: EbayApiService | null;
   private ecommerceService: EcommercePlatformService;
+  private stockxService: StockXApiService | null;
 
   constructor() {
     this.ebayService = createEbayService();
     this.ecommerceService = createEcommerceService();
+    this.stockxService = createStockXService();
   }
 
   async getComprehensivePricing(productName: string): Promise<ComprehensivePricing> {
@@ -93,6 +96,28 @@ export class PricingAggregator {
 
   private async getResellPricing(productName: string): Promise<PricingData[]> {
     const resellData: PricingData[] = [];
+
+    // StockX resell data for sneakers and streetwear
+    if (this.stockxService) {
+      try {
+        const stockxData = await this.stockxService.getProductPricing(productName);
+        
+        if (stockxData && stockxData.averagePrice > 0) {
+          resellData.push({
+            platform: 'StockX',
+            currentPrice: stockxData.averagePrice,
+            priceRange: stockxData.priceRange,
+            availability: `${stockxData.salesVolume} sales (72h)`,
+            currency: stockxData.currency,
+            condition: 'Deadstock/New',
+            source: 'Authentication Platform',
+            confidence: 0.98
+          });
+        }
+      } catch (error) {
+        console.error('StockX resell pricing error:', error);
+      }
+    }
 
     // eBay resell data
     if (this.ebayService) {
