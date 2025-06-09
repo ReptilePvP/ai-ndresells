@@ -32,37 +32,44 @@ export interface AnalysisRecord {
   status: 'complete' | 'pending' | 'error';
 }
 
-export async function runAnalysis(imageUrl: string, userInput: UserInput): Promise<AnalysisRecord> {
-  const id = `img_${uuidv4()}`;
-  const created_at = new Date().toISOString();
+function buildPrompt(imageUrl: string, userInput: UserInput): string {
+  return `
+You are a resale product analysis assistant. Given an image and optional user input, return structured pricing data for resale purposes.
 
-  // Combine prompt with user input
-  const prompt = `
-You are a resale assistant. Based on this image, identify:
-- title
-- category (e.g., clothing, shoes)
-- detailed description (brand, model, color, condition, size if visible)
-- estimated resale_value in USD
-- a self-assessed confidence: High, Medium, or Low
+Example 1:
+User input:
+Brand: Nike
+Size: 10
+Condition: New
+
+Output:
+{
+  "title": "Nike Dunk Low Panda",
+  "category": "shoes",
+  "description": "Nike Dunk Low in black and white, men's size 10, brand new condition",
+  "resale_value": 180,
+  "confidence": "High",
+  "keywords": ["nike", "dunk low", "panda", "sneaker"]
+}
+
+Now respond with JSON in this exact format. Avoid extra text or commentary.
 
 User input:
 Brand: ${userInput.brand || 'unknown'}
 Size: ${userInput.size || 'unknown'}
 Condition: ${userInput.condition || 'unknown'}
 
-Return EXACTLY this JSON:
-{
-  "title": "...",
-  "category": "...",
-  "description": "...",
-  "resale_value": 0,
-  "confidence": "High",
-  "keywords": ["brand","model","type","color"]
-}
-If conditions are unclear, include a "note" field explaining uncertainty.
+Image: ${imageUrl}
 `;
+}
+
+export async function runAnalysis(imageUrl: string, userInput: UserInput): Promise<AnalysisRecord> {
+  const id = `img_${uuidv4()}`;
+  const created_at = new Date().toISOString();
+  const prompt = buildPrompt(imageUrl, userInput);
 
   let gemini_result: GeminiResult;
+
   try {
     gemini_result = await analyzeWithGemini(imageUrl, prompt);
   } catch (error) {
