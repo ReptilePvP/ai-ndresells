@@ -270,23 +270,24 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
       />
 
       {preview && (
-        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-medium text-gray-900 dark:text-gray-100">Preview</h3>
-            <button
-              onClick={clearPreview}
-              className="text-red-500 hover:text-red-700 transition-colors"
-            >
-              <i className="fas fa-times"></i>
-            </button>
-          </div>
-          <div className="w-full h-48 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center overflow-hidden">
-            <img 
-              src={preview} 
-              alt="Preview" 
-              className="max-w-full max-h-full object-contain rounded-lg"
+        <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+          <div className="relative">
+            <img
+              src={preview}
+              alt="Preview"
+              className="w-16 h-16 object-cover rounded-lg"
             />
           </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium text-gray-900 dark:text-gray-100 text-sm">Image Selected</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Ready for analysis</p>
+          </div>
+          <button
+            onClick={clearPreview}
+            className="text-gray-400 hover:text-red-500 transition-colors p-1"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
     </div>
