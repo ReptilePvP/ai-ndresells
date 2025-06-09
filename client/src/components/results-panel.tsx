@@ -120,21 +120,44 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
           <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 animate-slide-in-left">
             <div className="flex items-center mb-2">
               <i className="fas fa-tag text-emerald-600 mr-2"></i>
-              <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">Average New Price</h4>
+              <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">Retail Price</h4>
             </div>
             <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{analysis.averageSalePrice}</p>
-            <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">Estimated market value when new</p>
+            <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">Market-verified pricing</p>
           </div>
           
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 animate-slide-in-right">
             <div className="flex items-center mb-2">
-              <i className="fas fa-coins text-blue-600 mr-2"></i>
-              <h4 className="font-semibold text-blue-900 dark:text-blue-100">Estimated Resell Value</h4>
+              <i className="fas fa-chart-line text-blue-600 mr-2"></i>
+              <h4 className="font-semibold text-blue-900 dark:text-blue-100">Resell Value</h4>
             </div>
             <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{analysis.resellPrice}</p>
-            <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">Your potential earnings</p>
+            <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+              {analysis.marketSummary?.includes('StockX') ? 'StockX authenticated data' : 'Market-based estimate'}
+            </p>
           </div>
         </div>
+
+        {/* Market Data Sources */}
+        {analysis.marketSummary && (
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 animate-scale-fade-in animate-stagger animate-stagger-4">
+            <div className="flex items-start gap-2">
+              <i className="fas fa-database text-gray-600 dark:text-gray-400 mt-0.5"></i>
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Data Sources</h4>
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                  {analysis.marketSummary}
+                </p>
+                {analysis.marketSummary.includes('StockX') && (
+                  <div className="mt-2 inline-flex items-center px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 rounded-full text-xs font-medium">
+                    <i className="fas fa-shield-alt mr-1"></i>
+                    StockX Authenticated
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 animate-scale-fade-in animate-stagger animate-stagger-4">
           <h4 className="font-semibold mb-3 flex items-center">
