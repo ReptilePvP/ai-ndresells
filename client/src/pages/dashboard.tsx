@@ -53,16 +53,6 @@ export default function Dashboard() {
     },
   });
 
-  const { data: systemStatus } = useQuery({
-    queryKey: ["/api/system/status"],
-    queryFn: async () => {
-      const response = await fetch("/api/system/status");
-      if (!response.ok) throw new Error('Failed to fetch system status');
-      return response.json();
-    },
-    refetchInterval: 30000, // Refresh every 30 seconds
-  });
-
   const recentAnalyses = analyses.slice(0, 6);
   const displayAnalyses = activeTab === 'recent' ? recentAnalyses : savedAnalyses.slice(0, 6);
 
@@ -83,144 +73,14 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* System Status Overview */}
-      <div className="bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-6 mb-8 animate-slide-in-down">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-            <i className="fas fa-server text-blue-500 mr-2"></i>
-            System Status
-          </h2>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-            systemStatus?.overallStatus === 'operational' 
-              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
-              : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'
-          }`}>
-            <i className={`mr-1 ${
-              systemStatus?.overallStatus === 'operational' 
-                ? 'fas fa-check-circle' 
-                : 'fas fa-exclamation-triangle'
-            }`}></i>
-            {systemStatus?.overallStatus === 'operational' 
-              ? 'All Systems Operational' 
-              : 'System Issues Detected'
-            }
-          </span>
-        </div>
-        
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Visual Comparison */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Visual Comparison</h3>
-              <i className="fas fa-images text-green-500"></i>
-            </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Side-by-side image analysis with marketplace references</p>
-            <div className="mt-2 flex items-center">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              <span className="text-xs text-green-600 dark:text-green-400">Active</span>
-            </div>
-          </div>
-
-          {/* StockX Integration */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">StockX OAuth</h3>
-              <i className={`fas fa-key ${
-                systemStatus?.apiStatus?.stockxApi === 'Connected' 
-                  ? 'text-green-500' 
-                  : 'text-red-500'
-              }`}></i>
-            </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Authenticated sneaker and streetwear pricing</p>
-            <div className="mt-2 flex items-center">
-              <div className={`w-2 h-2 rounded-full mr-2 ${
-                systemStatus?.apiStatus?.stockxApi === 'Connected' 
-                  ? 'bg-green-500' 
-                  : 'bg-red-500'
-              }`}></div>
-              <span className={`text-xs ${
-                systemStatus?.apiStatus?.stockxApi === 'Connected' 
-                  ? 'text-green-600 dark:text-green-400' 
-                  : 'text-red-600 dark:text-red-400'
-              }`}>
-                {systemStatus?.apiStatus?.stockxApi || 'Unknown'}
-              </span>
-            </div>
-          </div>
-
-          {/* eBay Production API */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">eBay Marketplace</h3>
-              <i className={`fas fa-shopping-cart ${
-                systemStatus?.apiStatus?.ebayApi === 'Connected' 
-                  ? 'text-green-500' 
-                  : 'text-red-500'
-              }`}></i>
-            </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Real-time marketplace pricing and listings</p>
-            <div className="mt-2 flex items-center">
-              <div className={`w-2 h-2 rounded-full mr-2 ${
-                systemStatus?.apiStatus?.ebayApi === 'Connected' 
-                  ? 'bg-green-500' 
-                  : 'bg-red-500'
-              }`}></div>
-              <span className={`text-xs ${
-                systemStatus?.apiStatus?.ebayApi === 'Connected' 
-                  ? 'text-green-600 dark:text-green-400' 
-                  : 'text-red-600 dark:text-red-400'
-              }`}>
-                {systemStatus?.apiStatus?.ebayApi || 'Unknown'}
-              </span>
-            </div>
-          </div>
-
-          {/* AI Analysis */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Gemini AI + Search</h3>
-              <i className={`fas fa-search ${
-                systemStatus?.apiStatus?.geminiApi === 'Connected' 
-                  ? 'text-green-500' 
-                  : 'text-red-500'
-              }`}></i>
-            </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">AI with Google Search for verified product data</p>
-            <div className="mt-2 flex items-center">
-              <div className={`w-2 h-2 rounded-full mr-2 ${
-                systemStatus?.apiStatus?.geminiApi === 'Connected' 
-                  ? 'bg-green-500' 
-                  : 'bg-red-500'
-              }`}></div>
-              <span className={`text-xs ${
-                systemStatus?.apiStatus?.geminiApi === 'Connected' 
-                  ? 'text-green-600 dark:text-green-400' 
-                  : 'text-red-600 dark:text-red-400'
-              }`}>
-                {systemStatus?.apiStatus?.geminiApi === 'Connected' ? 'Search-Enhanced' : systemStatus?.apiStatus?.geminiApi || 'Unknown'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Feature Updates */}
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2 text-sm">Latest Features</h3>
-          <div className="grid md:grid-cols-3 gap-3 text-xs">
-            <div className="flex items-center text-gray-600 dark:text-gray-400">
-              <i className="fas fa-search text-blue-500 mr-2"></i>
-              Google Search integration for accurate pricing
-            </div>
-            <div className="flex items-center text-gray-600 dark:text-gray-400">
-              <i className="fas fa-images text-purple-500 mr-2"></i>
-              Visual comparison with marketplace references
-            </div>
-            <div className="flex items-center text-gray-600 dark:text-gray-400">
-              <i className="fas fa-shield-alt text-orange-500 mr-2"></i>
-              Multi-source price verification system
-            </div>
-          </div>
-        </div>
+      {/* Welcome Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+          Product Analysis Dashboard
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          Track your analysis history and saved products
+        </p>
       </div>
 
       {/* Stats Overview */}
@@ -256,98 +116,86 @@ export default function Dashboard() {
         </div>
         
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center animate-scale-fade-in animate-stagger animate-stagger-4">
-          <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce-in animate-stagger-4">
-            <i className="fas fa-clock text-purple-600 dark:text-purple-400"></i>
+          <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce-in animate-stagger-5">
+            <i className="fas fa-bookmark text-purple-600 dark:text-purple-400"></i>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">1.8s</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Avg Analysis Time</p>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {isAuthenticated ? savedAnalyses.length : 0}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Saved Items</p>
         </div>
       </div>
 
-      {/* Analysis Section */}
-      <section className="animate-slide-in-left animate-stagger animate-stagger-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
-          <h2 className="text-2xl sm:text-3xl font-bold flex items-center animate-scale-fade-in">
-            <i className="fas fa-chart-line text-blue-500 mr-2 sm:mr-3"></i>
-            <span className="truncate">Your Analyses</span>
-          </h2>
-          
-          {/* Tab Navigation */}
-          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 w-full sm:w-auto">
+      {/* Tab Navigation */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+          <button
+            onClick={() => setActiveTab('recent')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'recent'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            <i className="fas fa-clock mr-2"></i>
+            Recent Analysis
+          </button>
+          {isAuthenticated && (
             <button
-              onClick={() => setActiveTab('recent')}
-              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all ${
-                activeTab === 'recent'
-                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+              onClick={() => setActiveTab('saved')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'saved'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
               }`}
             >
-              Recent ({recentAnalyses.length})
+              <i className="fas fa-bookmark mr-2"></i>
+              Saved Items
             </button>
-            {isAuthenticated && (
-              <button
-                onClick={() => setActiveTab('saved')}
-                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all ${
-                  activeTab === 'saved'
-                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-                }`}
-              >
-                <i className="fas fa-bookmark mr-1"></i>
-                Saved ({savedAnalyses.length})
-              </button>
-            )}
-          </div>
+          )}
         </div>
         
-        {displayAnalyses.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {displayAnalyses.map((analysis, index) => (
-              <div
-                key={analysis.id}
-                className="animate-scale-fade-in animate-stagger"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <AnalysisCard analysis={analysis} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-green-100 dark:from-blue-900/30 dark:to-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-              <i className={`fas ${activeTab === 'recent' ? 'fa-history' : 'fa-bookmark'} text-blue-500 text-2xl`}></i>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {activeTab === 'recent' ? `${recentAnalyses.length} recent` : `${savedAnalyses.length} saved`}
+        </div>
+      </div>
+
+      {/* Analysis Grid */}
+      {displayAnalyses.length > 0 ? (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {displayAnalyses.map((analysis, index) => (
+            <div
+              key={analysis.id}
+              className="animate-scale-fade-in animate-stagger"
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
+              <AnalysisCard analysis={analysis} />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              {activeTab === 'recent' ? 'No Analysis Yet' : 'No Saved Analyses'}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              {activeTab === 'recent' 
-                ? 'Start by uploading your first product image to analyze'
-                : 'Save analyses you want to reference later by clicking the bookmark icon'
-              }
-            </p>
-            <button 
-              onClick={() => window.location.href = activeTab === 'recent' ? '/' : '/history'}
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white rounded-lg transition-all duration-300"
-            >
-              {activeTab === 'recent' ? 'Start Analyzing' : 'View All History'}
-            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i className={`fas ${activeTab === 'recent' ? 'fa-clock' : 'fa-bookmark'} text-gray-400 text-2xl`}></i>
           </div>
-        )}
-        
-        {/* View More Link */}
-        {((activeTab === 'recent' && analyses.length > 6) || 
-          (activeTab === 'saved' && savedAnalyses.length > 6)) && (
-          <div className="text-center mt-8">
-            <button 
-              onClick={() => window.location.href = activeTab === 'recent' ? '/history' : '/saved'}
-              className="px-6 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-            >
-              View All {activeTab === 'recent' ? 'History' : 'Saved'}
-            </button>
-          </div>
-        )}
-      </section>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            {activeTab === 'recent' ? 'No Recent Analysis' : 'No Saved Items'}
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            {activeTab === 'recent' 
+              ? 'Start analyzing products to see your history here'
+              : 'Save analysis results to access them quickly later'
+            }
+          </p>
+          <a
+            href="/analyzer"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            <i className="fas fa-plus mr-2"></i>
+            Start Analysis
+          </a>
+        </div>
+      )}
     </div>
   );
 }

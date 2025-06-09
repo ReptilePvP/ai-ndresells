@@ -67,6 +67,17 @@ export default function AdminDiagnostics() {
     enabled: isAdmin,
   });
 
+  const { data: systemStatus } = useQuery({
+    queryKey: ["/api/system/status"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/system/status");
+      if (!response.ok) throw new Error('Failed to fetch system status');
+      return response.json();
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
   const testFeatures = async () => {
     const features = [
       { name: "Gemini API", endpoint: "/api/session" },
@@ -190,6 +201,123 @@ export default function AdminDiagnostics() {
           <CardContent>
             <div className="text-2xl font-bold">
               {statsLoading ? "..." : `${stats?.averageAccuracy || 0}%`}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* System Status Overview */}
+      <div className="mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Activity className="mr-2 h-5 w-5" />
+              API Status Monitoring
+              <Badge 
+                variant={systemStatus?.overallStatus === 'operational' ? 'default' : 'destructive'}
+                className="ml-2"
+              >
+                {systemStatus?.overallStatus === 'operational' ? 'All Systems Operational' : 'Issues Detected'}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* eBay API Status */}
+              <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-sm">eBay Marketplace</h3>
+                  {systemStatus?.apiStatus?.ebayApi === 'Connected' ? (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                  Real-time marketplace pricing and listings
+                </p>
+                <Badge 
+                  variant={systemStatus?.apiStatus?.ebayApi === 'Connected' ? 'default' : 'destructive'}
+                  className="text-xs"
+                >
+                  {systemStatus?.apiStatus?.ebayApi || 'Unknown'}
+                </Badge>
+              </div>
+
+              {/* StockX API Status */}
+              <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-sm">StockX OAuth</h3>
+                  {systemStatus?.apiStatus?.stockxApi === 'Connected' ? (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                  Authenticated sneaker and streetwear pricing
+                </p>
+                <Badge 
+                  variant={systemStatus?.apiStatus?.stockxApi === 'Connected' ? 'default' : 'destructive'}
+                  className="text-xs"
+                >
+                  {systemStatus?.apiStatus?.stockxApi || 'Unknown'}
+                </Badge>
+              </div>
+
+              {/* Gemini AI Status */}
+              <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-sm">Gemini AI + Search</h3>
+                  {systemStatus?.apiStatus?.geminiApi === 'Connected' ? (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                  AI with Google Search for verified product data
+                </p>
+                <Badge 
+                  variant={systemStatus?.apiStatus?.geminiApi === 'Connected' ? 'default' : 'destructive'}
+                  className="text-xs"
+                >
+                  {systemStatus?.apiStatus?.geminiApi === 'Connected' ? 'Search-Enhanced' : systemStatus?.apiStatus?.geminiApi || 'Unknown'}
+                </Badge>
+              </div>
+
+              {/* Visual Comparison */}
+              <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-sm">Visual Comparison</h3>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                  Side-by-side image analysis with marketplace references
+                </p>
+                <Badge variant="default" className="text-xs">
+                  Active
+                </Badge>
+              </div>
+            </div>
+
+            {/* Latest Features */}
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="font-semibold text-sm mb-3">Latest Features</h3>
+              <div className="grid md:grid-cols-3 gap-3 text-xs">
+                <div className="flex items-center text-gray-600 dark:text-gray-400">
+                  <CheckCircle className="h-3 w-3 text-blue-500 mr-2" />
+                  Google Search integration for accurate pricing
+                </div>
+                <div className="flex items-center text-gray-600 dark:text-gray-400">
+                  <CheckCircle className="h-3 w-3 text-purple-500 mr-2" />
+                  Visual comparison with marketplace references
+                </div>
+                <div className="flex items-center text-gray-600 dark:text-gray-400">
+                  <CheckCircle className="h-3 w-3 text-orange-500 mr-2" />
+                  Multi-source price verification system
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
