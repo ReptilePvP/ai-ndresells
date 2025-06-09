@@ -424,6 +424,16 @@ Analyze the image thoroughly and return only the JSON object with accurate, rese
 
       const result = await genAI.models.generateContent({
         model: GEMINI_MODEL,
+        tools: [
+          {
+            googleSearchRetrieval: {
+              dynamicRetrievalConfig: {
+                mode: "DYNAMIC",
+                dynamicThreshold: 0.7
+              }
+            }
+          }
+        ],
         contents: [
           {
             role: "user",
@@ -437,15 +447,31 @@ REQUIREMENTS:
 3. Research pricing from multiple sources: retail stores and recent sold listings
 4. Provide specific, data-backed pricing ranges with high confidence
 
-SEARCH STRATEGY:
-- Start with visible text/model numbers: "[exact text from image]"
-- Cross-reference with: "[brand] [product type] [model]" 
-- Verify pricing: "[product name] price site:amazon.com OR site:bestbuy.com"
-- Check resale value: "[product name] sold site:ebay.com"
-- FIND REFERENCE IMAGE: Search for product images using these methods:
-  1. Official retailer sites: "[product name] site:amazon.com" or "site:bestbuy.com" 
-  2. Brand official website: "[product name] site:skechers.com" (for Skechers products)
-  3. Google Images: "[exact product name]" then look for retailer results
+GOOGLE SEARCH STRATEGY (REQUIRED):
+You have access to Google Search. Use it to verify product details and gather accurate pricing:
+
+1. PRODUCT IDENTIFICATION:
+   - Search: "[exact visible text/model numbers from image]"
+   - Search: "[brand] [product type] [specific colorway/variant]"
+   - Verify exact model name, SKU, and official product details
+
+2. RETAIL PRICING VERIFICATION:
+   - Search: "[verified product name] price site:amazon.com"
+   - Search: "[verified product name] site:bestbuy.com"
+   - Search: "[verified product name] site:target.com"
+   - Get current retail prices from multiple sources
+
+3. RESALE MARKET RESEARCH:
+   - Search: "[verified product name] sold site:ebay.com"
+   - Search: "[verified product name] resale value"
+   - Check recent sold listings for accurate resale pricing
+
+4. REFERENCE IMAGE ACQUISITION:
+   - Search: "[verified product name] site:amazon.com" for official product images
+   - Search: "[verified product name] site:[brand-website].com" for brand images
+   - Ensure reference image matches exact colorway and variant
+
+CRITICAL: Use Google Search results to validate ALL pricing data. Do not estimate - only use verified market prices from search results.
 
 REFERENCE IMAGE REQUIREMENTS:
 - PRIORITY: Use retailer domains (.com sites from major stores)
@@ -466,11 +492,6 @@ Return the complete JSON object with accurate market intelligence.` },
             ],
           },
         ],
-        tools: [
-          {
-            googleSearch: {}
-          }
-        ]
       } as any);
 
       if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {

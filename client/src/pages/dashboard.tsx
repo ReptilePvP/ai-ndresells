@@ -129,13 +129,13 @@ export default function Dashboard() {
           {/* AI Analysis */}
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Gemini AI</h3>
-              <i className="fas fa-brain text-green-500"></i>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Gemini AI + Search</h3>
+              <i className="fas fa-search text-green-500"></i>
             </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Advanced product recognition and market analysis</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">AI with Google Search for verified product data</p>
             <div className="mt-2 flex items-center">
               <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              <span className="text-xs text-green-600 dark:text-green-400">95% Accuracy</span>
+              <span className="text-xs text-green-600 dark:text-green-400">Search-Enhanced</span>
             </div>
           </div>
         </div>
@@ -145,16 +145,16 @@ export default function Dashboard() {
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2 text-sm">Latest Features</h3>
           <div className="grid md:grid-cols-3 gap-3 text-xs">
             <div className="flex items-center text-gray-600 dark:text-gray-400">
-              <i className="fas fa-images text-blue-500 mr-2"></i>
-              Visual comparison with fallback images
+              <i className="fas fa-search text-blue-500 mr-2"></i>
+              Google Search integration for accurate pricing
             </div>
             <div className="flex items-center text-gray-600 dark:text-gray-400">
-              <i className="fas fa-database text-purple-500 mr-2"></i>
-              Enhanced market data aggregation
+              <i className="fas fa-images text-purple-500 mr-2"></i>
+              Visual comparison with marketplace references
             </div>
             <div className="flex items-center text-gray-600 dark:text-gray-400">
-              <i className="fas fa-certificate text-orange-500 mr-2"></i>
-              Authentication badges for verified data
+              <i className="fas fa-shield-alt text-orange-500 mr-2"></i>
+              Multi-source price verification system
             </div>
           </div>
         </div>
