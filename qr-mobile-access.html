@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Access - Product Analysis Platform</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        .title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .qr-container {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .qr-code {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 20px;
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .url-display {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 14px;
+            color: #333;
+            word-break: break-all;
+            margin-bottom: 20px;
+        }
+        
+        .instructions {
+            text-align: left;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+            color: #666;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .feature {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        
+        .feature-icon {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.2s ease;
+        }
+        
+        .refresh-btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .status.online {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.offline {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">📱 Mobile Access</div>
+        <div class="subtitle">Product Analysis Platform</div>
+        
+        <div id="status" class="status"></div>
+        
+        <div class="qr-container">
+            <div class="qr-code" id="qrcode"></div>
+            <div class="url-display" id="urlDisplay"></div>
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 How to Access on Mobile</h3>
+            <ol>
+                <li>Open your phone's camera app</li>
+                <li>Point camera at the QR code above</li>
+                <li>Tap the notification that appears</li>
+                <li>Start analyzing products!</li>
+            </ol>
+            <p><strong>Alternative:</strong> Copy the URL above and paste in your mobile browser</p>
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">📷</div>
+                <div>Camera Upload</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔍</div>
+                <div>AI Analysis</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💰</div>
+                <div>Price Estimates</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <div>Market Data</div>
+            </div>
+        </div>
+        
+        <button class="refresh-btn" onclick="refreshQR()">🔄 Refresh QR Code</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        let currentUrl = '';
+        
+        function getLocalIP() {
+            // Try to get local IP for mobile access
+            return new Promise((resolve) => {
+                const urls = [
+                    'http://localhost:5000',
+                    `http://${window.location.hostname}:5000`,
+                    'http://172.31.128.65:5000' // Fallback to known IP
+                ];
+                
+                // Test which URL is accessible
+                Promise.all(urls.map(url => 
+                    fetch(url + '/api/auth/me')
+                        .then(() => url)
+                        .catch(() => null)
+                )).then(results => {
+                    const workingUrl = results.find(url => url !== null);
+                    resolve(workingUrl || urls[2]); // Use fallback if none work
+                });
+            });
+        }
+        
+        async function generateQR() {
+            try {
+                currentUrl = await getLocalIP();
+                document.getElementById('urlDisplay').textContent = currentUrl;
+                
+                // Clear previous QR code
+                document.getElementById('qrcode').innerHTML = '';
+                
+                // Generate new QR code
+                QRCode.toCanvas(document.getElementById('qrcode'), currentUrl, {
+                    width: 200,
+                    margin: 2,
+                    color: {
+                        dark: '#333333',
+                        light: '#ffffff'
+                    }
+                });
+                
+                checkServerStatus();
+            } catch (error) {
+                console.error('Error generating QR code:', error);
+                document.getElementById('urlDisplay').textContent = 'Error generating QR code';
+            }
+        }
+        
+        function checkServerStatus() {
+            fetch(currentUrl + '/api/auth/me')
+                .then(response => {
+                    const status = document.getElementById('status');
+                    status.className = 'status online';
+                    status.textContent = '✅ Server Online - Ready for mobile access';
+                })
+                .catch(error => {
+                    const status = document.getElementById('status');
+                    status.className = 'status offline';
+                    status.textContent = '❌ Server Offline - Make sure npm run dev is running';
+                });
+        }
+        
+        function refreshQR() {
+            generateQR();
+        }
+        
+        // Generate QR code when page loads
+        document.addEventListener('DOMContentLoaded', generateQR);
+        
+        // Auto-refresh every 30 seconds to check server status
+        setInterval(checkServerStatus, 30000);
+    </script>
+</body>
+</html>
