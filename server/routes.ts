@@ -369,28 +369,30 @@ If no clear product is visible, return: {"productName": "No product detected", "
         return res.status(404).json({ message: "Upload not found" });
       }
 
-      // Check if file exists
-      try {
-        await fs.access(upload.filePath);
-      } catch {
-        return res.status(404).json({ message: "Image file not found" });
-      }
-
       // Read image file
       const imageBuffer = await fs.readFile(upload.filePath);
       const base64Image = imageBuffer.toString('base64');
 
-      // Validate image quality before processing
+      // Enhanced validation
       const imageValidation = accuracyValidator.validateImageQuality(base64Image);
       if (!imageValidation.isValid) {
         return res.status(400).json({ 
           message: "Image quality insufficient for analysis",
-          issues: imageValidation.issues 
+          issues: imageValidation.issues,
+          recommendations: imageValidation.recommendations
         });
       }
 
+      // Use validation confidence to adjust analysis parameters
+      const analysisConfidence = imageValidation.confidence;
+
+      // Select appropriate model based on confidence
+      const model = analysisConfidence > 0.8 ? 
+        'gemini-2.5-flash-preview-05-20' : 
+        'gemini-2.0-flash-exp';
+
       // Use Gemini to analyze the image
-      const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
+      const GEMINI_MODEL = model;
 
       const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `
 You are an expert product research analyst specializing in resale market intelligence. Your task is to analyze the provided image with extreme precision and perform comprehensive market research to return verified, actionable data for resellers.
@@ -1131,11 +1133,11 @@ Keep response concise for real-time display.`;
         // It's an upload ID, get the filename from database
         const uploadId = parseInt(identifier);
         const upload = await storage.getUpload(uploadId);
-        
+
         if (!upload) {
           return res.status(404).json({ message: "Upload not found" });
         }
-        
+
         imagePath = path.join(uploadDir, upload.filename);
       } else {
         // It's a filename
