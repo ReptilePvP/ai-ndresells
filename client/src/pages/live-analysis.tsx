@@ -13,6 +13,7 @@ export function LiveAnalysisPage() {
   const [lastAnalysis, setLastAnalysis] = useState<string>("");
   const [analysisCount, setAnalysisCount] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [needsManualPlay, setNeedsManualPlay] = useState(false);
   
   const wsRef = useRef<WebSocket | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -123,12 +124,13 @@ export function LiveAnalysisPage() {
             console.log('Video playing after manual setup');
           } catch (playError) {
             console.warn('Auto-play failed, user interaction may be required:', playError);
+            setNeedsManualPlay(true);
             // Don't throw error here, continue with setup
           }
         }
         
-        // Check if video is ready (has stream and sufficient readyState)
-        if (video.srcObject && video.readyState >= 2) { // HAVE_CURRENT_DATA = 2
+        // Check if video is ready (has stream and sufficient readyState or is at least loading)
+        if (video.srcObject && (video.readyState >= 2 || isPlaying)) { 
           console.log('Video element confirmed ready with stream');
           break;
         }
@@ -259,6 +261,36 @@ export function LiveAnalysisPage() {
     setConnectionStatus('disconnected');
     setLastAnalysis("");
     setAnalysisCount(0);
+    setNeedsManualPlay(false);
+  };
+
+  const handleManualPlay = async () => {
+    if (videoRef.current && stream) {
+      try {
+        console.log('Manual play button clicked');
+        const video = videoRef.current;
+        
+        if (!video.srcObject) {
+          video.srcObject = stream;
+        }
+        
+        await video.play();
+        setNeedsManualPlay(false);
+        console.log('Manual play successful');
+        
+        toast({
+          title: "Camera Ready",
+          description: "Video stream is now active",
+        });
+      } catch (error) {
+        console.error('Manual play failed:', error);
+        toast({
+          title: "Play Failed",
+          description: "Unable to start video playback",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const analyzeCurrentFrame = async () => {
@@ -575,8 +607,27 @@ export function LiveAnalysisPage() {
             </div>
           )}
 
+          {/* Manual play button when autoplay is blocked */}
+          {needsManualPlay && (
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+              <div className="bg-black/80 backdrop-blur-sm rounded-xl p-6 text-center text-white animate-fade-in border border-white/20">
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Camera className="h-8 w-8 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Camera Ready</h3>
+                <p className="text-sm text-white/80 mb-4">Tap to start video playback</p>
+                <Button 
+                  onClick={handleManualPlay}
+                  className="bg-white text-black hover:bg-white/90"
+                >
+                  Start Video
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Instructions overlay for first use */}
-          {analysisCount === 0 && !lastAnalysis && (
+          {analysisCount === 0 && !lastAnalysis && !needsManualPlay && (
             <div className="absolute top-1/2 left-6 right-6 transform -translate-y-1/2 pointer-events-none">
               <div className="bg-black/60 backdrop-blur-sm rounded-xl p-4 text-center text-white/90 animate-fade-in">
                 <Info className="h-5 w-5 mx-auto mb-2" />
