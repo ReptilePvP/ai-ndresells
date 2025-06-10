@@ -304,7 +304,7 @@ export function LiveAnalysisPage() {
         <div className="container mx-auto px-4 py-8 relative z-10">
           <div className="flex items-center gap-4 mb-12">
             <Link href="/">
-              <Button variant="outline" size="sm" className="bg-white/80 backdrop-blur-sm border-gray-300 hover:bg-white">
+              <Button variant="outline" size="sm" className="bg-white/80 backdrop-blur-sm border-gray-300 hover:bg-white text-gray-900 hover:text-gray-900">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
