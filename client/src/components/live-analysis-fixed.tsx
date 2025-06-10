@@ -136,6 +136,8 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
 
   // Start continuous analysis when both camera and WebSocket are ready
   useEffect(() => {
+    console.log('Camera state:', { isCameraPlaying, isConnected, hasInterval: !!intervalRef.current });
+    
     if (isCameraPlaying && isConnected && !intervalRef.current) {
       toast({
         title: "Live Analysis Ready",
@@ -144,6 +146,7 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
       
       // Start continuous analysis every 4 seconds
       intervalRef.current = setInterval(captureAndAnalyze, 4000);
+      console.log('Started continuous analysis');
     }
     
     return () => {
@@ -153,6 +156,18 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
       }
     };
   }, [isCameraPlaying, isConnected]);
+
+  // Debug camera state changes
+  useEffect(() => {
+    console.log('Live Analysis state update:', {
+      stream: !!stream,
+      streamActive: stream?.active,
+      isCameraLoading,
+      isCameraPlaying,
+      isConnected,
+      cameraError
+    });
+  }, [stream, isCameraLoading, isCameraPlaying, isConnected, cameraError]);
 
   const captureAndAnalyze = () => {
     if (!wsRef.current || !videoRef.current || !canvasRef.current || isAnalyzing || !stream) {
@@ -336,21 +351,70 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
 
       {/* Video Feed */}
       <div className="flex-1 relative">
-        {isCameraPlaying ? (
-          <video
-            ref={videoRef}
-            className="w-full h-full object-cover"
-            autoPlay
-            playsInline
-            muted
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-900">
+        <video
+          ref={videoRef}
+          className="w-full h-full object-cover"
+          autoPlay
+          playsInline
+          muted
+          onClick={async () => {
+            if (videoRef.current && stream && !isCameraPlaying) {
+              try {
+                await videoRef.current.play();
+              } catch (err) {
+                console.error('Manual play failed:', err);
+              }
+            }
+          }}
+        />
+        
+        {/* Overlay when not playing */}
+        {(!isCameraPlaying || isCameraLoading) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
             <div className="text-center text-white">
               <Camera className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg">
-                {isCameraLoading ? "Setting up camera..." : "Camera not ready"}
+              <p className="text-lg mb-4">
+                {isCameraLoading ? "Setting up camera..." : stream ? "Camera Ready" : "Camera not ready"}
               </p>
+              
+              {stream && !isCameraPlaying && (
+                <Button
+                  onClick={async () => {
+                    if (videoRef.current && stream) {
+                      try {
+                        console.log('Attempting manual video play...');
+                        await videoRef.current.play();
+                        console.log('Manual video play successful');
+                      } catch (err) {
+                        console.error('Manual play failed:', err);
+                        toast({
+                          title: "Camera Activation Failed",
+                          description: "Please try refreshing the page",
+                          variant: "destructive",
+                        });
+                      }
+                    }
+                  }}
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Eye className="mr-2 h-5 w-5" />
+                  Start Camera Feed
+                </Button>
+              )}
+              
+              {!stream && !isCameraLoading && (
+                <Button
+                  onClick={() => {
+                    startCamera().catch(console.error);
+                  }}
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Camera className="mr-2 h-5 w-5" />
+                  Enable Camera
+                </Button>
+              )}
             </div>
           </div>
         )}
