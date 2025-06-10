@@ -65,9 +65,9 @@ export function Header() {
                   Analyzer
                 </button>
               </Link>
-              <Link href="/live">
+              <Link href="/live-analysis">
                 <button className={`font-medium transition-colors ${
-                  isActive("/live") 
+                  isActive("/live-analysis") 
                     ? "text-blue-600 dark:text-blue-400" 
                     : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
                 }`}>
