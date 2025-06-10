@@ -368,6 +368,40 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
           }}
         />
         
+        {/* Camera Scanning Overlay */}
+        {isCameraPlaying && (
+          <div className="absolute inset-0 pointer-events-none">
+            {/* Corner brackets - larger and more prominent */}
+            <div className="absolute top-16 left-16 w-12 h-12 border-l-4 border-t-4 border-green-400"></div>
+            <div className="absolute top-16 right-16 w-12 h-12 border-r-4 border-t-4 border-green-400"></div>
+            <div className="absolute bottom-24 left-16 w-12 h-12 border-l-4 border-b-4 border-green-400"></div>
+            <div className="absolute bottom-24 right-16 w-12 h-12 border-r-4 border-b-4 border-green-400"></div>
+            
+            {/* Center target circle */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="w-20 h-20 rounded-full border-2 border-green-400 flex items-center justify-center">
+                <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
+              </div>
+            </div>
+            
+            {/* Ready to Scan indicator */}
+            <div className="absolute top-12 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 rounded-full px-4 py-2">
+              <div className="flex items-center space-x-2 text-white text-sm">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span>Ready to Scan</span>
+              </div>
+            </div>
+            
+            {/* Point camera instruction at bottom */}
+            <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 rounded-full px-6 py-3">
+              <div className="flex items-center space-x-2 text-white text-sm">
+                <Camera className="w-4 h-4 text-green-400" />
+                <span>Point camera to identify</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Overlay when not playing */}
         {(!isCameraPlaying || isCameraLoading) && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
@@ -437,18 +471,25 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
         </div>
       )}
 
-      {/* Manual Analyze Button */}
+      {/* Analyze Button - Bottom Center */}
       {isCameraPlaying && (
-        <div className="absolute bottom-20 right-4 z-10">
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
           <Button
             onClick={captureAndAnalyze}
             disabled={isAnalyzing || !isConnected}
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 p-0"
+            size="lg"
+            className="bg-green-500 hover:bg-green-600 text-white rounded-full px-8 py-4 shadow-2xl border-2 border-white pointer-events-auto"
           >
             {isAnalyzing ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <div className="flex items-center space-x-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="font-semibold">Analyzing...</span>
+              </div>
             ) : (
-              <Scan className="h-6 w-6" />
+              <div className="flex items-center space-x-2">
+                <Camera className="h-5 w-5" />
+                <span className="font-semibold">Analyze</span>
+              </div>
             )}
           </Button>
         </div>
