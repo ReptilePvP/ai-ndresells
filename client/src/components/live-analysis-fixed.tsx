@@ -175,11 +175,16 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
+      // Resize to reduce payload size while maintaining quality
+      const maxWidth = 800;
+      const scale = Math.min(maxWidth / video.videoWidth, maxWidth / video.videoHeight);
       
-      const imageData = canvas.toDataURL('image/jpeg', 0.7);
+      canvas.width = video.videoWidth * scale;
+      canvas.height = video.videoHeight * scale;
+      
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const imageData = canvas.toDataURL('image/jpeg', 0.4);
       
       console.log('Sending frame for direct analysis...');
       
