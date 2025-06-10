@@ -1,10 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Eye, VideoOff, Loader2, Camera, ArrowLeft, X, Zap, ShoppingBag, DollarSign, Info, Target, Scan, Activity, CheckCircle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useCamera } from "@/hooks/useCamera";
+import { ArrowLeft, Eye, Scan, Activity, DollarSign, CheckCircle } from "lucide-react";
+import { SimpleLiveAnalysis } from "@/components/simple-live-analysis";
 import { Link } from "wouter";
 
 export function LiveAnalysisPage() {
@@ -76,93 +74,16 @@ export function LiveAnalysisPage() {
     try {
       setConnectionStatus('connecting');
       
-      console.log('Starting live analysis - requesting camera access...');
-      console.log('Initial state:', {
-        hasVideoRef: !!videoRef.current,
-        hasStream: !!stream,
-        isPlaying,
-        cameraError,
-        cameraLoading
+      console.log('Starting live analysis...');
+      
+      // Start camera in background, don't wait for complete setup
+      startCamera().catch(err => {
+        console.warn('Camera start failed, will retry:', err);
+        setNeedsManualPlay(true);
       });
       
-      // Start camera and wait for it to be ready
-      await startCamera();
-      
-      console.log('Camera start completed, checking state:', {
-        hasVideoRef: !!videoRef.current,
-        hasStream: !!stream,
-        isPlaying,
-        streamActive: stream?.active,
-        streamTracks: stream?.getTracks().length
-      });
-      
-      // Give the camera hook a moment to set up the video element
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Checking video element after delay:', {
-        hasVideoRef: !!videoRef.current,
-        hasStream: !!stream,
-        streamActive: stream?.active
-      });
-      
-      // If we don't have the video element at this point, it's a real issue
-      if (!videoRef.current) {
-        console.error('Video element is null after camera start');
-        throw new Error('Video element not available - DOM may not be ready');
-      }
-
-      // If we don't have a stream, that's also a problem
-      if (!stream) {
-        console.error('Camera stream is null after camera start');
-        throw new Error('Camera stream not available - check permissions');
-      }
-
-      const video = videoRef.current;
-      
-      // Ensure the stream is properly connected
-      if (!video.srcObject) {
-        console.log('Manually connecting stream to video element');
-        video.srcObject = stream;
-        video.muted = true;
-        video.playsInline = true;
-        
-        // Wait for the video to load
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Video load timeout')), 5000);
-          
-          const onLoadedMetadata = () => {
-            console.log('Video metadata loaded successfully');
-            clearTimeout(timeout);
-            resolve(void 0);
-          };
-          
-          if (video.readyState >= 1) {
-            // Already loaded
-            clearTimeout(timeout);
-            resolve(void 0);
-          } else {
-            video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
-          }
-        });
-        
-        // Try to play the video
-        try {
-          await video.play();
-          console.log('Video playing successfully');
-        } catch (playError) {
-          console.warn('Video autoplay blocked, manual play needed:', playError);
-          setNeedsManualPlay(true);
-        }
-      }
-      
-      console.log('Video setup complete:', {
-        hasStream: !!video.srcObject,
-        readyState: video.readyState,
-        paused: video.paused,
-        needsManualPlay
-      });
-
-      console.log('Video setup complete, establishing WebSocket connection...');
+      // Proceed with WebSocket connection immediately
+      console.log('Establishing WebSocket connection...');
 
       // Create WebSocket connection to the correct path
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -187,9 +108,19 @@ export function LiveAnalysisPage() {
         setConnectionStatus('connected');
         setIsActive(true);
         
+        // Send initial setup message to server
+        ws.send(JSON.stringify({
+          type: 'setup',
+          config: {
+            model: 'models/gemini-2.0-flash-exp',
+            responseModalities: ['TEXT'],
+            systemPrompt: 'You are an expert product analyst. Identify products and provide pricing insights for resellers.'
+          }
+        }));
+        
         toast({
-          title: "Live Analysis Ready",
-          description: "Point your camera at products for instant AI identification",
+          title: "Live Analysis Connected",
+          description: "Camera setup in progress, connection established",
         });
       };
       
