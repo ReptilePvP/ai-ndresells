@@ -82,34 +82,55 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
     );
   };
 
+  // Debug stream and video state
+  useEffect(() => {
+    console.log('CameraCapture state:', {
+      isOpen,
+      hasStream: !!stream,
+      streamActive: stream?.active,
+      streamTracks: stream?.getVideoTracks().length,
+      hasVideoRef: !!videoRef.current,
+      isPlaying,
+      isLoading,
+      error
+    });
+    
+    if (stream) {
+      const tracks = stream.getVideoTracks();
+      tracks.forEach((track, index) => {
+        console.log(`Video track ${index}:`, {
+          enabled: track.enabled,
+          readyState: track.readyState,
+          muted: track.muted
+        });
+      });
+    }
+  }, [isOpen, stream, isPlaying, isLoading, error]);
+
   // Handle video element setup when stream changes
   useEffect(() => {
-    if (isOpen && stream && videoRef.current && !isPlaying && !isLoading && !error) {
+    if (isOpen && stream && videoRef.current) {
       const video = videoRef.current;
+      console.log('Setting up video with stream in CameraCapture');
       
-      const setupVideo = async () => {
-        try {
-          // Ensure the video element has the stream
-          if (video.srcObject !== stream) {
-            video.srcObject = stream;
-          }
-          
-          // Try to play the video
-          await video.play();
-          console.log('Camera video is now playing');
-        } catch (playError) {
-          console.warn('Manual play attempt failed:', playError);
-          // Show a toast to inform user they may need to interact
-          toast({
-            title: "Camera Ready",
-            description: "Click the video area if the camera feed doesn't appear",
-          });
-        }
-      };
+      // Always set the stream, regardless of playing state
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.autoplay = true;
       
-      setupVideo();
+      // Force play attempt
+      video.play().then(() => {
+        console.log('Camera video playing successfully');
+      }).catch(err => {
+        console.warn('Video play failed:', err);
+        toast({
+          title: "Camera Ready",
+          description: "Click the video area if the camera feed doesn't appear",
+        });
+      });
     }
-  }, [isOpen, stream, isPlaying, isLoading, error, toast]);
+  }, [isOpen, stream, toast]);
 
   // Handle video click to manually start playback
   const handleVideoClick = async () => {
