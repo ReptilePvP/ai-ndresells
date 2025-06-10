@@ -75,31 +75,77 @@ export function LiveAnalysisPage() {
     try {
       setConnectionStatus('connecting');
       
-      // Start camera and get direct access to stream
+      console.log('Starting live analysis - requesting camera access...');
+      
+      // Start camera and wait for it to be ready
       await startCamera();
       
-      // Give camera hook time to update and check video element directly
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Enhanced video element readiness check
+      let attempts = 0;
+      const maxAttempts = 25; // 12.5 seconds max wait
       
-      if (!videoRef.current) {
-        throw new Error('Video element not available');
-      }
-
-      const video = videoRef.current;
-      
-      // Wait for video to have an active stream
-      let streamCheckAttempts = 0;
-      while (streamCheckAttempts < 10 && !video.srcObject) {
+      while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 500));
-        streamCheckAttempts++;
-        console.log(`Checking for video stream: attempt ${streamCheckAttempts}`);
+        
+        if (!videoRef.current) {
+          attempts++;
+          console.log(`Waiting for video element: attempt ${attempts}/${maxAttempts}`);
+          continue;
+        }
+
+        const video = videoRef.current;
+        
+        // If we have a stream from the hook but video doesn't have it, assign it
+        if (stream && !video.srcObject) {
+          console.log('Assigning stream to video element manually');
+          video.srcObject = stream;
+          video.muted = true;
+          video.playsInline = true;
+          video.autoplay = true;
+          
+          // Set up event listeners for better debugging
+          const handleLoadedMetadata = () => {
+            console.log('Video metadata loaded, attempting play...');
+            video.play().catch(e => console.warn('Play attempt failed:', e));
+          };
+          
+          const handleCanPlay = () => {
+            console.log('Video can play, attempting play...');
+            video.play().catch(e => console.warn('Play attempt failed:', e));
+          };
+
+          video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+          video.addEventListener('canplay', handleCanPlay, { once: true });
+          
+          // Try to play the video immediately
+          try {
+            await video.play();
+            console.log('Video playing after manual setup');
+          } catch (playError) {
+            console.warn('Auto-play failed, user interaction may be required:', playError);
+            // Don't throw error here, continue with setup
+          }
+        }
+        
+        // Check if video is ready (has stream and sufficient readyState)
+        if (video.srcObject && video.readyState >= 2) { // HAVE_CURRENT_DATA = 2
+          console.log('Video element confirmed ready with stream');
+          break;
+        }
+        
+        attempts++;
+        console.log(`Video readiness check: attempt ${attempts}/${maxAttempts}, readyState: ${video.readyState}, hasStream: ${!!video.srcObject}`);
       }
 
-      if (!video.srcObject) {
-        throw new Error('Video stream not assigned - camera access may have failed');
+      if (!videoRef.current) {
+        throw new Error('Video element not available - camera setup failed');
       }
 
-      console.log('Video stream confirmed, proceeding with WebSocket connection');
+      if (!videoRef.current.srcObject) {
+        throw new Error('Camera stream not connected - please check camera permissions');
+      }
+
+      console.log('Video setup complete, establishing WebSocket connection...');
 
       // Create WebSocket connection to the correct path
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -179,9 +225,25 @@ export function LiveAnalysisPage() {
     } catch (error: any) {
       console.error('Failed to start live analysis:', error);
       setConnectionStatus('disconnected');
+      
+      // Stop camera if it was started
+      stopCamera();
+      
+      let errorMessage = "Failed to start live analysis";
+      
+      if (error.message?.includes('Video element not available')) {
+        errorMessage = "Camera setup failed. Please refresh the page and try again.";
+      } else if (error.message?.includes('Camera stream not connected')) {
+        errorMessage = "Camera access denied. Please allow camera permissions and try again.";
+      } else if (error.message?.includes('WebSocket connection timeout')) {
+        errorMessage = "Connection timed out. Please check your internet connection.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Connection Failed",
-        description: error.message || "Failed to start live analysis",
+        description: errorMessage,
         variant: "destructive",
       });
     }
