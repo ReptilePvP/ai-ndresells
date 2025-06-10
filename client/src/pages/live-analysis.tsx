@@ -77,75 +77,90 @@ export function LiveAnalysisPage() {
       setConnectionStatus('connecting');
       
       console.log('Starting live analysis - requesting camera access...');
+      console.log('Initial state:', {
+        hasVideoRef: !!videoRef.current,
+        hasStream: !!stream,
+        isPlaying,
+        cameraError,
+        cameraLoading
+      });
       
       // Start camera and wait for it to be ready
       await startCamera();
       
-      // Enhanced video element readiness check
-      let attempts = 0;
-      const maxAttempts = 25; // 12.5 seconds max wait
+      console.log('Camera start completed, checking state:', {
+        hasVideoRef: !!videoRef.current,
+        hasStream: !!stream,
+        isPlaying,
+        streamActive: stream?.active,
+        streamTracks: stream?.getTracks().length
+      });
       
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        if (!videoRef.current) {
-          attempts++;
-          console.log(`Waiting for video element: attempt ${attempts}/${maxAttempts}`);
-          continue;
-        }
-
-        const video = videoRef.current;
-        
-        // If we have a stream from the hook but video doesn't have it, assign it
-        if (stream && !video.srcObject) {
-          console.log('Assigning stream to video element manually');
-          video.srcObject = stream;
-          video.muted = true;
-          video.playsInline = true;
-          video.autoplay = true;
-          
-          // Set up event listeners for better debugging
-          const handleLoadedMetadata = () => {
-            console.log('Video metadata loaded, attempting play...');
-            video.play().catch(e => console.warn('Play attempt failed:', e));
-          };
-          
-          const handleCanPlay = () => {
-            console.log('Video can play, attempting play...');
-            video.play().catch(e => console.warn('Play attempt failed:', e));
-          };
-
-          video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
-          video.addEventListener('canplay', handleCanPlay, { once: true });
-          
-          // Try to play the video immediately
-          try {
-            await video.play();
-            console.log('Video playing after manual setup');
-          } catch (playError) {
-            console.warn('Auto-play failed, user interaction may be required:', playError);
-            setNeedsManualPlay(true);
-            // Don't throw error here, continue with setup
-          }
-        }
-        
-        // Check if video is ready (has stream and sufficient readyState or is at least loading)
-        if (video.srcObject && (video.readyState >= 2 || isPlaying)) { 
-          console.log('Video element confirmed ready with stream');
-          break;
-        }
-        
-        attempts++;
-        console.log(`Video readiness check: attempt ${attempts}/${maxAttempts}, readyState: ${video.readyState}, hasStream: ${!!video.srcObject}`);
-      }
-
+      // Give the camera hook a moment to set up the video element
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('Checking video element after delay:', {
+        hasVideoRef: !!videoRef.current,
+        hasStream: !!stream,
+        streamActive: stream?.active
+      });
+      
+      // If we don't have the video element at this point, it's a real issue
       if (!videoRef.current) {
-        throw new Error('Video element not available - camera setup failed');
+        console.error('Video element is null after camera start');
+        throw new Error('Video element not available - DOM may not be ready');
       }
 
-      if (!videoRef.current.srcObject) {
-        throw new Error('Camera stream not connected - please check camera permissions');
+      // If we don't have a stream, that's also a problem
+      if (!stream) {
+        console.error('Camera stream is null after camera start');
+        throw new Error('Camera stream not available - check permissions');
       }
+
+      const video = videoRef.current;
+      
+      // Ensure the stream is properly connected
+      if (!video.srcObject) {
+        console.log('Manually connecting stream to video element');
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        
+        // Wait for the video to load
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Video load timeout')), 5000);
+          
+          const onLoadedMetadata = () => {
+            console.log('Video metadata loaded successfully');
+            clearTimeout(timeout);
+            resolve(void 0);
+          };
+          
+          if (video.readyState >= 1) {
+            // Already loaded
+            clearTimeout(timeout);
+            resolve(void 0);
+          } else {
+            video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+          }
+        });
+        
+        // Try to play the video
+        try {
+          await video.play();
+          console.log('Video playing successfully');
+        } catch (playError) {
+          console.warn('Video autoplay blocked, manual play needed:', playError);
+          setNeedsManualPlay(true);
+        }
+      }
+      
+      console.log('Video setup complete:', {
+        hasStream: !!video.srcObject,
+        readyState: video.readyState,
+        paused: video.paused,
+        needsManualPlay
+      });
 
       console.log('Video setup complete, establishing WebSocket connection...');
 
@@ -473,24 +488,57 @@ export function LiveAnalysisPage() {
                 </Badge>
               </div>
 
-              <Button
-                onClick={startLiveAnalysis}
-                disabled={connectionStatus === 'connecting' || cameraLoading}
-                size="lg"
-                className="px-12 py-6 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 animate-bounce-in"
-              >
-                {connectionStatus === 'connecting' || cameraLoading ? (
-                  <>
-                    <Loader2 className="mr-3 h-6 w-6 animate-spin" />
-                    Starting Camera...
-                  </>
-                ) : (
-                  <>
-                    <Camera className="mr-3 h-6 w-6" />
-                    Start Live Analysis
-                  </>
-                )}
-              </Button>
+              <div className="space-y-4">
+                <Button
+                  onClick={startLiveAnalysis}
+                  disabled={connectionStatus === 'connecting' || cameraLoading}
+                  size="lg"
+                  className="px-12 py-6 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 animate-bounce-in"
+                >
+                  {connectionStatus === 'connecting' || cameraLoading ? (
+                    <>
+                      <Loader2 className="mr-3 h-6 w-6 animate-spin" />
+                      Starting Camera...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="mr-3 h-6 w-6" />
+                      Start Live Analysis
+                    </>
+                  )}
+                </Button>
+                
+                {/* Debug camera test button */}
+                <Button
+                  onClick={async () => {
+                    console.log('Testing camera access...');
+                    try {
+                      await startCamera();
+                      console.log('Camera test result:', {
+                        hasVideoRef: !!videoRef.current,
+                        hasStream: !!stream,
+                        isPlaying,
+                        streamActive: stream?.active
+                      });
+                      toast({
+                        title: "Camera Test",
+                        description: `Camera access: ${stream ? 'Success' : 'Failed'}`,
+                      });
+                    } catch (error) {
+                      console.error('Camera test failed:', error);
+                      toast({
+                        title: "Camera Test Failed",
+                        description: error instanceof Error ? error.message : "Unknown error",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  Test Camera
+                </Button>
+              </div>
 
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
                 Make sure to allow camera access when prompted. Best results with good lighting and clear product visibility.
