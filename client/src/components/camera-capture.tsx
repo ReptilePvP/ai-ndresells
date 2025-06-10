@@ -82,23 +82,51 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
     );
   };
 
-  // Attempt to play video when stream is available
+  // Handle video element setup when stream changes
   useEffect(() => {
-    if (isOpen && stream && !isPlaying && !isLoading && !error) {
-      const playAttempt = async () => {
-        const success = await playVideo();
-        if (!success) {
+    if (isOpen && stream && videoRef.current && !isPlaying && !isLoading && !error) {
+      const video = videoRef.current;
+      
+      const setupVideo = async () => {
+        try {
+          // Ensure the video element has the stream
+          if (video.srcObject !== stream) {
+            video.srcObject = stream;
+          }
+          
+          // Try to play the video
+          await video.play();
+          console.log('Camera video is now playing');
+        } catch (playError) {
+          console.warn('Manual play attempt failed:', playError);
+          // Show a toast to inform user they may need to interact
           toast({
-            title: "Camera Issue",
-            description:
-              "Camera feed may not display. Please interact with the page or refresh.",
-            variant: "destructive",
+            title: "Camera Ready",
+            description: "Click the video area if the camera feed doesn't appear",
           });
         }
       };
-      playAttempt();
+      
+      setupVideo();
     }
-  }, [isOpen, stream, isPlaying, isLoading, error, playVideo, toast]);
+  }, [isOpen, stream, isPlaying, isLoading, error, toast]);
+
+  // Handle video click to manually start playback
+  const handleVideoClick = async () => {
+    if (videoRef.current && stream && !isPlaying) {
+      try {
+        await videoRef.current.play();
+        console.log('Video started after user interaction');
+      } catch (err) {
+        console.error('Manual play failed:', err);
+        toast({
+          title: "Camera Error",
+          description: "Unable to start camera feed. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
 
   if (!isOpen) {
     return (
@@ -149,13 +177,24 @@ export function CameraCapture({ onCapture, isAnalyzing }: CameraCaptureProps) {
               </div>
             )}
 
-            {/* Video Element - Same as live analysis */}
+            {/* Camera not playing overlay */}
+            {stream && !isPlaying && !isLoading && !error && (
+              <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center z-10 cursor-pointer" onClick={handleVideoClick}>
+                <div className="text-center">
+                  <Camera className="w-8 h-8 text-white mx-auto mb-2" />
+                  <p className="text-white text-sm">Click to start camera</p>
+                </div>
+              </div>
+            )}
+
+            {/* Video Element - clickable for manual start */}
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              onClick={handleVideoClick}
+              className="w-full h-full object-cover cursor-pointer"
               style={{
                 minHeight: "300px",
                 backgroundColor: "black",
