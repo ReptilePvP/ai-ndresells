@@ -2,38 +2,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Eye, Scan, Activity, DollarSign } from "lucide-react";
-import { SimpleLiveAnalysis } from "@/components/simple-live-analysis";
+import { LiveAnalysis } from "@/components/live-analysis";
 import { Link } from "wouter";
 
 export function LiveAnalysisPage() {
   const [showAnalysis, setShowAnalysis] = useState(false);
 
   if (showAnalysis) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center gap-4 mb-8">
-            <Link href="/">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-            <Button 
-              onClick={() => setShowAnalysis(false)}
-              variant="outline" 
-              size="sm"
-            >
-              Return to Setup
-            </Button>
-          </div>
-          
-          <div className="max-w-4xl mx-auto">
-            <SimpleLiveAnalysis />
-          </div>
-        </div>
-      </div>
-    );
+    return <LiveAnalysis onClose={() => setShowAnalysis(false)} />;
   }
 
   return (
