@@ -137,14 +137,53 @@ export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
     try {
       console.log('Requesting camera access...');
       
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+      // Check if camera is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera not supported by this browser');
+      }
+      
+      // Try different camera configurations
+      let stream: MediaStream | null = null;
+      const configs = [
+        // Try back camera first (ideal for product analysis)
+        {
+          video: { 
+            facingMode: { exact: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
         },
-        audio: false
-      });
+        // Fallback to any camera
+        {
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        },
+        // Simple fallback
+        {
+          video: true,
+          audio: false
+        }
+      ];
+      
+      for (const config of configs) {
+        try {
+          console.log('Trying camera config:', config);
+          stream = await navigator.mediaDevices.getUserMedia(config);
+          if (stream) break;
+        } catch (err) {
+          console.log('Camera config failed:', err);
+          continue;
+        }
+      }
+      
+      if (!stream) {
+        throw new Error('Unable to access camera. Please allow camera permissions and try again.');
+      }
       
       streamRef.current = stream;
       
@@ -153,27 +192,41 @@ export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
         videoRef.current.muted = true;
         videoRef.current.playsInline = true;
         
-        // Wait for video to be ready
+        // Wait for video to be ready with timeout
         await new Promise<void>((resolve, reject) => {
           const video = videoRef.current!;
+          const timeout = setTimeout(() => {
+            reject(new Error('Video setup timeout'));
+          }, 10000);
           
           const onLoadedMetadata = () => {
+            clearTimeout(timeout);
             video.removeEventListener('loadedmetadata', onLoadedMetadata);
             video.removeEventListener('error', onError);
+            console.log('Video metadata loaded');
             resolve();
           };
           
-          const onError = () => {
+          const onError = (e: any) => {
+            clearTimeout(timeout);
             video.removeEventListener('loadedmetadata', onLoadedMetadata);
             video.removeEventListener('error', onError);
+            console.error('Video error:', e);
             reject(new Error('Video load failed'));
           };
           
           video.addEventListener('loadedmetadata', onLoadedMetadata);
           video.addEventListener('error', onError);
+          
+          // Trigger load if source is already set
+          if (video.readyState >= 1) {
+            onLoadedMetadata();
+          }
         });
         
+        console.log('Starting video playback...');
         await videoRef.current.play();
+        
         setHasCamera(true);
         setIsConnecting(false);
         
@@ -185,14 +238,32 @@ export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
         // Start continuous analysis
         if (intervalRef.current) clearInterval(intervalRef.current);
         intervalRef.current = setInterval(captureAndAnalyze, 4000);
+        
+        console.log('Camera setup complete');
       }
     } catch (error) {
       console.error('Camera setup failed:', error);
-      setCameraError(error instanceof Error ? error.message : 'Camera access failed');
+      let errorMessage = 'Camera access failed';
+      
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          errorMessage = 'Camera permission denied. Please allow camera access and try again.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage = 'No camera found. Please connect a camera and try again.';
+        } else if (error.name === 'NotReadableError') {
+          errorMessage = 'Camera is being used by another application.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Camera setup timed out. Please try again.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setCameraError(errorMessage);
       setIsConnecting(false);
       toast({
         title: "Camera Error",
-        description: "Unable to access camera. Please check permissions.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -298,10 +369,28 @@ export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
         <Card className="max-w-md mx-4">
           <CardContent className="p-8 text-center">
             <VideoOff className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-4">Camera Access Required</h2>
-            <p className="text-gray-600 mb-6">{cameraError}</p>
+            <h2 className="text-xl font-bold mb-4 text-white">Camera Access Required</h2>
+            <p className="text-gray-300 mb-6">{cameraError}</p>
+            
+            {cameraError.includes('permission') && (
+              <div className="bg-blue-900/50 border border-blue-600 rounded-lg p-4 mb-6 text-left">
+                <h3 className="text-sm font-medium text-blue-300 mb-2">How to enable camera:</h3>
+                <ul className="text-xs text-gray-300 space-y-1">
+                  <li>• Click the camera icon in your browser's address bar</li>
+                  <li>• Select "Allow" for camera access</li>
+                  <li>• Refresh the page if needed</li>
+                </ul>
+              </div>
+            )}
+            
             <div className="space-y-2">
-              <Button onClick={setupCamera} className="w-full">
+              <Button 
+                onClick={() => {
+                  setCameraError("");
+                  setupCamera();
+                }} 
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
                 <Camera className="mr-2 h-4 w-4" />
                 Try Again
               </Button>
