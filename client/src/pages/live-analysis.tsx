@@ -2,14 +2,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Eye, Scan, Activity, DollarSign } from "lucide-react";
-import { LiveAnalysis } from "@/components/live-analysis";
+import { LiveAnalysisFixed } from "@/components/live-analysis-fixed";
 import { Link } from "wouter";
 
 export function LiveAnalysisPage() {
   const [showAnalysis, setShowAnalysis] = useState(false);
 
   if (showAnalysis) {
-    return <LiveAnalysis onClose={() => setShowAnalysis(false)} />;
+    return <LiveAnalysisFixed onClose={() => setShowAnalysis(false)} />;
   }
 
   return (
