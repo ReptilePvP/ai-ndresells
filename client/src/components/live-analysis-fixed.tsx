@@ -134,28 +134,15 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
     });
   };
 
-  // Start continuous analysis when both camera and WebSocket are ready
+  // Show ready message when camera is connected
   useEffect(() => {
-    console.log('Camera state:', { isCameraPlaying, isConnected, hasInterval: !!intervalRef.current });
-    
-    if (isCameraPlaying && isConnected && !intervalRef.current) {
+    if (isCameraPlaying && !isCameraLoading) {
       toast({
-        title: "Live Analysis Ready",
-        description: "Camera connected, AI analysis active",
+        title: "Camera Ready",
+        description: "Point camera at product and tap Analyze",
       });
-      
-      // Start continuous analysis every 4 seconds
-      intervalRef.current = setInterval(captureAndAnalyze, 4000);
-      console.log('Started continuous analysis');
     }
-    
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [isCameraPlaying, isConnected]);
+  }, [isCameraPlaying, isCameraLoading, toast]);
 
   // Debug camera state changes
   useEffect(() => {
@@ -169,13 +156,8 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
     });
   }, [stream, isCameraLoading, isCameraPlaying, isConnected, cameraError]);
 
-  const captureAndAnalyze = () => {
-    if (!wsRef.current || !videoRef.current || !canvasRef.current || isAnalyzing || !stream) {
-      return;
-    }
-    
-    if (wsRef.current.readyState !== WebSocket.OPEN) {
-      console.log('WebSocket not ready for analysis');
+  const captureAndAnalyze = async () => {
+    if (!videoRef.current || !canvasRef.current || isAnalyzing || !stream) {
       return;
     }
     
@@ -199,16 +181,52 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
       
       const imageData = canvas.toDataURL('image/jpeg', 0.7);
       
-      wsRef.current.send(JSON.stringify({
-        type: 'analyze_frame',
-        imageData: imageData
-      }));
+      console.log('Sending frame for direct analysis...');
       
-      console.log('Frame sent for analysis');
+      // Use direct API call instead of WebSocket for more reliable analysis
+      const analysisResponse = await fetch('/api/analyze-live', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          imageData,
+          sessionId: generateSessionId()
+        })
+      });
+
+      if (analysisResponse.ok) {
+        const analysis = await analysisResponse.json();
+        console.log('Analysis received:', analysis);
+        
+        // Format the analysis result
+        const analysisText = analysis.productName || analysis.analysis || "Product analyzed";
+        setLastAnalysis(analysisText);
+        setAnalysisCount(prev => prev + 1);
+        
+        toast({
+          title: "Analysis Complete",
+          description: "Product identified successfully",
+        });
+      } else {
+        throw new Error('Analysis failed');
+      }
+      
     } catch (error) {
-      console.error('Capture error:', error);
+      console.error('Analysis error:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  // Helper function to generate session ID
+  const generateSessionId = () => {
+    return Math.random().toString(36).substring(7);
   };
 
   const toggleFullscreen = async () => {
@@ -476,7 +494,7 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
           <Button
             onClick={captureAndAnalyze}
-            disabled={isAnalyzing || !isConnected}
+            disabled={isAnalyzing || !isCameraPlaying}
             size="lg"
             className="bg-green-500 hover:bg-green-600 text-white rounded-full px-8 py-4 shadow-2xl border-2 border-white pointer-events-auto"
           >
