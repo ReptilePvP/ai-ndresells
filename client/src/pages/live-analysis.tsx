@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, VideoOff, Loader2, Camera, ArrowLeft, X, Zap, ShoppingBag, DollarSign, Info } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Eye, VideoOff, Loader2, Camera, ArrowLeft, X, Zap, ShoppingBag, DollarSign, Info, Target, Scan, Activity, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCamera } from "@/hooks/useCamera";
 import { Link } from "wouter";
@@ -13,6 +14,10 @@ export function LiveAnalysisPage() {
   const [analysisCount, setAnalysisCount] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   
+  const wsRef = useRef<WebSocket | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { toast } = useToast();
+
   // Use the camera hook for clean camera management
   const { 
     videoRef, 
@@ -48,54 +53,23 @@ export function LiveAnalysisPage() {
       // Force video to load and play
       videoRef.current.load();
       videoRef.current.play().then(() => {
-        console.log('Video started playing successfully');
-      }).catch(error => {
-        console.log('Video play failed:', error);
-        // Try again after a short delay
-        setTimeout(() => {
-          if (videoRef.current) {
-            videoRef.current.play().catch(console.log);
-          }
-        }, 1000);
+        console.log('Video is now playing');
+      }).catch(err => {
+        console.error('Error playing video:', err);
       });
-    } else if (videoRef.current && !stream) {
-      console.log('Clearing video srcObject');
-      videoRef.current.srcObject = null;
     }
-  }, [stream]);
-  
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const { toast } = useToast();
+  }, [stream, videoRef]);
 
-  const getSessionId = () => {
-    let sessionId = localStorage.getItem('sessionId');
-    if (!sessionId) {
-      sessionId = Math.random().toString(36).substring(7);
-      localStorage.setItem('sessionId', sessionId);
-    }
-    return sessionId;
-  };
-
-  const startFrameCapture = () => {
-    if (!videoRef.current || !canvasRef.current || !stream) return;
-    
-    const video = videoRef.current;
-    console.log('Starting frame capture');
-    
-    intervalRef.current = setInterval(() => {
-      analyzeCurrentFrame();
-    }, 3000); // Analyze every 3 seconds
-  };
-
-  const stopFrameCapture = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-      console.log('Frame capture stopped');
-    }
-  };
+  // Cleanup WebSocket connection when component unmounts
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      stopCamera();
+    };
+  }, [stopCamera]);
 
   const startLiveAnalysis = async () => {
     try {
@@ -152,7 +126,7 @@ export function LiveAnalysisPage() {
         
         toast({
           title: "Live Analysis Ready",
-          description: "Tap the scan button to analyze products",
+          description: "Point your camera at products for instant AI identification",
         });
       };
       
@@ -200,518 +174,361 @@ export function LiveAnalysisPage() {
           url: wsUrl
         });
         setConnectionStatus('disconnected');
-        
-        // Try to continue with basic analysis functionality
-        if (videoRef.current && stream) {
-          console.log('WebSocket failed, continuing with basic camera functionality');
-          setIsActive(true);
-          toast({
-            title: "Limited Mode",
-            description: "Camera active but live analysis unavailable",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Connection Error",
-            description: "Failed to connect to analysis service",
-            variant: "destructive",
-          });
-        }
       };
       
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Failed to start live analysis:', error);
       setConnectionStatus('disconnected');
-      console.error('Live analysis error:', error);
-      
-      // Extract detailed error information
-      let errorMessage = 'Unknown error occurred';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-        console.error('Error details:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
-      } else if (typeof error === 'object' && error !== null) {
-        console.error('Non-Error object:', error);
-        errorMessage = JSON.stringify(error);
-      }
-      
       toast({
-        title: "Setup Error",
-        description: cameraError || errorMessage || "Failed to start live analysis",
+        title: "Connection Failed",
+        description: error.message || "Failed to start live analysis",
         variant: "destructive",
       });
     }
   };
 
-  const analyzeCurrentFrame = () => {
-    if (!videoRef.current || !canvasRef.current || !wsRef.current || isAnalyzing) {
-      return;
-    }
-
-    const video = videoRef.current;
-    
-    // Check if video has stream and is not paused
-    if (!video.srcObject || video.paused || video.ended) {
-      console.log('Video not ready for analysis - no stream or paused');
-      return;
-    }
-
-    // Allow analysis even if dimensions are 0 - some browsers don't report them correctly
-    const videoWidth = video.videoWidth || 640;
-    const videoHeight = video.videoHeight || 480;
-
-    setIsAnalyzing(true);
-    console.log('Capturing frame for analysis', { videoWidth, videoHeight, readyState: video.readyState });
-    
-    try {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        setIsAnalyzing(false);
-        return;
-      }
-
-      // Set canvas dimensions
-      canvas.width = videoWidth;
-      canvas.height = videoHeight;
-
-      // Draw current video frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Convert to base64 and send via WebSocket
-      const imageData = canvas.toDataURL('image/jpeg', 0.7);
-      
-      if (wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({
-          type: 'analyze_frame',
-          imageData,
-          sessionId: getSessionId()
-        }));
-      } else {
-        console.log('WebSocket not ready');
-        setIsAnalyzing(false);
-      }
-      
-    } catch (error) {
-      console.error('Frame capture error:', error);
-      setIsAnalyzing(false);
-    }
-  };
-
   const stopLiveAnalysis = () => {
-    // Stop frame capture
-    stopFrameCapture();
-    
-    // Close WebSocket
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
-    
-    // Stop camera
     stopCamera();
-    
     setIsActive(false);
-    setIsAnalyzing(false);
+    setConnectionStatus('disconnected');
     setLastAnalysis("");
     setAnalysisCount(0);
-    setConnectionStatus('disconnected');
-    
-    toast({
-      title: "Live Analysis Stopped",
-      description: "Real-time analysis disconnected",
-    });
   };
 
-  // Ensure video element gets the stream when available
-  useEffect(() => {
-    if (videoRef.current && stream && isActive) {
-      console.log('Assigning stream to video element');
+  const analyzeCurrentFrame = async () => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      toast({
+        title: "Not Connected",
+        description: "Please start live analysis first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!videoRef.current || !canvasRef.current) {
+      toast({
+        title: "Camera Error",
+        description: "Video stream not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    
+    try {
       const video = videoRef.current;
-      video.srcObject = stream;
-      video.muted = true;
-      video.playsInline = true;
-      video.autoplay = true;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
       
-      // Force play
-      video.play().then(() => {
-        console.log('Video playing with stream');
-      }).catch(err => {
-        console.error('Video play error:', err);
+      if (!ctx) {
+        throw new Error('Canvas context not available');
+      }
+
+      // Set canvas dimensions to match video
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      
+      // Draw the current video frame to canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Convert canvas to base64 image data
+      const imageData = canvas.toDataURL('image/jpeg', 0.8);
+      
+      // Send image data through WebSocket
+      wsRef.current.send(JSON.stringify({
+        type: 'analyze_frame',
+        image: imageData
+      }));
+      
+    } catch (error) {
+      console.error('Frame capture error:', error);
+      setIsAnalyzing(false);
+      toast({
+        title: "Analysis Failed",
+        description: "Failed to capture frame for analysis",
+        variant: "destructive",
       });
     }
-  }, [stream, isActive, videoRef.current]);
+  };
 
-  // Remove automatic frame capture - now manual only
-  // useEffect(() => {
-  //   if (isPlaying && connectionStatus === 'connected') {
-  //     startFrameCapture();
-  //   }
-  // }, [isPlaying, connectionStatus]);
-
-  useEffect(() => {
-    return () => {
-      stopLiveAnalysis();
-    };
-  }, []);
-
-  // Mobile-first immersive UI when active
-  if (isActive) {
+  // Handle camera errors
+  if (cameraError) {
     return (
-      <div className="fixed inset-0 bg-black z-50 flex flex-col">
-        {/* Top Status Bar - Mobile Style */}
-        <div className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-b from-black/70 to-transparent p-4 safe-area-inset-top">
-          <div className="flex items-center justify-between text-white">
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={stopLiveAnalysis}
-                variant="ghost"
-                size="sm"
-                className="text-white hover:bg-white/20 p-2 h-auto w-auto rounded-full"
-              >
-                <X className="h-5 w-5" />
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 dark:from-gray-900 dark:via-red-900/20 dark:to-orange-900/20">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center gap-4 mb-8">
+            <Link href="/">
+              <Button variant="outline" size="sm" className="bg-white/80 backdrop-blur-sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
               </Button>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                <span className="text-sm font-medium">LIVE</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
-                {analysisCount} scans
-              </Badge>
-              {connectionStatus === 'connected' && (
-                <div className="w-2 h-2 bg-green-500 rounded-full" />
-              )}
-            </div>
+            </Link>
           </div>
-        </div>
-
-        {/* Full Screen Video */}
-        <div className="flex-1 relative">
-          {!stream && !cameraError && (
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center text-white overflow-hidden">
-              {/* Floating Background Elements */}
-              <div className="absolute inset-0">
-                {[...Array(8)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-2 h-2 bg-white/20 rounded-full animate-pulse"
-                    style={{
-                      left: `${20 + (i * 10)}%`,
-                      top: `${30 + (i * 5)}%`,
-                      animationDelay: `${i * 0.5}s`,
-                      animationDuration: `${2 + (i * 0.3)}s`
-                    }}
-                  />
-                ))}
-              </div>
-              
-              {/* Main Content */}
-              <div className="text-center z-10 relative">
-                {/* Cute Product Mascot */}
-                <div className="relative mb-6">
-                  <div className="w-24 h-24 mx-auto mb-4 relative">
-                    {/* Main mascot body */}
-                    <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full mx-auto relative animate-float shadow-lg animate-glow">
-                      {/* Eyes */}
-                      <div className="absolute top-6 left-4 w-3 h-3 bg-white rounded-full">
-                        <div className="w-2 h-2 bg-black rounded-full animate-pulse" />
-                      </div>
-                      <div className="absolute top-6 right-4 w-3 h-3 bg-white rounded-full">
-                        <div className="w-2 h-2 bg-black rounded-full animate-pulse" />
-                      </div>
-                      {/* Animated mouth */}
-                      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-6 h-3 border-2 border-white rounded-full border-t-0 animate-pulse" />
-                      {/* Sparkles around mascot */}
-                      <div className="absolute -top-2 -right-2 text-yellow-300 animate-spin text-lg">✨</div>
-                      <div className="absolute -bottom-1 -left-3 text-pink-300 animate-wiggle text-lg">🔍</div>
-                      <div className="absolute top-0 -left-2 text-green-300 animate-bounce text-lg">💎</div>
-                      {/* Additional floating elements */}
-                      <div className="absolute -top-4 left-1/2 text-purple-300 animate-float text-sm" style={{ animationDelay: '1s' }}>⭐</div>
-                      <div className="absolute -right-4 top-1/2 text-cyan-300 animate-pulse text-sm" style={{ animationDelay: '1.5s' }}>🔮</div>
-                      
-                      {/* Scanning line effect */}
-                      <div className="absolute inset-0 rounded-full overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white to-transparent opacity-60 animate-scan-line" />
-                      </div>
-                    </div>
-                    
-                    {/* Camera scanning effect */}
-                    <div className="absolute inset-0 border-4 border-blue-400 rounded-full animate-ping opacity-50" />
-                    <div className="absolute inset-2 border-2 border-purple-400 rounded-full animate-pulse opacity-60" />
-                  </div>
-                </div>
-                
-                {/* Loading Text */}
-                <div className="space-y-3">
-                  <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">
-                    Getting Ready to Scan! 📱
-                  </h3>
-                  <p className="text-blue-200 font-medium">Setting up your smart camera...</p>
-                  
-                  {/* Loading dots */}
-                  <div className="flex justify-center space-x-2 mt-4">
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className="w-3 h-3 bg-blue-400 rounded-full animate-bounce"
-                        style={{ animationDelay: `${i * 0.2}s` }}
-                      />
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Fun loading messages */}
-                <div className="mt-6 text-sm text-blue-300/80">
-                  <p className="animate-pulse">🤖 Powering up AI vision systems...</p>
-                </div>
-              </div>
-              
-              {/* Floating icons */}
-              <div className="absolute top-20 left-10 text-3xl animate-bounce" style={{ animationDelay: '1s' }}>📦</div>
-              <div className="absolute top-32 right-16 text-2xl animate-pulse" style={{ animationDelay: '1.5s' }}>💰</div>
-              <div className="absolute bottom-32 left-20 text-2xl animate-bounce" style={{ animationDelay: '2s' }}>🏷️</div>
-              <div className="absolute bottom-20 right-12 text-3xl animate-pulse" style={{ animationDelay: '0.5s' }}>🎯</div>
-            </div>
-          )}
           
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-            style={{ backgroundColor: '#000' }}
-            onLoadedMetadata={() => console.log('Video metadata loaded')}
-            onCanPlay={() => console.log('Video can play')}
-            onPlay={() => console.log('Video playing')}
-            onError={(e) => console.error('Video error:', e)}
-          />
-
-          {/* Analysis Overlay */}
-          {isAnalyzing && (
-            <div className="absolute inset-0 bg-blue-600/20 flex items-center justify-center">
-              <div className="bg-blue-600 text-white px-6 py-3 rounded-2xl flex items-center gap-3">
-                <Zap className="w-5 h-5 animate-pulse" />
-                <span className="font-medium">Analyzing product...</span>
-              </div>
-            </div>
-          )}
-
-          {/* Center Focus Ring with Scan Button */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-64 h-64 border-2 border-white/50 rounded-2xl relative">
-              <div className="absolute -top-1 -left-1 w-6 h-6 border-l-2 border-t-2 border-white rounded-tl-lg" />
-              <div className="absolute -top-1 -right-1 w-6 h-6 border-r-2 border-t-2 border-white rounded-tr-lg" />
-              <div className="absolute -bottom-1 -left-1 w-6 h-6 border-l-2 border-b-2 border-white rounded-bl-lg" />
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-r-2 border-b-2 border-white rounded-br-lg" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                {!isAnalyzing ? (
-                  <Button
-                    onClick={analyzeCurrentFrame}
-                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-full w-16 h-16 p-0 pointer-events-auto"
-                    disabled={!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN}
-                  >
-                    <Zap className="w-8 h-8" />
-                  </Button>
-                ) : (
-                  <div className="text-white/80 text-center">
-                    <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin" />
-                    <p className="text-sm font-medium">Analyzing...</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Analysis Results Overlay */}
-          {lastAnalysis && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 animate-slide-in-right">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-white animate-scale-fade-in">
-                <div className="flex items-center gap-2 mb-2 animate-slide-in-left animate-stagger animate-stagger-1">
-                  <Zap className="w-4 h-4 text-blue-400 animate-bounce-in" />
-                  <span className="text-sm font-medium">Analysis Complete!</span>
-                </div>
-                <p className="text-sm animate-slide-in-left animate-stagger animate-stagger-2">{lastAnalysis}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Error State Overlay */}
-          {cameraError && (
-            <div className="absolute inset-0 bg-red-900/80 flex items-center justify-center text-white text-center p-8">
-              <div>
-                <VideoOff className="w-12 h-12 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Camera Error</h3>
-                <p className="text-red-200 mb-4">{cameraError}</p>
-                <div className="flex flex-col gap-3">
-                  <Button 
-                    onClick={async () => {
-                      const granted = await requestPermissions();
-                      if (granted) {
-                        startLiveAnalysis();
-                      }
-                    }} 
-                    variant="secondary"
-                  >
-                    Reset Permissions & Try Again
-                  </Button>
-                  <Button onClick={startLiveAnalysis} variant="outline" size="sm">
-                    Try Again
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+          <Card className="max-w-md mx-auto border-red-200 dark:border-red-800">
+            <CardContent className="p-8 text-center">
+              <VideoOff className="h-16 w-16 text-red-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-red-900 dark:text-red-100 mb-2">Camera Access Required</h2>
+              <p className="text-red-700 dark:text-red-300 mb-6">{cameraError}</p>
+              <Button 
+                onClick={requestPermissions}
+                className="w-full bg-red-600 hover:bg-red-700"
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                Grant Camera Access
+              </Button>
+            </CardContent>
+          </Card>
         </div>
-
-        {/* Bottom Analysis Results - Slide Up Panel */}
-        {lastAnalysis && (
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 max-h-96 overflow-y-auto safe-area-inset-bottom">
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 text-white">
-              <div className="flex items-center gap-2 mb-3">
-                <ShoppingBag className="w-5 h-5 text-green-400" />
-                <span className="font-semibold">Product Analysis</span>
-              </div>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                {lastAnalysis}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Bottom Instruction Text */}
-        {!lastAnalysis && (
-          <div className="absolute bottom-8 left-4 right-4 text-center safe-area-inset-bottom">
-            <div className="bg-black/50 backdrop-blur-sm rounded-2xl px-6 py-3">
-              <p className="text-white/90 text-sm">
-                Point camera at any product for instant market analysis
-              </p>
-            </div>
-          </div>
-        )}
-
-        <canvas ref={canvasRef} className="hidden" />
       </div>
     );
   }
 
-  // Landing/Setup Screen
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Link href="/">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold">Live Analysis</h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Real-time product identification and market insights
-            </p>
-          </div>
+  // Setup/Landing Screen
+  if (!isActive) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-green-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20 relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-20 left-20 w-32 h-32 bg-blue-400/20 rounded-full animate-pulse"></div>
+          <div className="absolute top-40 right-32 w-24 h-24 bg-purple-400/20 rounded-full animate-bounce" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute bottom-32 left-1/4 w-40 h-40 bg-green-400/20 rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
+          <div className="absolute bottom-20 right-20 w-28 h-28 bg-yellow-400/20 rounded-full animate-bounce" style={{ animationDelay: '3s' }}></div>
         </div>
 
-        {/* Error Banner */}
-        {cameraError && (
-          <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <VideoOff className="h-5 w-5 text-red-600 dark:text-red-400" />
-              <div>
-                <p className="font-medium text-red-900 dark:text-red-100">Camera Access Required</p>
-                <p className="text-sm text-red-700 dark:text-red-300">{cameraError}</p>
-              </div>
-            </div>
+        <div className="container mx-auto px-4 py-8 relative z-10">
+          <div className="flex items-center gap-4 mb-12">
+            <Link href="/">
+              <Button variant="outline" size="sm" className="bg-white/80 backdrop-blur-sm border-gray-300 hover:bg-white">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            </Link>
           </div>
-        )}
 
-        {/* Main Setup Card */}
-        <div className="max-w-md mx-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
-            {/* Preview Area */}
-            <div className="aspect-video bg-black relative">
-              {cameraLoading ? (
+          <div className="max-w-4xl mx-auto text-center">
+            {/* Hero Section */}
+            <div className="mb-12 animate-fade-in">
+              <div className="relative mb-8">
+                <div className="w-32 h-32 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mx-auto flex items-center justify-center mb-6 animate-scale-fade-in shadow-2xl">
+                  <Scan className="h-16 w-16 text-white animate-pulse" />
+                </div>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center text-white">
-                    <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin" />
-                    <p className="text-sm">Preparing camera...</p>
-                  </div>
+                  <div className="w-40 h-40 border-4 border-blue-400/30 rounded-full animate-ping"></div>
                 </div>
-              ) : stream ? (
-                <video
-                  ref={(el) => {
-                    if (videoRef) {
-                      videoRef.current = el;
-                    }
-                  }}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-white">
-                  <div className="text-center">
-                    <Camera className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p className="text-sm opacity-75">Camera preview</p>
-                  </div>
-                </div>
-              )}
+              </div>
+              
+              <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 bg-clip-text text-transparent animate-slide-in-up">
+                Live Product Analysis
+              </h1>
+              <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed animate-slide-in-up" style={{ animationDelay: '0.2s' }}>
+                Point your camera at any product for instant AI identification and real-time market insights
+              </p>
             </div>
 
-            {/* Controls */}
-            <div className="p-6 space-y-4">
-              <div className="text-center">
-                <h2 className="text-xl font-semibold mb-2">Ready to Analyze</h2>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">
-                  Start live analysis to identify products and get instant market insights
-                </p>
+            {/* Features Grid */}
+            <div className="grid md:grid-cols-3 gap-6 mb-12">
+              <Card className="border-0 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all duration-300 animate-slide-in-left">
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <Eye className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">Instant Recognition</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">AI identifies products in real-time as you point your camera</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all duration-300 animate-slide-in-up" style={{ animationDelay: '0.1s' }}>
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <DollarSign className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">Live Pricing</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Get current market prices and resell estimates instantly</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all duration-300 animate-slide-in-right" style={{ animationDelay: '0.2s' }}>
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <Activity className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">Market Analysis</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Real-time market trends and demand analysis</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Connection Status and Start Button */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-center gap-3">
+                <Badge 
+                  variant={connectionStatus === 'connected' ? 'default' : connectionStatus === 'connecting' ? 'secondary' : 'outline'}
+                  className="px-4 py-2 text-sm"
+                >
+                  {connectionStatus === 'connected' && <CheckCircle className="h-4 w-4 mr-2" />}
+                  {connectionStatus === 'connecting' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {connectionStatus === 'disconnected' && <Target className="h-4 w-4 mr-2" />}
+                  {connectionStatus === 'connected' ? 'Ready to Scan' : 
+                   connectionStatus === 'connecting' ? 'Connecting...' : 'Ready to Start'}
+                </Badge>
               </div>
 
               <Button
                 onClick={startLiveAnalysis}
-                disabled={cameraLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-medium"
+                disabled={connectionStatus === 'connecting' || cameraLoading}
                 size="lg"
+                className="px-12 py-6 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 animate-bounce-in"
               >
-                {cameraLoading ? (
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                {connectionStatus === 'connecting' || cameraLoading ? (
+                  <>
+                    <Loader2 className="mr-3 h-6 w-6 animate-spin" />
+                    Starting Camera...
+                  </>
                 ) : (
-                  <Zap className="h-5 w-5 mr-2" />
+                  <>
+                    <Camera className="mr-3 h-6 w-6" />
+                    Start Live Analysis
+                  </>
                 )}
-                Start Live Analysis
               </Button>
 
-              {/* Features */}
-              <div className="space-y-3 pt-4 border-t dark:border-gray-700">
-                <div className="flex items-center gap-3 text-sm">
-                  <Eye className="w-4 h-4 text-blue-600" />
-                  <span>Real-time product identification</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <DollarSign className="w-4 h-4 text-green-600" />
-                  <span>Instant market pricing analysis</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Info className="w-4 h-4 text-purple-600" />
-                  <span>Detailed product insights</span>
-                </div>
-              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+                Make sure to allow camera access when prompted. Best results with good lighting and clear product visibility.
+              </p>
             </div>
           </div>
         </div>
-
-        <canvas ref={canvasRef} className="hidden" />
       </div>
+    );
+  }
+
+  // Active Analysis Interface
+  return (
+    <div className="min-h-screen bg-black relative overflow-hidden">
+      {/* Video Feed */}
+      <div className="absolute inset-0">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+        />
+        
+        {/* Overlay UI */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40">
+          
+          {/* Top Header */}
+          <div className="absolute top-0 left-0 right-0 p-6 bg-gradient-to-b from-black/80 to-transparent">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button
+                  onClick={stopLiveAnalysis}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Exit
+                </Button>
+                
+                <Badge 
+                  variant="secondary"
+                  className="bg-green-600/90 text-white border-0"
+                >
+                  <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
+                  Live
+                </Badge>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="bg-black/50 text-white border-white/30">
+                  <Target className="h-3 w-3 mr-1" />
+                  {analysisCount} scanned
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Center Scan Button */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="relative">
+              {/* Scanning Reticle */}
+              <div className="w-64 h-64 border-2 border-white/50 rounded-2xl relative pointer-events-auto">
+                {/* Corner brackets */}
+                <div className="absolute -top-1 -left-1 w-8 h-8 border-l-4 border-t-4 border-white rounded-tl-2xl"></div>
+                <div className="absolute -top-1 -right-1 w-8 h-8 border-r-4 border-t-4 border-white rounded-tr-2xl"></div>
+                <div className="absolute -bottom-1 -left-1 w-8 h-8 border-l-4 border-b-4 border-white rounded-bl-2xl"></div>
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 border-r-4 border-b-4 border-white rounded-br-2xl"></div>
+                
+                {/* Center scan button */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  {!isAnalyzing ? (
+                    <Button
+                      onClick={analyzeCurrentFrame}
+                      className="w-20 h-20 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-2xl border-4 border-white/50 transform hover:scale-110 transition-all duration-200"
+                      disabled={!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN}
+                    >
+                      <Scan className="w-10 h-10" />
+                    </Button>
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-purple-600 border-4 border-white/50 flex items-center justify-center">
+                      <Loader2 className="w-10 h-10 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Scan instructions */}
+              <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 text-center">
+                <p className="text-white/90 text-sm font-medium bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm">
+                  {isAnalyzing ? 'Analyzing...' : 'Tap to scan product'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Analysis Results */}
+          {lastAnalysis && (
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 to-transparent">
+              <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-1">Product Detected</h3>
+                      <p className="text-sm text-white/80 leading-relaxed">{lastAnalysis}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Instructions overlay for first use */}
+          {analysisCount === 0 && !lastAnalysis && (
+            <div className="absolute top-1/2 left-6 right-6 transform -translate-y-1/2 pointer-events-none">
+              <div className="bg-black/60 backdrop-blur-sm rounded-xl p-4 text-center text-white/90 animate-fade-in">
+                <Info className="h-5 w-5 mx-auto mb-2" />
+                <p className="text-sm">Point your camera at any product and tap the scan button for instant AI analysis</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Hidden canvas for frame capture */}
+      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }
+
+export default LiveAnalysisPage;
