@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { X, Camera, Loader2, Eye, Scan, VideoOff, Volume2, VolumeX, Maximize2, Minimize2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCamera } from "@/hooks/useCamera";
 
 interface LiveAnalysisProps {
   onClose: () => void;
@@ -11,23 +12,34 @@ interface LiveAnalysisProps {
 
 export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
   const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [hasCamera, setHasCamera] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastAnalysis, setLastAnalysis] = useState("");
   const [analysisCount, setAnalysisCount] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [cameraError, setCameraError] = useState("");
   
   const wsRef = useRef<WebSocket | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   
   const { toast } = useToast();
+  
+  // Use the proper camera hook
+  const {
+    videoRef,
+    stream,
+    error: cameraError,
+    isLoading: isConnecting,
+    isPlaying: hasCamera,
+    startCamera,
+    stopCamera,
+    playVideo
+  } = useCamera({
+    facingMode: 'environment',
+    width: 1280,
+    height: 720
+  });
 
   // Auto-start connection when component mounts
   useEffect(() => {
@@ -38,14 +50,12 @@ export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
   }, []);
 
   const startLiveAnalysis = async () => {
-    setIsConnecting(true);
-    
     try {
       // Start WebSocket connection
       await connectWebSocket();
       
-      // Start camera
-      await setupCamera();
+      // Start camera using the hook
+      await startCamera();
       
       // Enter fullscreen mode
       if (containerRef.current) {
@@ -64,7 +74,6 @@ export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
         description: "Unable to start live analysis",
         variant: "destructive",
       });
-      setIsConnecting(false);
     }
   };
 
@@ -133,144 +142,28 @@ export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
     });
   };
 
-  const setupCamera = async () => {
-    try {
-      console.log('Requesting camera access...');
-      
-      // Check if camera is available
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Camera not supported by this browser');
-      }
-      
-      // Try different camera configurations
-      let stream: MediaStream | null = null;
-      const configs = [
-        // Try back camera first (ideal for product analysis)
-        {
-          video: { 
-            facingMode: { exact: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false
-        },
-        // Fallback to any camera
-        {
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false
-        },
-        // Simple fallback
-        {
-          video: true,
-          audio: false
-        }
-      ];
-      
-      for (const config of configs) {
-        try {
-          console.log('Trying camera config:', config);
-          stream = await navigator.mediaDevices.getUserMedia(config);
-          if (stream) break;
-        } catch (err) {
-          console.log('Camera config failed:', err);
-          continue;
-        }
-      }
-      
-      if (!stream) {
-        throw new Error('Unable to access camera. Please allow camera permissions and try again.');
-      }
-      
-      streamRef.current = stream;
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.muted = true;
-        videoRef.current.playsInline = true;
-        
-        // Wait for video to be ready with timeout
-        await new Promise<void>((resolve, reject) => {
-          const video = videoRef.current!;
-          const timeout = setTimeout(() => {
-            reject(new Error('Video setup timeout'));
-          }, 10000);
-          
-          const onLoadedMetadata = () => {
-            clearTimeout(timeout);
-            video.removeEventListener('loadedmetadata', onLoadedMetadata);
-            video.removeEventListener('error', onError);
-            console.log('Video metadata loaded');
-            resolve();
-          };
-          
-          const onError = (e: any) => {
-            clearTimeout(timeout);
-            video.removeEventListener('loadedmetadata', onLoadedMetadata);
-            video.removeEventListener('error', onError);
-            console.error('Video error:', e);
-            reject(new Error('Video load failed'));
-          };
-          
-          video.addEventListener('loadedmetadata', onLoadedMetadata);
-          video.addEventListener('error', onError);
-          
-          // Trigger load if source is already set
-          if (video.readyState >= 1) {
-            onLoadedMetadata();
-          }
-        });
-        
-        console.log('Starting video playback...');
-        await videoRef.current.play();
-        
-        setHasCamera(true);
-        setIsConnecting(false);
-        
-        toast({
-          title: "Live Analysis Ready",
-          description: "Camera connected, AI analysis active",
-        });
-        
-        // Start continuous analysis
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        intervalRef.current = setInterval(captureAndAnalyze, 4000);
-        
-        console.log('Camera setup complete');
-      }
-    } catch (error) {
-      console.error('Camera setup failed:', error);
-      let errorMessage = 'Camera access failed';
-      
-      if (error instanceof Error) {
-        if (error.name === 'NotAllowedError') {
-          errorMessage = 'Camera permission denied. Please allow camera access and try again.';
-        } else if (error.name === 'NotFoundError') {
-          errorMessage = 'No camera found. Please connect a camera and try again.';
-        } else if (error.name === 'NotReadableError') {
-          errorMessage = 'Camera is being used by another application.';
-        } else if (error.message.includes('timeout')) {
-          errorMessage = 'Camera setup timed out. Please try again.';
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
-      setCameraError(errorMessage);
-      setIsConnecting(false);
+  // Start continuous analysis when camera is ready
+  useEffect(() => {
+    if (hasCamera && isConnected && !intervalRef.current) {
       toast({
-        title: "Camera Error",
-        description: errorMessage,
-        variant: "destructive",
+        title: "Live Analysis Ready",
+        description: "Camera connected, AI analysis active",
       });
+      
+      // Start continuous analysis
+      intervalRef.current = setInterval(captureAndAnalyze, 4000);
     }
-  };
+    
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [hasCamera, isConnected]);
 
   const captureAndAnalyze = () => {
-    if (!wsRef.current || !videoRef.current || !canvasRef.current || isAnalyzing) {
+    if (!wsRef.current || !videoRef.current || !canvasRef.current || isAnalyzing || !stream) {
       return;
     }
     
@@ -338,10 +231,8 @@ export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
       wsRef.current = null;
     }
     
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
+    // Use the camera hook's stopCamera function
+    stopCamera();
     
     if (isFullscreen) {
       document.exitFullscreen().catch(() => {});
@@ -372,7 +263,7 @@ export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
             <h2 className="text-xl font-bold mb-4 text-white">Camera Access Required</h2>
             <p className="text-gray-300 mb-6">{cameraError}</p>
             
-            {cameraError.includes('permission') && (
+            {cameraError && cameraError.includes('permission') && (
               <div className="bg-blue-900/50 border border-blue-600 rounded-lg p-4 mb-6 text-left">
                 <h3 className="text-sm font-medium text-blue-300 mb-2">How to enable camera:</h3>
                 <ul className="text-xs text-gray-300 space-y-1">
@@ -385,10 +276,7 @@ export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
             
             <div className="space-y-2">
               <Button 
-                onClick={() => {
-                  setCameraError("");
-                  setupCamera();
-                }} 
+                onClick={startCamera}
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
                 <Camera className="mr-2 h-4 w-4" />
