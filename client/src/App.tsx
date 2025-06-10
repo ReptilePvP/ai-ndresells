@@ -19,7 +19,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Analyzer} />
-      <Route path="/live" component={LiveAnalysisPage} />
+      <Route path="/live-analysis" component={LiveAnalysisPage} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/history" component={History} />
       <Route path="/saved" component={Saved} />
