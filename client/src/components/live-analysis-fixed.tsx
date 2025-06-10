@@ -134,12 +134,13 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
     });
   };
 
-  // Show ready message when camera is connected
+  // Enhanced ready message when camera is connected
   useEffect(() => {
     if (isCameraPlaying && !isCameraLoading) {
       toast({
-        title: "Camera Ready",
-        description: "Point camera at product and tap Analyze",
+        title: "🎯 AI Scanner Activated",
+        description: "Position product in frame and tap Analyze for instant identification",
+        duration: 4000,
       });
     }
   }, [isCameraPlaying, isCameraLoading, toast]);
@@ -391,35 +392,64 @@ export function LiveAnalysisFixed({ onClose }: LiveAnalysisProps) {
           }}
         />
         
-        {/* Camera Scanning Overlay */}
+        {/* Enhanced Camera Scanning Overlay */}
         {isCameraPlaying && (
           <div className="absolute inset-0 pointer-events-none">
-            {/* Corner brackets - larger and more prominent */}
-            <div className="absolute top-16 left-16 w-12 h-12 border-l-4 border-t-4 border-green-400"></div>
-            <div className="absolute top-16 right-16 w-12 h-12 border-r-4 border-t-4 border-green-400"></div>
-            <div className="absolute bottom-24 left-16 w-12 h-12 border-l-4 border-b-4 border-green-400"></div>
-            <div className="absolute bottom-24 right-16 w-12 h-12 border-r-4 border-b-4 border-green-400"></div>
+            {/* Animated corner brackets with glow effect */}
+            <div className="absolute top-12 left-12 w-16 h-16 border-l-4 border-t-4 border-cyan-400 rounded-tl-lg shadow-lg shadow-cyan-400/50 animate-pulse"></div>
+            <div className="absolute top-12 right-12 w-16 h-16 border-r-4 border-t-4 border-cyan-400 rounded-tr-lg shadow-lg shadow-cyan-400/50 animate-pulse"></div>
+            <div className="absolute bottom-28 left-12 w-16 h-16 border-l-4 border-b-4 border-cyan-400 rounded-bl-lg shadow-lg shadow-cyan-400/50 animate-pulse"></div>
+            <div className="absolute bottom-28 right-12 w-16 h-16 border-r-4 border-b-4 border-cyan-400 rounded-br-lg shadow-lg shadow-cyan-400/50 animate-pulse"></div>
             
-            {/* Center target circle */}
+            {/* Enhanced center targeting system */}
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <div className="w-20 h-20 rounded-full border-2 border-green-400 flex items-center justify-center">
-                <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
+              {/* Outer ring */}
+              <div className="w-24 h-24 rounded-full border-2 border-cyan-400/60 animate-ping"></div>
+              {/* Middle ring */}
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full border-2 border-cyan-400 animate-pulse"></div>
+              {/* Center dot */}
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-cyan-400 shadow-lg shadow-cyan-400/75"></div>
+              {/* Crosshair lines */}
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <div className="w-8 h-0.5 bg-cyan-400 absolute -translate-y-0.25"></div>
+                <div className="h-8 w-0.5 bg-cyan-400 absolute -translate-x-0.25"></div>
               </div>
             </div>
             
-            {/* Ready to Scan indicator */}
-            <div className="absolute top-12 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 rounded-full px-4 py-2">
-              <div className="flex items-center space-x-2 text-white text-sm">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span>Ready to Scan</span>
+            {/* Scanning line animation */}
+            <div className="absolute top-16 left-16 right-16 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-bounce opacity-75"></div>
+            
+            {/* Enhanced status indicator */}
+            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-black/80 to-gray-900/80 backdrop-blur-md rounded-2xl px-6 py-3 border border-cyan-400/30">
+              <div className="flex items-center space-x-3 text-white">
+                <div className="relative">
+                  <div className="w-3 h-3 bg-cyan-400 rounded-full animate-pulse"></div>
+                  <div className="absolute inset-0 w-3 h-3 bg-cyan-400 rounded-full animate-ping opacity-40"></div>
+                </div>
+                <span className="text-sm font-medium">
+                  {isAnalyzing ? "Analyzing Product..." : "AI Scanner Ready"}
+                </span>
               </div>
             </div>
             
-            {/* Point camera instruction at bottom */}
-            <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 rounded-full px-6 py-3">
-              <div className="flex items-center space-x-2 text-white text-sm">
-                <Camera className="w-4 h-4 text-green-400" />
-                <span>Point camera to identify</span>
+            {/* Enhanced instruction panel */}
+            <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-black/80 to-gray-900/80 backdrop-blur-md rounded-2xl px-8 py-4 border border-cyan-400/30">
+              <div className="flex items-center space-x-3 text-white">
+                <div className={`p-2 rounded-full ${isAnalyzing ? 'bg-orange-500/20' : 'bg-cyan-500/20'}`}>
+                  {isAnalyzing ? (
+                    <div className="w-5 h-5 border-2 border-orange-400 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Camera className="w-5 h-5 text-cyan-400" />
+                  )}
+                </div>
+                <div className="text-center">
+                  <div className="text-sm font-medium">
+                    {isAnalyzing ? "Processing Image..." : "Point & Tap Analyze"}
+                  </div>
+                  <div className="text-xs text-gray-300 mt-1">
+                    {isAnalyzing ? "Please wait" : "Position product in frame"}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
