@@ -2,12 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Users, Database, Activity, TrendingUp, CheckCircle, XCircle } from "lucide-react";
+import { AlertCircle, Users, Database, Activity, TrendingUp, CheckCircle, XCircle, FileText, BarChart3 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AnalysisThinkingProcess } from "@/components/analysis-thinking-process";
 import { formatDistanceToNow } from "date-fns";
-import { Users, FileText, BarChart3, Activity } from "lucide-react";
 import { AILogsSection } from "@/components/ai-logs-section";
 
 interface SystemStats {
