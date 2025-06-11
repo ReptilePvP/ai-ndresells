@@ -1,20 +1,5 @@
-interface ValidationResult {
-  isValid: boolean;
-  confidence: number;
-  issues: string[];
-  recommendations: string[];
-}
-
-interface ProductData {
-  productName: string;
-  brand?: string;
-  model?: string;
-  category?: string;
-  condition?: string;
-  averageSalePrice: string;
-  resellPrice: string;
-  marketDemand?: string;
-}
+import { ValidationResult, ProductData } from '@shared/types/analysis';
+import { VALID_CATEGORIES, MARKET_DEMAND_LEVELS } from '@shared/constants/api';
 
 export class AccuracyValidator {
 
@@ -150,12 +135,7 @@ export class AccuracyValidator {
     }
 
     // Category validation
-    const validCategories = [
-      'Electronics', 'Fashion', 'Home', 'Collectibles', 'Sports', 
-      'Books', 'Toys', 'Health', 'Automotive', 'Garden'
-    ];
-
-    if (!data.category || !validCategories.includes(data.category)) {
+    if (!data.category || !VALID_CATEGORIES.includes(data.category as any)) {
       result.issues.push('Product category unclear');
       result.confidence -= 0.1;
     }
@@ -189,7 +169,7 @@ export class AccuracyValidator {
     }
 
     // Market demand validation
-    if (data.marketDemand && !['High', 'Medium', 'Low'].includes(data.marketDemand)) {
+    if (data.marketDemand && !MARKET_DEMAND_LEVELS.includes(data.marketDemand as any)) {
       result.issues.push('Invalid market demand indicator');
       result.confidence -= 0.05;
     }
