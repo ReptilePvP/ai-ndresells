@@ -1,5 +1,5 @@
 import { 
-  uploads, analyses, feedback, users, savedAnalyses,
+  uploads, analyses, feedback, users, savedAnalyses, aiLogs,
   type Upload, type Analysis, type Feedback, type User, type UserWithoutPassword, type AnalysisWithUpload,
   type InsertUpload, type InsertAnalysis, type InsertFeedback, type InsertUser, type RegisterData,
   type SavedAnalysis, type InsertSavedAnalysis, type InsertAILog, type AILog
