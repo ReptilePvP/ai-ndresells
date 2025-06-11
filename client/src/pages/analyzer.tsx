@@ -26,6 +26,19 @@ export default function Analyzer() {
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
+      // Validate file before upload
+      if (!file) {
+        throw new Error('No file selected');
+      }
+
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Please select an image file (JPG, PNG, or WEBP)');
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error('File size must be less than 10MB');
+      }
+
       const formData = new FormData();
       formData.append('image', file);
       formData.append('sessionId', getSessionId());
@@ -36,19 +49,22 @@ export default function Analyzer() {
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Upload failed with status ${response.status}`);
       }
 
       return response.json();
     },
     onSuccess: (upload) => {
+      console.log('Upload successful:', upload);
       // Start analysis immediately after upload
       analyzeMutation.mutate(upload.id);
     },
-    onError: () => {
+    onError: (error: Error) => {
+      console.error('Upload error:', error);
       toast({
         title: "Upload failed",
-        description: "Failed to upload image. Please try again.",
+        description: error.message || "Failed to upload image. Please try again.",
         variant: "destructive",
       });
     },
@@ -130,7 +146,7 @@ export default function Analyzer() {
                 New Analysis
               </Button>
             </div>
-            
+
             <ResultsPanel analysis={analysis} isLoading={false} />
           </div>
         </div>
@@ -160,7 +176,7 @@ export default function Analyzer() {
               <div className="w-32 h-32 border-4 border-blue-400/30 rounded-full animate-ping"></div>
             </div>
           </div>
-          
+
           <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 bg-clip-text text-transparent animate-slide-in-up">
             AI Product Analysis
           </h1>
@@ -177,7 +193,7 @@ export default function Analyzer() {
                 <i className="fas fa-camera text-blue-500 mr-3"></i>
                 Upload & Analyze
               </h2>
-              
+
               <UploadZone 
                 onFileSelect={handleFileSelect} 
                 isLoading={isLoading}
@@ -185,7 +201,7 @@ export default function Analyzer() {
                   setAnalysis(analysisData);
                 }}
               />
-              
+
               <Button
                 onClick={handleAnalyze}
                 disabled={!selectedFile || isLoading}
@@ -196,7 +212,7 @@ export default function Analyzer() {
                 {isLoading ? "Analyzing Product..." : "Get Price Analysis"}
               </Button>
             </div>
-            
+
             {/* Features Grid */}
             <div className="grid md:grid-cols-2 gap-4">
               <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-white/20 dark:border-gray-700/50 animate-slide-in-left animate-stagger-1">
@@ -232,7 +248,7 @@ export default function Analyzer() {
               </div>
             </div>
           </div>
-          
+
           {/* Results Section */}
           <div className="space-y-6 animate-slide-in-right">
             <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 p-8 text-center animate-scale-fade-in hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all duration-300">
@@ -245,7 +261,7 @@ export default function Analyzer() {
               <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
                 Upload a product image to get started with AI-powered analysis and real-time market pricing
               </p>
-              
+
               <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Pro Tips:</p>
                 <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">

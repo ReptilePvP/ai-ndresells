@@ -372,13 +372,33 @@ If no clear product is visible, return: {"productName": "No product detected", "
   // Upload image endpoint
   app.post("/api/upload", optionalAuth, upload.single('image'), async (req, res) => {
     try {
+      console.log('Upload request received:', {
+        hasFile: !!req.file,
+        body: req.body,
+        headers: req.headers['content-type']
+      });
+
       if (!req.file) {
+        console.log('No file in request');
         return res.status(400).json({ message: "No image file provided" });
       }
 
       const { sessionId } = req.body;
       if (!sessionId) {
+        console.log('No session ID provided');
         return res.status(400).json({ message: "Session ID is required" });
+      }
+
+      // Validate file type
+      if (!req.file.mimetype.startsWith('image/')) {
+        console.log('Invalid file type:', req.file.mimetype);
+        return res.status(400).json({ message: "File must be an image" });
+      }
+
+      // Validate file size
+      if (req.file.size > 10 * 1024 * 1024) {
+        console.log('File too large:', req.file.size);
+        return res.status(400).json({ message: "File size must be less than 10MB" });
       }
 
       const user = (req as any).user;
@@ -392,13 +412,19 @@ If no clear product is visible, return: {"productName": "No product detected", "
         fileSize: req.file.size,
       };
 
+      console.log('Creating upload with data:', uploadData);
       const validatedData = insertUploadSchema.parse(uploadData);
       const upload = await storage.createUpload(validatedData);
 
+      console.log('Upload created successfully:', upload.id);
       res.json(upload);
     } catch (error) {
       console.error("Upload error:", error);
-      res.status(500).json({ message: "Failed to upload image" });
+      if (error instanceof Error) {
+        res.status(500).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Failed to upload image" });
+      }
     }
   });
 

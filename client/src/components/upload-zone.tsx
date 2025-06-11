@@ -50,6 +50,17 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
   };
 
   const handleFile = (file: File) => {
+    console.log('Handling file:', file);
+    
+    if (!file || !file.type) {
+      toast({
+        title: "Invalid file",
+        description: "Please select a valid file",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Invalid file type",
@@ -71,9 +82,14 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
     // Create preview
     const reader = new FileReader();
     reader.onload = (e) => {
-      setPreview(e.target?.result as string);
+      const result = e.target?.result as string;
+      if (result) {
+        setPreview(result);
+        console.log('Preview created successfully');
+      }
     };
-    reader.onerror = () => {
+    reader.onerror = (error) => {
+      console.error('FileReader error:', error);
       toast({
         title: "Preview error",
         description: "Failed to generate image preview",
