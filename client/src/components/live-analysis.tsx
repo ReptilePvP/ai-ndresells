@@ -276,7 +276,9 @@ export function LiveAnalysis({ onClose }: LiveAnalysisProps) {
             
             <div className="space-y-2">
               <Button 
-                onClick={startCamera}
+                onClick={() => {
+                  startCamera().catch(console.error);
+                }}
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
                 <Camera className="mr-2 h-4 w-4" />

@@ -7,6 +7,26 @@ export function useAuth() {
     queryKey: ["/api/auth/me"],
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    queryFn: async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          credentials: "include",
+        });
+        
+        if (response.status === 401) {
+          return { user: null };
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Authentication check failed: ${response.status}`);
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error('Auth check error:', error);
+        return { user: null };
+      }
+    },
   });
 
   const user = data?.user;
