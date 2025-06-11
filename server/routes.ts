@@ -17,6 +17,7 @@ import { createPricingAggregator } from './pricing-aggregator';
 import { createMarketDataService } from './market-data-service';
 import { createIntelligentPricing } from './intelligent-pricing';
 import { accuracyValidator } from './accuracy-validator';
+import { generateImageHash, getCachedAnalysis, setCachedAnalysis } from './cache';
 
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY || 
@@ -240,6 +241,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Convert base64 data URL to base64 string
       const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
 
+      // Generate hash for the live image
+      const imageBuffer = Buffer.from(base64Data, 'base64');
+      const imageHash = generateImageHash(imageBuffer);
+
+      // Check cache with shorter TTL for live analysis
+      const cachedAnalysis = getCachedAnalysis(imageHash);
+      if (cachedAnalysis && (Date.now() - cachedAnalysis.timestamp) < 300000) { // 5 minutes TTL for live
+        console.log('Using cached live analysis');
+        return res.json(cachedAnalysis.analysisData);
+      }
+
       // Quick analysis with simpler prompt for live view
       const LIVE_ANALYSIS_PROMPT = `
 Analyze this image and identify the main product. Respond with only a JSON object:
@@ -311,11 +323,20 @@ If no clear product is visible, return: {"productName": "No product detected", "
           confidence: "low"
         });
       }
+
+      // Cache the result
+      const analysisToCache = {
+        analysisData: analysis,
+        timestamp: Date.now(),
+        confidence: analysis.confidence || 0.5
+      };
+      setCachedAnalysis(imageHash, analysisToCache);
+
+      res.json(analysis);
     } catch (error) {
       console.error("Live analysis error:", error);
       res.status(500).json({ 
-        productName: "Analysis failed",
-        confidence: "low"
+        message: error instanceof Error ? error.message : "Failed to analyze live image" 
       });
     }
   });
@@ -372,6 +393,16 @@ If no clear product is visible, return: {"productName": "No product detected", "
       // Read image file
       const imageBuffer = await fs.readFile(upload.filePath);
       const base64Image = imageBuffer.toString('base64');
+
+      // Generate image hash for caching
+      const imageHash = generateImageHash(imageBuffer);
+
+      // Check cache first
+      const cachedAnalysis = getCachedAnalysis(imageHash);
+      if (cachedAnalysis) {
+        console.log('Using cached analysis');
+        return res.json(cachedAnalysis.analysisData);
+      }
 
       // Enhanced validation
       const imageValidation = accuracyValidator.validateImageQuality(base64Image);
@@ -575,42 +606,16 @@ Return the complete JSON object with accurate market intelligence.` },
         });
       }
 
-      // Generate reference image using AI if web image fails
-      let localReferenceImageUrl = null;
-      if (analysisData.referenceImageUrl) {
-        try {
-          const response = await fetch(analysisData.referenceImageUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-          });
-
-          if (response.ok) {
-            const imageBuffer = await response.arrayBuffer();
-            const imageHash = crypto.createHash('md5').update(Buffer.from(imageBuffer)).digest('hex');
-            const extension = analysisData.referenceImageUrl.split('.').pop()?.split('?')[0] || 'jpg';
-            const referenceImagePath = path.join(uploadDir, `ref_${imageHash}.${extension}`);
-
-            await fs.writeFile(referenceImagePath, Buffer.from(imageBuffer));
-            localReferenceImageUrl = `ref_${imageHash}.${extension}`;
-            console.log('Reference image downloaded and stored:', localReferenceImageUrl);
-          } else {
-            console.log('Failed to download reference image:', response.status);
-          }
-        } catch (error) {
-          console.error('Error with reference image:', error);
-        }
-      }
-
-      // Enhance pricing with eBay market data and intelligent analysis
+      // Initialize all variables at the start
+      let localReferenceImageUrl: string | null = null;
+      let fallbackImageUrl: string | null = null;
+      let marketData: any = null;
       let enhancedResellPrice = analysisData.resellPrice || "Resell price not available";
       let enhancedAveragePrice = analysisData.averageSalePrice || "Price not available";
-      let marketData: any = null;
-      let fallbackImageUrl = null;
 
+      // Fetch market data if we have a product name
       if (analysisData.productName) {
         try {
-          // First try eBay market data with OAuth token
           console.log('Fetching market data for product:', analysisData.productName);
           marketData = await marketDataService.getMarketData(
             analysisData.productName,
@@ -619,8 +624,8 @@ Return the complete JSON object with accurate market intelligence.` },
           );
           console.log('Market data result:', marketData);
 
-          // If no reference image from Gemini, try to get one from eBay results
-          if (!localReferenceImageUrl && marketData?.sources?.includes('eBay')) {
+          // Try to get a reference image from eBay if available
+          if (marketData?.sources?.includes('eBay')) {
             try {
               const ebayService = createEbayProductionService();
               if (ebayService) {
@@ -639,11 +644,11 @@ Return the complete JSON object with accurate market intelligence.` },
             }
           }
 
+          // Update pricing based on market data
           if (marketData.dataQuality === 'authenticated' && marketData.sources.length > 0) {
             // Use authenticated eBay data
             if (marketData.retailPrice) enhancedAveragePrice = marketData.retailPrice;
             if (marketData.resellPrice) enhancedResellPrice = marketData.resellPrice;
-
             console.log(`eBay market data: ${marketData.sources.join(', ')}`);
           } else {
             // Fall back to intelligent pricing analysis
@@ -657,17 +662,48 @@ Return the complete JSON object with accurate market intelligence.` },
             if (pricingAnalysis.confidence > 0.7) {
               enhancedAveragePrice = pricingAnalysis.retailPrice;
               enhancedResellPrice = pricingAnalysis.resellPrice;
-
               console.log(`Intelligent pricing: ${pricingAnalysis.marketCondition} (confidence: ${Math.round(pricingAnalysis.confidence * 100)}%)`);
             }
           }
-
         } catch (error) {
-          console.error('Pricing enhancement error:', error);
+          console.error('Market data and pricing enhancement error:', error);
         }
       }
 
-      // Download fallback image if no Gemini reference but eBay image available
+      // Try to download reference image from Gemini's URL first
+      if (analysisData.referenceImageUrl) {
+        try {
+          console.log('Attempting to download reference image:', analysisData.referenceImageUrl);
+          const response = await fetch(analysisData.referenceImageUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+              'Referer': 'https://www.footlocker.com/',
+              'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+            }
+          });
+
+          if (response.ok) {
+            const imageBuffer = await response.arrayBuffer();
+            const imageHash = crypto.createHash('md5').update(Buffer.from(imageBuffer)).digest('hex');
+            const extension = analysisData.referenceImageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+            const referenceImagePath = path.join(uploadDir, `ref_${imageHash}.${extension}`);
+
+            // Ensure the upload directory exists
+            await fs.mkdir(uploadDir, { recursive: true });
+
+            // Write the file
+            await fs.writeFile(referenceImagePath, Buffer.from(imageBuffer));
+            localReferenceImageUrl = `ref_${imageHash}.${extension}`;
+            console.log('Reference image downloaded and stored:', localReferenceImageUrl);
+          } else {
+            console.log('Failed to download reference image:', response.status);
+          }
+        } catch (error) {
+          console.error('Error with reference image:', error);
+        }
+      }
+
+      // If no reference image from Gemini, try the eBay fallback
       if (!localReferenceImageUrl && fallbackImageUrl) {
         try {
           console.log('Attempting to download eBay fallback image:', fallbackImageUrl);
@@ -683,6 +719,10 @@ Return the complete JSON object with accurate market intelligence.` },
             const extension = fallbackImageUrl.split('.').pop()?.split('?')[0] || 'jpg';
             const referenceImagePath = path.join(uploadDir, `ebay_${imageHash}.${extension}`);
 
+            // Ensure the upload directory exists
+            await fs.mkdir(uploadDir, { recursive: true });
+
+            // Write the file
             await fs.writeFile(referenceImagePath, Buffer.from(imageBuffer));
             localReferenceImageUrl = `ebay_${imageHash}.${extension}`;
             console.log('eBay fallback image downloaded and stored:', localReferenceImageUrl);
@@ -732,6 +772,14 @@ Return the complete JSON object with accurate market intelligence.` },
 
       const validatedAnalysis = insertAnalysisSchema.parse(analysisInput);
       const analysis = await storage.createAnalysis(validatedAnalysis);
+
+      // After getting the analysis result, cache it
+      const analysisToCache = {
+        analysisData: analysis,
+        timestamp: Date.now(),
+        confidence: confidenceScore
+      };
+      setCachedAnalysis(imageHash, analysisToCache);
 
       res.json(analysis);
     } catch (error) {
@@ -1140,15 +1188,38 @@ Keep response concise for real-time display.`;
 
         imagePath = path.join(uploadDir, upload.filename);
       } else {
-        // It's a filename
-        imagePath = path.join(uploadDir, identifier);
+        // It's a filename - handle both regular uploads and reference images
+        if (identifier.startsWith('ref_') || identifier.startsWith('ebay_')) {
+          // Reference image
+          imagePath = path.join(uploadDir, identifier);
+        } else {
+          // Regular upload
+          imagePath = path.join(uploadDir, identifier);
+        }
       }
 
-      await fs.access(imagePath);
+      // Check if file exists
+      try {
+        await fs.access(imagePath);
+      } catch (error) {
+        console.error('Image file not found:', imagePath);
+        return res.status(404).json({ message: "Image not found" });
+      }
+
+      // Set appropriate content type based on file extension
+      const ext = path.extname(imagePath).toLowerCase();
+      const contentType = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif'
+      }[ext] || 'application/octet-stream';
+
+      res.setHeader('Content-Type', contentType);
       res.sendFile(imagePath);
     } catch (error) {
       console.error('Image serve error:', error);
-      res.status(404).json({ message: "Image not found" });
+      res.status(500).json({ message: "Failed to serve image" });
     }
   });
 
@@ -1163,4 +1234,164 @@ Keep response concise for real-time display.`;
   setupLiveAPI(wss);
 
   return httpServer;
+}
+
+async function getMultiModelAnalysis(base64Image: string) {
+  const models = [
+    'gemini-2.5-flash-preview-05-20',
+    'gemini-2.0-flash-exp'
+  ];
+
+  const results = await Promise.all(
+    models.map(async (model) => {
+      try {
+        const result = await genAI.models.generateContent({
+          model,
+          contents: [{
+            role: "user",
+            parts: [
+              { text: SYSTEM_PROMPT_PRODUCT_ANALYSIS },
+              {
+                inlineData: {
+                  mimeType: 'image/jpeg',
+                  data: base64Image,
+                },
+              },
+            ],
+          }],
+        });
+        return result;
+      } catch (error) {
+        console.error(`Error with model ${model}:`, error);
+        return null;
+      }
+    })
+  );
+
+  // Filter out failed results
+  const validResults = results.filter(r => r && r.candidates?.[0]?.content?.parts?.[0]?.text);
+
+  if (validResults.length === 0) {
+    throw new Error("All model analyses failed");
+  }
+
+  // Parse and compare results
+  const parsedResults = validResults.map(result => {
+    const text = result.candidates[0].content.parts[0].text;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+      return JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      return null;
+    }
+  }).filter(r => r !== null);
+
+  // If we have multiple valid results, compare them
+  if (parsedResults.length > 1) {
+    return compareAnalysisResults(parsedResults);
+  }
+
+  return parsedResults[0];
+}
+
+function compareAnalysisResults(results: any[]) {
+  // Compare product names
+  const productNames = results.map(r => r.productName.toLowerCase());
+  const nameConsensus = getConsensus(productNames);
+
+  // Compare prices
+  const retailPrices = results.map(r => extractPriceRange(r.averageSalePrice));
+  const resellPrices = results.map(r => extractPriceRange(r.resellPrice));
+
+  // Get consensus prices
+  const consensusRetail = getPriceConsensus(retailPrices);
+  const consensusResell = getPriceConsensus(resellPrices);
+
+  // Calculate confidence based on agreement
+  const confidence = calculateConfidence(results, nameConsensus, consensusRetail, consensusResell);
+
+  return {
+    productName: nameConsensus,
+    averageSalePrice: formatPriceRange(consensusRetail),
+    resellPrice: formatPriceRange(consensusResell),
+    confidence,
+    agreement: {
+      productName: getAgreementPercentage(productNames),
+      retailPrice: getAgreementPercentage(retailPrices),
+      resellPrice: getAgreementPercentage(resellPrices)
+    }
+  };
+}
+
+function getConsensus(items: string[]): string {
+  // Count occurrences of each item
+  const counts = items.reduce((acc, item) => {
+    acc[item] = (acc[item] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Find the most common item
+  const maxCount = Math.max(...Object.values(counts));
+  const consensus = Object.entries(counts)
+    .filter(([_, count]) => count === maxCount)
+    .map(([item]) => item);
+
+  // If there's a clear winner, return it
+  if (consensus.length === 1) {
+    return consensus[0];
+  }
+
+  // If there's a tie, return the most detailed name
+  return consensus.reduce((a, b) => a.length > b.length ? a : b);
+}
+
+function getPriceConsensus(prices: { min: number; max: number }[]) {
+  const mins = prices.map(p => p.min);
+  const maxs = prices.map(p => p.max);
+
+  return {
+    min: Math.min(...mins),
+    max: Math.max(...maxs)
+  };
+}
+
+function calculateConfidence(
+  results: any[],
+  nameConsensus: string,
+  retailConsensus: { min: number; max: number },
+  resellConsensus: { min: number; max: number }
+): number {
+  let confidence = 1.0;
+
+  // Reduce confidence for name disagreements
+  const nameAgreement = getAgreementPercentage(results.map(r => r.productName.toLowerCase()));
+  confidence *= nameAgreement;
+
+  // Reduce confidence for price disagreements
+  const retailAgreement = getAgreementPercentage(results.map(r => extractPriceRange(r.averageSalePrice)));
+  const resellAgreement = getAgreementPercentage(results.map(r => extractPriceRange(r.resellPrice)));
+
+  confidence *= (retailAgreement + resellAgreement) / 2;
+
+  return Math.max(0.1, Math.min(1.0, confidence));
+}
+
+function getAgreementPercentage(items: any[]): number {
+  const uniqueItems = new Set(items.map(item => 
+    typeof item === 'object' ? JSON.stringify(item) : item
+  ));
+  return 1 - ((uniqueItems.size - 1) / (items.length - 1));
+}
+
+function extractPriceRange(price: string): { min: number; max: number } {
+  const [min, max] = price.split(' - ');
+  return {
+    min: parseFloat(min),
+    max: parseFloat(max)
+  };
+}
+
+function formatPriceRange(range: { min: number; max: number }): string {
+  return `${range.min.toFixed(2)} - ${range.max.toFixed(2)}`;
 }
