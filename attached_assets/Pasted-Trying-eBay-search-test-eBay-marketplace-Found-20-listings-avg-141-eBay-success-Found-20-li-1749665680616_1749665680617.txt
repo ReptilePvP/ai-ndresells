@@ -1,0 +1,154 @@
+Trying eBay search: "test"
+eBay marketplace: Found 20 listings, avg $141
+eBay success: Found 20 listings for "test"
+eBay service initialization test completed: SUCCESS
+6:13:55 PM [express] GET /api/auth/me 304 in 342ms :: {"user":{"id":1,"email":"admin@example.com","u…
+6:14:10 PM [express] POST /api/upload 200 in 4848ms :: {"id":143,"userId":1,"sessionId":"fozxwo","fi…
+AI Analysis Log: {
+  uploadId: 143,
+  timestamp: '2025-06-11T18:14:10.818Z',
+  model: 'gemini-2.5-flash-preview-05-20',
+  prompt: 'You are an expert product analyst specializing in resale market intelligence.\n' +
+    'Your task is to analyze product images and provide detailed market analysis.\n' +
+    '\n' +
+    'REQUIREMENTS:\n' +
+    '1. Examine the image for ALL visible details: brand logos, model numbers, text, distinctive features\n' +
+    '2. Use Google Search to verify product identification and gather current market data\n' +
+    '3. Research pricing from multiple sources: retail stores and recent sold listings\n' +
+    '4. Provide specific, data-backed pricing ranges with high confidence\n' +
+    '\n' +
+    'Return a JSON object with this structure:\n' +
+    '{\n' +
+    '  "productName": "string",\n' +
+    '  "description": "string",\n' +
+    '  "averageSalePrice": "string",\n' +
+    '  "resellPrice": "string",\n' +
+    '  "referenceImageUrl": "string (optional)",\n' +
+    '  "marketSummary": "string (optional)",\n' +
+    '  "confidence": number,\n' +
+    '  "thinkingProcess": "string (detailed analysis process)"\n' +
+    '}\n' +
+    '\n' +
+    'TASK: Analyze this product image for resale market intelligence.',
+  rawResponse: '',
+  parsedResponse: null,
+  confidence: 0.85,
+  processingTime: 75,
+  success: false,
+  error: 'genAI.getGenerativeModel is not a function'
+}
+Gemini API error: TypeError: genAI.getGenerativeModel is not a function
+    at <anonymous> (/home/runner/workspace/server/routes.ts:488:29)
+AI Analysis Error Log: {
+  uploadId: 143,
+  timestamp: '2025-06-11T18:14:10.818Z',
+  model: 'gemini-2.5-flash-preview-05-20',
+  prompt: 'You are an expert product analyst specializing in resale market intelligence.\n' +
+    'Your task is to analyze product images and provide detailed market analysis.\n' +
+    '\n' +
+    'REQUIREMENTS:\n' +
+    '1. Examine the image for ALL visible details: brand logos, model numbers, text, distinctive features\n' +
+    '2. Use Google Search to verify product identification and gather current market data\n' +
+    '3. Research pricing from multiple sources: retail stores and recent sold listings\n' +
+    '4. Provide specific, data-backed pricing ranges with high confidence\n' +
+    '\n' +
+    'Return a JSON object with this structure:\n' +
+    '{\n' +
+    '  "productName": "string",\n' +
+    '  "description": "string",\n' +
+    '  "averageSalePrice": "string",\n' +
+    '  "resellPrice": "string",\n' +
+    '  "referenceImageUrl": "string (optional)",\n' +
+    '  "marketSummary": "string (optional)",\n' +
+    '  "confidence": number,\n' +
+    '  "thinkingProcess": "string (detailed analysis process)"\n' +
+    '}\n' +
+    '\n' +
+    'TASK: Analyze this product image for resale market intelligence.',
+  rawResponse: '',
+  parsedResponse: null,
+  confidence: 0.85,
+  processingTime: 85,
+  success: false,
+  error: 'genAI.getGenerativeModel is not a function'
+}
+Database error creating AI log: ReferenceError: aiLogs is not defined
+    at DatabaseStorage.createAILog (/home/runner/workspace/server/storage.ts:488:41)
+    at <anonymous> (/home/runner/workspace/server/routes.ts:597:23)
+AI log data: {
+  uploadId: 143,
+  model: 'gemini-2.5-flash-preview-05-20',
+  prompt: 'You are an expert product analyst specializing in resale market intelligence.\n' +
+    'Your task is to analyze product images and provide detailed market analysis.\n' +
+    '\n' +
+    'REQUIREMENTS:\n' +
+    '1. Examine the image for ALL visible details: brand logos, model numbers, text, distinctive features\n' +
+    '2. Use Google Search to verify product identification and gather current market data\n' +
+    '3. Research pricing from multiple sources: retail stores and recent sold listings\n' +
+    '4. Provide specific, data-backed pricing ranges with high confidence\n' +
+    '\n' +
+    'Return a JSON object with this structure:\n' +
+    '{\n' +
+    '  "productName": "string",\n' +
+    '  "description": "string",\n' +
+    '  "averageSalePrice": "string",\n' +
+    '  "resellPrice": "string",\n' +
+    '  "referenceImageUrl": "string (optional)",\n' +
+    '  "marketSummary": "string (optional)",\n' +
+    '  "confidence": number,\n' +
+    '  "thinkingProcess": "string (detailed analysis process)"\n' +
+    '}\n' +
+    '\n' +
+    'TASK: Analyze this product image for resale market intelligence.',
+  rawResponse: '',
+  parsedResponse: null,
+  confidence: 0.85,
+  processingTime: 85,
+  success: false,
+  error: 'genAI.getGenerativeModel is not a function'
+}
+Failed to store error AI log: Error: Failed to create AI log: aiLogs is not defined
+    at DatabaseStorage.createAILog (/home/runner/workspace/server/storage.ts:493:13)
+    at <anonymous> (/home/runner/workspace/server/routes.ts:597:23)
+Error AI log data: {
+  uploadId: 143,
+  timestamp: '2025-06-11T18:14:10.818Z',
+  model: 'gemini-2.5-flash-preview-05-20',
+  prompt: 'You are an expert product analyst specializing in resale market intelligence.\n' +
+    'Your task is to analyze product images and provide detailed market analysis.\n' +
+    '\n' +
+    'REQUIREMENTS:\n' +
+    '1. Examine the image for ALL visible details: brand logos, model numbers, text, distinctive features\n' +
+    '2. Use Google Search to verify product identification and gather current market data\n' +
+    '3. Research pricing from multiple sources: retail stores and recent sold listings\n' +
+    '4. Provide specific, data-backed pricing ranges with high confidence\n' +
+    '\n' +
+    'Return a JSON object with this structure:\n' +
+    '{\n' +
+    '  "productName": "string",\n' +
+    '  "description": "string",\n' +
+    '  "averageSalePrice": "string",\n' +
+    '  "resellPrice": "string",\n' +
+    '  "referenceImageUrl": "string (optional)",\n' +
+    '  "marketSummary": "string (optional)",\n' +
+    '  "confidence": number,\n' +
+    '  "thinkingProcess": "string (detailed analysis process)"\n' +
+    '}\n' +
+    '\n' +
+    'TASK: Analyze this product image for resale market intelligence.',
+  rawResponse: '',
+  parsedResponse: null,
+  confidence: 0.85,
+  processingTime: 85,
+  success: false,
+  error: 'genAI.getGenerativeModel is not a function'
+}
+/home/runner/workspace/server/routes.ts:614
+      console.error("Analysis error for upload", uploadId, ":", error);
+                                                 ^
+
+
+ReferenceError: uploadId is not defined
+    at <anonymous> (/home/runner/workspace/server/routes.ts:614:50)
+
+Node.js v20.18.1
