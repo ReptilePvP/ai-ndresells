@@ -2,7 +2,7 @@ import {
   uploads, analyses, feedback, users, savedAnalyses,
   type Upload, type Analysis, type Feedback, type User, type UserWithoutPassword, type AnalysisWithUpload,
   type InsertUpload, type InsertAnalysis, type InsertFeedback, type InsertUser, type RegisterData,
-  type SavedAnalysis, type InsertSavedAnalysis
+  type SavedAnalysis, type InsertSavedAnalysis, type InsertAILog, type AILog
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, count, avg, sum, desc, gte, and } from "drizzle-orm";

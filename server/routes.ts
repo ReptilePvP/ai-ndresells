@@ -24,7 +24,7 @@ const apiKey = process.env.GEMINI_API_KEY ||
                process.env.GOOGLE_API_KEY || 
                process.env.GOOGLE_GEMINI_API_KEY || 
                "";
-const genAI = new GoogleGenAI({ apiKey });
+const genAI = new GoogleGenAI(apiKey);
 
 // Define system prompt for product analysis
 const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `You are an expert product analyst specializing in resale market intelligence.
@@ -637,7 +637,7 @@ If no clear product is visible, return: {"productName": "No product detected", "
         console.error("Error AI log data:", aiLog);
       }
 
-      console.error("Analysis error for upload", uploadId, ":", error);
+      console.error("Analysis error for upload", aiLog.uploadId, ":", error);
       res.status(500).json({ 
         message: error instanceof Error ? error.message : "Analysis failed",
         uploadId: uploadId
