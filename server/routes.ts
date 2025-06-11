@@ -466,7 +466,8 @@ OUTPUT FORMAT (JSON):
   "profitMargin": "Estimated profit percentage for resellers",
   "referenceImageUrl": "REQUIRED: Direct image URL from verified retailer (amazon.com, bestbuy.com, target.com, walmart.com, skechers.com, etc.). Must be actual product photo, not placeholder.",
   "confidence": "Overall confidence in the analysis (0.0 to 1.0)",
-  "sources": ["List of sources or platforms used for pricing data"]
+  "sources": ["List of sources or platforms used for pricing data"],
+  "thoughtProcess": "Provide a detailed step-by-step explanation of your reasoning and analysis process, including intermediate observations and decisions."
 }
 
 ACCURACY REQUIREMENTS:
@@ -569,6 +570,7 @@ Return the complete JSON object with accurate market intelligence.` },
 
       // Parse JSON response
       let analysisData;
+      let thoughtProcessText = "";
       try {
         // Clean the response to extract JSON, removing markdown formatting
         let cleanText = text.trim();
@@ -588,6 +590,9 @@ Return the complete JSON object with accurate market intelligence.` },
         }
 
         const jsonStr = jsonMatch[0];
+        // Extract thought process by removing the JSON part from the text
+        thoughtProcessText = cleanText.replace(jsonStr, '').trim();
+
         // Handle potential trailing commas or incomplete JSON
         try {
           analysisData = JSON.parse(jsonStr);
@@ -597,6 +602,7 @@ Return the complete JSON object with accurate market intelligence.` },
           analysisData = JSON.parse(fixedJsonStr);
         }
         console.log("Parsed analysis data:", JSON.stringify(analysisData, null, 2));
+        console.log("Extracted thought process:", thoughtProcessText);
       } catch (parseError) {
         console.error("Failed to parse Gemini response:", text);
         console.error("Raw response text:", text);
@@ -758,7 +764,7 @@ Return the complete JSON object with accurate market intelligence.` },
         console.log('Recommendations:', accuracyReport.improvements.join(', '));
       }
 
-      // Validate and create analysis with enhanced data
+      // Validate and create analysis with enhanced data, including thoughtProcess
       const analysisInput = {
         uploadId,
         productName: analysisData.productName || "Unknown Product",
@@ -768,6 +774,7 @@ Return the complete JSON object with accurate market intelligence.` },
         referenceImageUrl: localReferenceImageUrl,
         marketSummary: marketData?.marketSummary || "AI analysis based pricing",
         confidence: confidenceScore,
+        thoughtProcess: thoughtProcessText || "No detailed thought process provided."
       };
 
       const validatedAnalysis = insertAnalysisSchema.parse(analysisInput);
