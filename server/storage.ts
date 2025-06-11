@@ -1,8 +1,8 @@
 import { 
-  uploads, analyses, feedback, users, savedAnalyses, aiLogs,
+  uploads, analyses, feedback, users, savedAnalyses,
   type Upload, type Analysis, type Feedback, type User, type UserWithoutPassword, type AnalysisWithUpload,
   type InsertUpload, type InsertAnalysis, type InsertFeedback, type InsertUser, type RegisterData,
-  type SavedAnalysis, type InsertSavedAnalysis, type InsertAILog, type AILog
+  type SavedAnalysis, type InsertSavedAnalysis
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, count, avg, sum, desc, gte, and } from "drizzle-orm";
@@ -42,7 +42,14 @@ export interface IStorage {
   // History management
   clearUserHistory(userId: number, timeframe: string): Promise<number>;
 
-  // Stats operations
+  // Stats
+  getSessionStats(sessionId: string): Promise<{
+    totalAnalyses: number;
+    accuracyRate: number;
+    totalValue: number;
+  }>;
+
+  // Admin diagnostics
   getSystemStats(): Promise<{
     totalUsers: number;
     totalAnalyses: number;
@@ -53,15 +60,7 @@ export interface IStorage {
       last7Days: number;
     };
   }>;
-  getSessionStats(sessionId: string): Promise<{
-    totalAnalyses: number;
-    accuracyRate: number;
-    totalValue: number;
-  }>;
-
-  // AI Logs operations
-  createAILog(log: InsertAILog): Promise<AILog>;
-  getAILogs(uploadId?: number, limit?: number): Promise<AILog[]>;
+  getAllUploadsWithAnalyses(): Promise<(Upload & { analyses: AnalysisWithUpload[]; user?: UserWithoutPassword })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -90,7 +89,7 @@ export class DatabaseStorage implements IStorage {
         isActive: true,
       })
       .returning();
-
+    
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
@@ -101,7 +100,7 @@ export class DatabaseStorage implements IStorage {
       .set({ ...userData, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
-
+    
     if (!user) return undefined;
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword;
@@ -290,18 +289,18 @@ export class DatabaseStorage implements IStorage {
   }> {
     const analysesData = await this.getAnalysesBySession(sessionId);
     const totalAnalyses = analysesData.length;
-
+    
     const feedbackCount = analysesData.filter(a => a.feedback).length;
     const accurateCount = analysesData.filter(a => a.feedback?.isAccurate).length;
     const accuracyRate = feedbackCount > 0 ? (accurateCount / feedbackCount) * 100 : 0;
-
+    
     // Calculate total value from price strings
     const totalValue = analysesData.reduce((sum, analysis) => {
       const priceMatch = analysis.averageSalePrice.match(/\$?([\d,]+)/);
       const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : 0;
       return sum + price;
     }, 0);
-
+    
     return {
       totalAnalyses,
       accuracyRate: Math.round(accuracyRate),
@@ -376,7 +375,7 @@ export class DatabaseStorage implements IStorage {
 
     for (const row of uploadsWithAnalyses) {
       const uploadId = row.upload.id;
-
+      
       if (!uploadMap.has(uploadId)) {
         let userWithoutPassword: UserWithoutPassword | undefined = undefined;
         if (row.user) {
@@ -391,7 +390,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       const uploadData = uploadMap.get(uploadId)!;
-
+      
       if (row.analysis) {
         const analysisWithUpload: AnalysisWithUpload = {
           ...row.analysis,
@@ -467,43 +466,20 @@ export class DatabaseStorage implements IStorage {
         .select({ id: analyses.id })
         .from(analyses)
         .where(eq(analyses.uploadId, uploadId));
-
+      
       for (const analysis of uploadAnalyses) {
         await db.delete(feedback).where(eq(feedback.analysisId, analysis.id));
         await db.delete(savedAnalyses).where(eq(savedAnalyses.analysisId, analysis.id));
       }
-
+      
       // 3. Delete analyses
       await db.delete(analyses).where(eq(analyses.uploadId, uploadId));
-
+      
       // 4. Delete uploads
       await db.delete(uploads).where(eq(uploads.id, uploadId));
     }
 
     return uploadIds.length;
-  }
-
-  async createAILog(log: InsertAILog): Promise<AILog> {
-    try {
-      const [created] = await db.insert(aiLogs).values(log).returning();
-      return created;
-    } catch (error) {
-      console.error("Database error creating AI log:", error);
-      console.error("AI log data:", log);
-      throw new Error(`Failed to create AI log: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async getAILogs(uploadId?: number, limit: number = 50): Promise<AILog[]> {
-    let query = db.select().from(aiLogs);
-
-    if (uploadId) {
-      query = query.where(eq(aiLogs.uploadId, uploadId));
-    }
-
-    return query
-      .orderBy(desc(aiLogs.createdAt))
-      .limit(limit);
   }
 }
 
