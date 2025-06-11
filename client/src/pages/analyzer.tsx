@@ -61,7 +61,8 @@ export default function Analyzer() {
       });
 
       if (!response.ok) {
-        throw new Error('Analysis failed');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Analysis failed');
       }
 
       return response.json();
@@ -73,10 +74,11 @@ export default function Analyzer() {
         description: "Your product has been analyzed successfully!",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
+      console.error("Analysis error:", error);
       toast({
         title: "Analysis failed",
-        description: "Failed to analyze image. Please try again.",
+        description: error.message || "Failed to analyze image. Please try again.",
         variant: "destructive",
       });
     },

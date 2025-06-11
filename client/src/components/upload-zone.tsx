@@ -51,12 +51,20 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
 
   const handleFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file (JPG, PNG, or WEBP)",
+        variant: "destructive",
+      });
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB');
+      toast({
+        title: "File too large",
+        description: "File size must be less than 10MB",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -64,6 +72,13 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
     const reader = new FileReader();
     reader.onload = (e) => {
       setPreview(e.target?.result as string);
+    };
+    reader.onerror = () => {
+      toast({
+        title: "Preview error",
+        description: "Failed to generate image preview",
+        variant: "destructive",
+      });
     };
     reader.readAsDataURL(file);
 
@@ -83,22 +98,37 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
         videoRef.current.srcObject = stream;
       }
     } catch (error) {
+      console.error("Camera error:", error);
       toast({
         title: "Camera Error",
-        description: "Unable to access camera. Please check permissions.",
+        description: error instanceof Error ? error.message : "Unable to access camera. Please check permissions.",
         variant: "destructive",
       });
     }
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current || !cameraStream) return;
+    if (!videoRef.current || !canvasRef.current || !cameraStream) {
+      toast({
+        title: "Capture Error",
+        description: "Camera not ready. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const canvas = canvasRef.current;
     const video = videoRef.current;
     const ctx = canvas.getContext('2d');
     
-    if (!ctx) return;
+    if (!ctx) {
+      toast({
+        title: "Capture Error",
+        description: "Failed to initialize canvas. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -109,6 +139,12 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
         const file = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
         handleFile(file);
         stopCamera();
+      } else {
+        toast({
+          title: "Capture Error",
+          description: "Failed to capture photo. Please try again.",
+          variant: "destructive",
+        });
       }
     }, 'image/jpeg', 0.8);
   };

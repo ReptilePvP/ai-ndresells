@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Users, Database, Activity, TrendingUp, CheckCircle, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { AnalysisThinkingProcess } from "@/components/analysis-thinking-process";
 
 interface SystemStats {
   totalUsers: number;
@@ -44,7 +45,18 @@ interface UploadWithAnalyses {
   mimeType: string;
   fileSize: number;
   uploadedAt: string;
-  analyses: any[];
+  analyses: {
+    id: number;
+    productName: string;
+    description: string;
+    averageSalePrice: string;
+    resellPrice: string;
+    referenceImageUrl?: string;
+    marketSummary?: string;
+    confidence: number;
+    thinkingProcess?: string;
+    analyzedAt: string;
+  }[];
   user?: User;
 }
 
@@ -478,41 +490,65 @@ export default function AdminDiagnostics() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Uploads</CardTitle>
+            <CardTitle>Recent Uploads with Analyses</CardTitle>
           </CardHeader>
           <CardContent>
-            {uploadsLoading ? (
-              <div className="text-center py-4">Loading uploads...</div>
-            ) : (
-              <div className="space-y-3">
-                {uploads?.slice(0, 5).map((upload) => (
-                  <div key={upload.id} className="border-b pb-2 last:border-b-0">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">{upload.originalName}</div>
-                        <div className="text-xs text-gray-500">
-                          {upload.user ? (
-                            `${upload.user.firstName || upload.user.username} • ${new Date(upload.uploadedAt).toLocaleDateString()}`
-                          ) : (
-                            `Guest • ${new Date(upload.uploadedAt).toLocaleDateString()}`
+            <div className="space-y-6">
+              {uploadsLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : uploads?.length === 0 ? (
+                <p className="text-center text-gray-500">No uploads found</p>
+              ) : (
+                uploads?.map((upload) => (
+                  <div key={upload.id} className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium">{upload.originalName}</h3>
+                        <p className="text-sm text-gray-500">
+                          Uploaded by {upload.user?.username || 'Anonymous'} on{' '}
+                          {new Date(upload.uploadedAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <Badge variant="outline">
+                        {upload.analyses.length} {upload.analyses.length === 1 ? 'Analysis' : 'Analyses'}
+                      </Badge>
+                    </div>
+                    
+                    {upload.analyses.map((analysis) => (
+                      <div key={analysis.id} className="space-y-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <h4 className="font-medium mb-2">{analysis.productName}</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              {analysis.description}
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <span className="text-gray-500">Retail:</span>{' '}
+                                <span className="font-medium">{analysis.averageSalePrice}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Resell:</span>{' '}
+                                <span className="font-medium">{analysis.resellPrice}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {analysis.thinkingProcess && (
+                            <AnalysisThinkingProcess
+                              thinkingProcess={analysis.thinkingProcess}
+                              confidence={analysis.confidence}
+                            />
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant="secondary" className="text-xs">
-                          {upload.analyses.length} analysis{upload.analyses.length !== 1 ? 'es' : ''}
-                        </Badge>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-                {uploads && uploads.length > 5 && (
-                  <div className="text-center text-sm text-gray-500 mt-2">
-                    and {uploads.length - 5} more uploads...
-                  </div>
-                )}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

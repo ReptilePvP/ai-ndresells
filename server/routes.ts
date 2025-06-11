@@ -424,86 +424,24 @@ If no clear product is visible, return: {"productName": "No product detected", "
 
       // Use Gemini to analyze the image
       const GEMINI_MODEL = model;
+      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-      const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `
-You are an expert product research analyst specializing in resale market intelligence. Your task is to analyze the provided image with extreme precision and perform comprehensive market research to return verified, actionable data for resellers.
+      if (!GEMINI_API_KEY) {
+        console.error("Gemini API key not configured");
+        throw new Error("AI service not properly configured");
+      }
 
-ANALYSIS METHODOLOGY:
-1. VISUAL EXAMINATION:
-   - Identify ALL visible text, logos, model numbers, serial numbers, and distinctive features.
-   - Note product condition indicators (packaging, wear, accessories).
-   - Classify product category (electronics, clothing, collectibles, etc.).
-   - Extract specific model identifiers and generation/version markers.
-
-2. PRODUCT IDENTIFICATION:
-   - Cross-reference visual elements with known product databases.
-   - Use Google Search with specific model numbers and brand combinations.
-   - Verify authenticity markers and distinguish from replicas/counterfeits.
-   - Confirm exact product variant (color, storage size, regional version).
-
-3. MARKET RESEARCH:
-   - Research current retail prices from major retailers (Amazon, Best Buy, Walmart, Target).
-   - Analyze recent sold listings on eBay, Facebook Marketplace, Mercari, OfferUp.
-   - Factor in product condition, completeness, and market demand.
-   - Consider seasonal trends and market saturation.
-
-4. VALIDATION:
-   - Cross-check pricing across multiple platforms.
-   - Verify product specifications and features.
-   - Ensure reference image accuracy and source credibility.
-
-OUTPUT FORMAT (JSON):
-{
-  "productName": "Complete product name with brand, model, and key specifications",
-  "description": "Comprehensive description including features, specifications, condition notes, and market positioning",
-  "category": "Primary product category (Electronics, Fashion, Home, Collectibles, etc.)",
-  "brand": "Brand name",
-  "model": "Model number or identifier",
-  "condition": "Apparent condition from image (New, Like New, Good, Fair)",
-  "averageSalePrice": "Current retail price range for new items ($X - $Y USD)",
-  "resellPrice": "Recent sold price range for similar condition ($X - $Y USD)",
-  "marketDemand": "High/Medium/Low based on search volume and listing frequency",
-  "profitMargin": "Estimated profit percentage for resellers",
-  "referenceImageUrl": "REQUIRED: Direct image URL from verified retailer (amazon.com, bestbuy.com, target.com, walmart.com, skechers.com, etc.). Must be actual product photo, not placeholder.",
-  "confidence": "Overall confidence in the analysis (0.0 to 1.0)",
-  "sources": ["List of sources or platforms used for pricing data"]
-}
-
-ACCURACY REQUIREMENTS:
-- Use only verified data from actual search results.
-- Provide specific price ranges with 90%+ confidence.
-- Include model-specific details when identifiable.
-- Flag uncertainty with conservative estimates and lower confidence scores.
-- Prioritize recent market data (last 30-60 days).
-
-QUALITY STANDARDS:
-- Product identification must be 85%+ confident or state limitations in the description.
-- Price data must reflect current market conditions.
-- Reference images must match exact product variant.
-- All URLs must be from established retailers or marketplaces.
-- Return ONLY the JSON object, without any additional text or markdown, to ensure parsing reliability.
-
-Analyze the image thoroughly and return only the JSON object with accurate, research-backed data.
-`;
-
-      const result = await genAI.models.generateContent({
-        model: GEMINI_MODEL,
-        tools: [
-          {
-            googleSearchRetrieval: {
-              dynamicRetrievalConfig: {
-                mode: "DYNAMIC",
-                dynamicThreshold: 0.7
-              }
-            }
-          }
-        ],
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: SYSTEM_PROMPT_PRODUCT_ANALYSIS },
-              { text: `TASK: Analyze this product image for resale market intelligence.
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: SYSTEM_PROMPT_PRODUCT_ANALYSIS },
+                { text: `TASK: Analyze this product image for resale market intelligence.
 
 REQUIREMENTS:
 1. Examine the image for ALL visible details: brand logos, model numbers, text, distinctive features
@@ -547,245 +485,99 @@ REFERENCE IMAGE REQUIREMENTS:
 CRITICAL: Use only current, verified data from actual search results. Do not estimate or guess pricing.
 
 Return the complete JSON object with accurate market intelligence.` },
-              {
-                inlineData: {
-                  mimeType: upload.mimeType,
-                  data: base64Image,
-                },
-              },
-            ],
-          },
-        ],
-      } as any);
+                {
+                  inline_data: {
+                    mime_type: "image/jpeg",
+                    data: base64Image
+                  }
+                }
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.1,
+              topK: 32,
+              topP: 1,
+              maxOutputTokens: 2048,
+            }
+          })
+        });
 
-      if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
-        throw new Error("Invalid response structure from AI model");
-      }
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Gemini API error:", errorData);
+          throw new Error(`Gemini API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+        }
 
-      const text = result.candidates[0].content.parts?.[0]?.text;
-      if (!text) {
-        throw new Error("No text content in AI response");
-      }
+        const result = await response.json();
+        
+        if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+          console.error("Invalid response structure from Gemini API:", result);
+          throw new Error("Invalid response from AI model");
+        }
 
-      // Parse JSON response
-      let analysisData;
-      try {
-        // Clean the response to extract JSON, removing markdown formatting
-        let cleanText = text.trim();
-
-        // Remove markdown code blocks if present
+        const responseText = result.candidates[0].content.parts[0].text;
+        console.log("Raw AI response:", responseText);
+        
+        // Clean the response to extract JSON
+        let cleanText = responseText.trim();
         if (cleanText.startsWith('```json')) {
           cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
         } else if (cleanText.startsWith('```')) {
           cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
         }
 
-        // Extract JSON object with improved robustness
+        // Extract JSON object
         const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-          console.error("No JSON object found in Gemini response:", cleanText);
-          throw new Error("No JSON found in response");
+          console.error("No JSON object found in response:", cleanText);
+          throw new Error("Invalid response format from AI model");
         }
 
         const jsonStr = jsonMatch[0];
-        // Handle potential trailing commas or incomplete JSON
         try {
           analysisData = JSON.parse(jsonStr);
         } catch (e) {
-          // Attempt to fix common JSON issues (e.g., trailing commas)
-          const fixedJsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+          // Attempt to fix common JSON issues
+          const fixedJsonStr = jsonStr
+            .replace(/,\s*}/g, '}')
+            .replace(/,\s*]/g, ']')
+            .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":'); // Fix unquoted keys
           analysisData = JSON.parse(fixedJsonStr);
         }
-        console.log("Parsed analysis data:", JSON.stringify(analysisData, null, 2));
-      } catch (parseError) {
-        console.error("Failed to parse Gemini response:", text);
-        console.error("Raw response text:", text);
-        return res.status(500).json({ 
-          message: "Failed to parse AI response", 
-          errorDetails: parseError instanceof Error ? parseError.message : "Unknown parsing error" 
+
+        // Store the thinking process from the model's response
+        const thinkingProcess = responseText;
+
+        // Create analysis record with thinking process
+        const analysis = await storage.createAnalysis({
+          uploadId,
+          productName: analysisData.productName,
+          description: analysisData.description,
+          averageSalePrice: analysisData.averageSalePrice,
+          resellPrice: analysisData.resellPrice,
+          referenceImageUrl: analysisData.referenceImageUrl,
+          marketSummary: analysisData.marketSummary,
+          confidence: analysisData.confidence,
+          thinkingProcess: thinkingProcess
         });
+
+        // Cache the analysis result
+        cacheAnalysis(imageHash, {
+          analysisData,
+          timestamp: Date.now()
+        });
+
+        res.json(analysis);
+      } catch (error) {
+        console.error("Gemini API error:", error);
+        throw error;
       }
-
-      // Initialize all variables at the start
-      let localReferenceImageUrl: string | null = null;
-      let fallbackImageUrl: string | null = null;
-      let marketData: any = null;
-      let enhancedResellPrice = analysisData.resellPrice || "Resell price not available";
-      let enhancedAveragePrice = analysisData.averageSalePrice || "Price not available";
-
-      // Fetch market data if we have a product name
-      if (analysisData.productName) {
-        try {
-          console.log('Fetching market data for product:', analysisData.productName);
-          marketData = await marketDataService.getMarketData(
-            analysisData.productName,
-            analysisData.averageSalePrice || "",
-            analysisData.resellPrice || ""
-          );
-          console.log('Market data result:', marketData);
-
-          // Try to get a reference image from eBay if available
-          if (marketData?.sources?.includes('eBay')) {
-            try {
-              const ebayService = createEbayProductionService();
-              if (ebayService) {
-                const ebayData = await ebayService.searchMarketplace(analysisData.productName);
-                if (ebayData.recentSales && ebayData.recentSales.length > 0) {
-                  // Find the first listing with an image
-                  const listingWithImage = ebayData.recentSales.find(sale => sale.image?.imageUrl);
-                  if (listingWithImage) {
-                    fallbackImageUrl = listingWithImage.image.imageUrl;
-                    console.log('Found eBay fallback image:', fallbackImageUrl);
-                  }
-                }
-              }
-            } catch (error) {
-              console.error('Error fetching eBay fallback image:', error);
-            }
-          }
-
-          // Update pricing based on market data
-          if (marketData.dataQuality === 'authenticated' && marketData.sources.length > 0) {
-            // Use authenticated eBay data
-            if (marketData.retailPrice) enhancedAveragePrice = marketData.retailPrice;
-            if (marketData.resellPrice) enhancedResellPrice = marketData.resellPrice;
-            console.log(`eBay market data: ${marketData.sources.join(', ')}`);
-          } else {
-            // Fall back to intelligent pricing analysis
-            const pricingAnalysis = intelligentPricing.analyzeProductPricing(
-              analysisData.productName,
-              analysisData.description || "",
-              analysisData.averageSalePrice || "",
-              analysisData.resellPrice || ""
-            );
-
-            if (pricingAnalysis.confidence > 0.7) {
-              enhancedAveragePrice = pricingAnalysis.retailPrice;
-              enhancedResellPrice = pricingAnalysis.resellPrice;
-              console.log(`Intelligent pricing: ${pricingAnalysis.marketCondition} (confidence: ${Math.round(pricingAnalysis.confidence * 100)}%)`);
-            }
-          }
-        } catch (error) {
-          console.error('Market data and pricing enhancement error:', error);
-        }
-      }
-
-      // Try to download reference image from Gemini's URL first
-      if (analysisData.referenceImageUrl) {
-        try {
-          console.log('Attempting to download reference image:', analysisData.referenceImageUrl);
-          const response = await fetch(analysisData.referenceImageUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-              'Referer': 'https://www.footlocker.com/',
-              'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
-            }
-          });
-
-          if (response.ok) {
-            const imageBuffer = await response.arrayBuffer();
-            const imageHash = crypto.createHash('md5').update(Buffer.from(imageBuffer)).digest('hex');
-            const extension = analysisData.referenceImageUrl.split('.').pop()?.split('?')[0] || 'jpg';
-            const referenceImagePath = path.join(uploadDir, `ref_${imageHash}.${extension}`);
-
-            // Ensure the upload directory exists
-            await fs.mkdir(uploadDir, { recursive: true });
-
-            // Write the file
-            await fs.writeFile(referenceImagePath, Buffer.from(imageBuffer));
-            localReferenceImageUrl = `ref_${imageHash}.${extension}`;
-            console.log('Reference image downloaded and stored:', localReferenceImageUrl);
-          } else {
-            console.log('Failed to download reference image:', response.status);
-          }
-        } catch (error) {
-          console.error('Error with reference image:', error);
-        }
-      }
-
-      // If no reference image from Gemini, try the eBay fallback
-      if (!localReferenceImageUrl && fallbackImageUrl) {
-        try {
-          console.log('Attempting to download eBay fallback image:', fallbackImageUrl);
-          const response = await fetch(fallbackImageUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-          });
-
-          if (response.ok) {
-            const imageBuffer = await response.arrayBuffer();
-            const imageHash = crypto.createHash('md5').update(Buffer.from(imageBuffer)).digest('hex');
-            const extension = fallbackImageUrl.split('.').pop()?.split('?')[0] || 'jpg';
-            const referenceImagePath = path.join(uploadDir, `ebay_${imageHash}.${extension}`);
-
-            // Ensure the upload directory exists
-            await fs.mkdir(uploadDir, { recursive: true });
-
-            // Write the file
-            await fs.writeFile(referenceImagePath, Buffer.from(imageBuffer));
-            localReferenceImageUrl = `ebay_${imageHash}.${extension}`;
-            console.log('eBay fallback image downloaded and stored:', localReferenceImageUrl);
-          } else {
-            console.log('Failed to download eBay fallback image:', response.status);
-          }
-        } catch (error) {
-          console.error('Error downloading eBay fallback image:', error);
-        }
-      }
-
-      // Validate product data accuracy
-      const dataValidation = accuracyValidator.validateProductData({
-        productName: analysisData.productName || "",
-        brand: analysisData.brand,
-        model: analysisData.model,
-        category: analysisData.category,
-        condition: analysisData.condition,
-        averageSalePrice: enhancedAveragePrice,
-        resellPrice: enhancedResellPrice,
-        marketDemand: analysisData.marketDemand
-      });
-
-      // Generate comprehensive accuracy report
-      const accuracyReport = accuracyValidator.generateAccuracyReport(imageValidation, dataValidation);
-
-      // Use validated confidence score
-      const confidenceScore = accuracyReport.overallConfidence;
-
-      // Log accuracy insights for monitoring
-      console.log(`Analysis accuracy: ${accuracyReport.status} (${Math.round(confidenceScore * 100)}% confidence)`);
-      if (accuracyReport.improvements.length > 0) {
-        console.log('Recommendations:', accuracyReport.improvements.join(', '));
-      }
-
-      // Validate and create analysis with enhanced data
-      const analysisInput = {
-        uploadId,
-        productName: analysisData.productName || "Unknown Product",
-        description: analysisData.description || "No description available",
-        averageSalePrice: enhancedAveragePrice,
-        resellPrice: enhancedResellPrice,
-        referenceImageUrl: localReferenceImageUrl,
-        marketSummary: marketData?.marketSummary || "AI analysis based pricing",
-        confidence: confidenceScore,
-      };
-
-      const validatedAnalysis = insertAnalysisSchema.parse(analysisInput);
-      const analysis = await storage.createAnalysis(validatedAnalysis);
-
-      // After getting the analysis result, cache it
-      const analysisToCache = {
-        analysisData: analysis,
-        timestamp: Date.now(),
-        confidence: confidenceScore
-      };
-      setCachedAnalysis(imageHash, analysisToCache);
-
-      res.json(analysis);
     } catch (error) {
       console.error("Analysis error:", error);
       res.status(500).json({ 
-        message: error instanceof Error ? error.message : "Failed to analyze image" 
+        message: "Failed to analyze image",
+        error: error instanceof Error ? error.message : "Unknown error",
+        details: error instanceof Error ? error.stack : undefined
       });
     }
   });
