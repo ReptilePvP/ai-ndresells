@@ -404,11 +404,29 @@ If no clear product is visible, return: {"productName": "No product detected", "
 
   // Analyze product endpoint
   app.post("/api/analyze/:uploadId", async (req, res) => {
+    const startTime = Date.now();
+    let aiLog = {
+      uploadId: 0,
+      timestamp: new Date().toISOString(),
+      model: '',
+      prompt: '',
+      rawResponse: '',
+      parsedResponse: null,
+      confidence: 0,
+      processingTime: 0,
+      success: false,
+      error: null
+    };
+
     try {
       const uploadId = parseInt(req.params.uploadId);
+      aiLog.uploadId = uploadId;
+      
       const upload = await storage.getUpload(uploadId);
 
       if (!upload) {
+        aiLog.error = "Upload not found";
+        console.log("AI Analysis Log:", aiLog);
         return res.status(404).json({ message: "Upload not found" });
       }
 
@@ -423,12 +441,18 @@ If no clear product is visible, return: {"productName": "No product detected", "
       const cachedAnalysis = getCachedAnalysis(imageHash);
       if (cachedAnalysis) {
         console.log('Using cached analysis');
+        aiLog.success = true;
+        aiLog.processingTime = Date.now() - startTime;
+        aiLog.parsedResponse = cachedAnalysis.analysisData;
+        console.log("AI Analysis Log (Cached):", aiLog);
         return res.json(cachedAnalysis.analysisData);
       }
 
       // Enhanced validation
       const imageValidation = accuracyValidator.validateImageQuality(base64Image);
       if (!imageValidation.isValid) {
+        aiLog.error = `Image validation failed: ${imageValidation.issues.join(', ')}`;
+        console.log("AI Analysis Log:", aiLog);
         return res.status(400).json({ 
           message: "Image quality insufficient for analysis",
           issues: imageValidation.issues,
@@ -440,27 +464,33 @@ If no clear product is visible, return: {"productName": "No product detected", "
       const analysisConfidence = imageValidation.confidence;
 
       // Select appropriate model based on confidence
-      const model = analysisConfidence > 0.8 ? 
+      const selectedModel = analysisConfidence > 0.8 ? 
         'gemini-2.5-flash-preview-05-20' : 
         'gemini-2.0-flash-exp';
 
+      aiLog.model = selectedModel;
+      aiLog.confidence = analysisConfidence;
+
       // Use Gemini to analyze the image
-      const GEMINI_MODEL = model;
       const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
       if (!GEMINI_API_KEY) {
+        aiLog.error = "Gemini API key not configured";
+        console.log("AI Analysis Log:", aiLog);
         console.error("Gemini API key not configured");
         throw new Error("AI service not properly configured");
       }
 
+      const fullPrompt = `${SYSTEM_PROMPT_PRODUCT_ANALYSIS}\n\nTASK: Analyze this product image for resale market intelligence.`;
+      aiLog.prompt = fullPrompt;
+
       try {
-        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+        const model = genAI.getGenerativeModel({ model: selectedModel });
 
         const result = await model.generateContent({
           contents: [{
             parts: [
-              { text: SYSTEM_PROMPT_PRODUCT_ANALYSIS },
-              { text: `TASK: Analyze this product image for resale market intelligence.` },
+              { text: fullPrompt },
               { inlineData: { mimeType: "image/jpeg", data: base64Image } }
             ]
           }],
@@ -474,6 +504,7 @@ If no clear product is visible, return: {"productName": "No product detected", "
 
         const response = await result.response;
         const responseText = response.text();
+        aiLog.rawResponse = responseText;
         console.log("Raw AI response:", responseText);
 
         // Clean the response to extract JSON
@@ -487,6 +518,8 @@ If no clear product is visible, return: {"productName": "No product detected", "
         // Extract JSON object
         const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
+          aiLog.error = `No JSON object found in response: ${cleanText}`;
+          console.log("AI Analysis Log:", aiLog);
           console.error("No JSON object found in response:", cleanText);
           throw new Error("Invalid response format from AI model");
         }
@@ -505,7 +538,10 @@ If no clear product is visible, return: {"productName": "No product detected", "
         let analysisData: AnalysisData;
         try {
           analysisData = JSON.parse(jsonStr);
+          aiLog.parsedResponse = analysisData;
         } catch (e) {
+          aiLog.error = `JSON parse error: ${e instanceof Error ? e.message : 'Unknown'}`;
+          console.log("AI Analysis Log:", aiLog);
           console.error("JSON parse error:", e);
           throw new Error("Failed to parse AI response");
         }
@@ -522,13 +558,58 @@ If no clear product is visible, return: {"productName": "No product detected", "
           ...analysisData
         });
 
+        aiLog.success = true;
+        aiLog.processingTime = Date.now() - startTime;
+        console.log("AI Analysis Log:", aiLog);
+
+        // Store AI log in database
+        try {
+          await storage.createAILog({
+            uploadId: aiLog.uploadId,
+            model: aiLog.model,
+            prompt: aiLog.prompt,
+            rawResponse: aiLog.rawResponse,
+            parsedResponse: aiLog.parsedResponse,
+            confidence: aiLog.confidence,
+            processingTime: aiLog.processingTime,
+            success: aiLog.success,
+            error: aiLog.error
+          });
+        } catch (logError) {
+          console.error("Failed to store AI log:", logError);
+        }
+
         res.json(analysis);
       } catch (error) {
+        aiLog.error = error instanceof Error ? error.message : "Unknown Gemini API error";
+        aiLog.processingTime = Date.now() - startTime;
+        console.log("AI Analysis Log:", aiLog);
         console.error("Gemini API error:", error);
         throw error;
       }
     } catch (error) {
+      aiLog.error = error instanceof Error ? error.message : "Unknown analysis error";
+      aiLog.processingTime = Date.now() - startTime;
+      console.log("AI Analysis Log:", aiLog);
       console.error("Analysis error:", error);
+      
+      // Store failed AI log in database
+      try {
+        await storage.createAILog({
+          uploadId: aiLog.uploadId,
+          model: aiLog.model,
+          prompt: aiLog.prompt,
+          rawResponse: aiLog.rawResponse,
+          parsedResponse: aiLog.parsedResponse,
+          confidence: aiLog.confidence,
+          processingTime: aiLog.processingTime,
+          success: aiLog.success,
+          error: aiLog.error
+        });
+      } catch (logError) {
+        console.error("Failed to store AI log:", logError);
+      }
+      
       res.status(500).json({ 
         message: "Failed to analyze image",
         error: error instanceof Error ? error.message : "Unknown error",
@@ -892,6 +973,21 @@ Keep response concise for real-time display.`;
     } catch (error) {
       console.error("Get stats error:", error);
       res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // AI Logs endpoint for admin
+  app.get("/api/admin/ai-logs", requireAdmin, async (req, res) => {
+    try {
+      const { limit = 50, uploadId } = req.query;
+      const logs = await storage.getAILogs(
+        uploadId ? parseInt(uploadId as string) : undefined,
+        parseInt(limit as string)
+      );
+      res.json(logs);
+    } catch (error) {
+      console.error("AI logs error:", error);
+      res.status(500).json({ message: "Failed to fetch AI logs" });
     }
   });
 

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real, varchar, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, varchar, index, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -62,9 +62,24 @@ export const feedback = pgTable("feedback", {
 
 export const savedAnalyses = pgTable("saved_analyses", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  analysisId: integer("analysis_id").references(() => analyses.id).notNull(),
-  savedAt: timestamp("saved_at").defaultNow().notNull(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  analysisId: integer("analysis_id").notNull().references(() => analyses.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const aiLogs = pgTable("ai_logs", {
+  id: serial("id").primaryKey(),
+  uploadId: integer("upload_id").references(() => uploads.id, { onDelete: "cascade" }),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  model: text("model").notNull(),
+  prompt: text("prompt"),
+  rawResponse: text("raw_response"),
+  parsedResponse: jsonb("parsed_response"),
+  confidence: real("confidence"),
+  processingTime: integer("processing_time"), // in milliseconds
+  success: boolean("success").notNull(),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Schema validation for user registration and authentication
@@ -119,8 +134,11 @@ export type Analysis = typeof analyses.$inferSelect;
 export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 export type Feedback = typeof feedback.$inferSelect;
 
-export type InsertSavedAnalysis = z.infer<typeof insertSavedAnalysisSchema>;
 export type SavedAnalysis = typeof savedAnalyses.$inferSelect;
+export type InsertSavedAnalysis = typeof savedAnalyses.$inferInsert;
+
+export type AILog = typeof aiLogs.$inferSelect;
+export type InsertAILog = typeof aiLogs.$inferInsert;
 
 export type AnalysisWithUpload = Analysis & {
   upload: Upload;

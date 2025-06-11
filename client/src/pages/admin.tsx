@@ -6,6 +6,9 @@ import { AlertCircle, Users, Database, Activity, TrendingUp, CheckCircle, XCircl
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AnalysisThinkingProcess } from "@/components/analysis-thinking-process";
+import { formatDistanceToNow } from "date-fns";
+import { Users, FileText, BarChart3, Activity } from "lucide-react";
+import { AILogsSection } from "@/components/ai-logs-section";
 
 interface SystemStats {
   totalUsers: number;
@@ -515,7 +518,7 @@ export default function AdminDiagnostics() {
                         {upload.analyses.length} {upload.analyses.length === 1 ? 'Analysis' : 'Analyses'}
                       </Badge>
                     </div>
-                    
+
                     {upload.analyses.map((analysis) => (
                       <div key={analysis.id} className="space-y-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -535,7 +538,7 @@ export default function AdminDiagnostics() {
                               </div>
                             </div>
                           </div>
-                          
+
                           {analysis.thinkingProcess && (
                             <AnalysisThinkingProcess
                               thinkingProcess={analysis.thinkingProcess}
