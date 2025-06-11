@@ -49,6 +49,7 @@ export const analyses = pgTable("analyses", {
   referenceImageUrl: text("reference_image_url"),
   marketSummary: text("market_summary"),
   confidence: real("confidence"),
+  thoughtProcess: text("thought_process"),
   analyzedAt: timestamp("analyzed_at").defaultNow().notNull(),
 });
 

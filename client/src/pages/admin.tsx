@@ -535,6 +535,7 @@ export default function AdminDiagnostics() {
                     <th className="text-left py-2">Size</th>
                     <th className="text-left py-2">Analyses</th>
                     <th className="text-left py-2">Uploaded</th>
+                    <th className="text-left py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -583,6 +584,31 @@ export default function AdminDiagnostics() {
                         <div className="text-xs text-gray-500">
                           {new Date(upload.uploadedAt).toLocaleTimeString()}
                         </div>
+                      </td>
+                      <td className="py-2">
+                        {upload.analyses.length > 0 && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              const analysis = upload.analyses[0];
+                              toast({
+                                title: "AI Thought Process",
+                                description: (
+                                  <div className="max-h-40 overflow-y-auto">
+                                    <p className="font-medium mb-2">{analysis.productName}</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                                      {analysis.thoughtProcess || "No detailed thought process available."}
+                                    </p>
+                                  </div>
+                                ),
+                                duration: 10000,
+                              });
+                            }}
+                          >
+                            View AI Logic
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}

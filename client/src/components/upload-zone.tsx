@@ -35,7 +35,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    
+
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       handleFile(files[0]);
@@ -78,7 +78,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
       });
       setCameraStream(stream);
       setShowCamera(true);
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
@@ -97,7 +97,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
     const canvas = canvasRef.current;
     const video = videoRef.current;
     const ctx = canvas.getContext('2d');
-    
+
     if (!ctx) return;
 
     canvas.width = video.videoWidth;
@@ -231,7 +231,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
                 </Button>
               </div>
             ) : null}
-            
+
             {preview && (
               <div className="space-y-3 animate-slide-in-up">
                 <Button 
@@ -265,7 +265,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
               <X className="h-5 w-5" />
             </Button>
           </div>
-          
+
           <div className="flex-1 relative">
             <video
               ref={videoRef}
@@ -274,7 +274,7 @@ export function UploadZone({ onFileSelect, isLoading, onAnalysis }: UploadZonePr
               muted
               className="w-full h-full object-cover"
             />
-            
+
             {/* Camera controls */}
             <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
               <div className="flex justify-center">

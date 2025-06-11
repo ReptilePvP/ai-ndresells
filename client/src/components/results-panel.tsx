@@ -113,7 +113,7 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
             ? "Analysis added to your saved collection"
             : "Analysis saved locally to your browser",
       });
-      
+
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ["/api/save/check", analysis.id] });
         queryClient.invalidateQueries({ queryKey: ["/api/saved"] });
@@ -167,13 +167,13 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
           </span>
         </div>
       </div>
-      
+
       <div className="space-y-6">
         <div className="border-l-4 border-blue-500 pl-4 animate-slide-in-left animate-stagger animate-stagger-2">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Product Name</h3>
           <p className="text-lg font-medium">{analysis.productName}</p>
         </div>
-        
+
         <div className="border-l-4 border-purple-500 pl-4 animate-slide-in-left animate-stagger animate-stagger-3">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Description</h3>
           <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
@@ -238,7 +238,7 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
               </div>
             )}
           </div>
-          
+
           {/* Comparison Insights */}
           <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
             <p className="text-sm text-blue-800 dark:text-blue-200 flex items-start">
@@ -253,7 +253,7 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
           </div>
         </div>
 
-        
+
         <div className="grid md:grid-cols-2 gap-4 animate-stagger animate-stagger-4">
           <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 animate-slide-in-left">
             <div className="flex items-center mb-2">
@@ -263,7 +263,7 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
             <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{analysis.averageSalePrice}</p>
             <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">Market-verified pricing</p>
           </div>
-          
+
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 animate-slide-in-right">
             <div className="flex items-center mb-2">
               <i className="fas fa-chart-line text-blue-600 mr-2"></i>
@@ -296,13 +296,13 @@ export function ResultsPanel({ analysis, isLoading }: ResultsPanelProps) {
             </div>
           </div>
         )}
-        
+
         <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 animate-scale-fade-in animate-stagger animate-stagger-4">
           <h4 className="font-semibold mb-3 flex items-center">
             <i className="fas fa-thumbs-up text-blue-500 mr-2"></i>
             How accurate is this analysis?
           </h4>
-          
+
           {existingFeedback ? (
             <div className="text-center animate-bounce-in">
               <div className={`inline-flex items-center px-4 py-2 rounded-lg font-medium ${

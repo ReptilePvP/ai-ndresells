@@ -314,8 +314,16 @@ If no clear product is visible, return: {"productName": "No product detected", "
           });
         }
 
-        const analysis = JSON.parse(jsonMatch[0]);
-        res.json(analysis);
+        const analysisData = JSON.parse(jsonMatch[0]);
+        res.json(analysisData);
+
+        // Cache the result
+        const analysisToCache = {
+          analysisData: analysisData,
+          timestamp: Date.now(),
+          confidence: analysisData.confidence || 0.5
+        };
+        setCachedAnalysis(imageHash, analysisToCache);
       } catch (parseError) {
         // Fallback if JSON parsing fails
         res.json({
@@ -323,16 +331,6 @@ If no clear product is visible, return: {"productName": "No product detected", "
           confidence: "low"
         });
       }
-
-      // Cache the result
-      const analysisToCache = {
-        analysisData: analysis,
-        timestamp: Date.now(),
-        confidence: analysis.confidence || 0.5
-      };
-      setCachedAnalysis(imageHash, analysisToCache);
-
-      res.json(analysis);
     } catch (error) {
       console.error("Live analysis error:", error);
       res.status(500).json({ 
@@ -590,7 +588,7 @@ Return the complete JSON object with accurate market intelligence.` },
         }
 
         const jsonStr = jsonMatch[0];
-        // Extract thought process by removing the JSON part from the text
+        // Extract thought process by removing the JSON part from the text if it's outside
         thoughtProcessText = cleanText.replace(jsonStr, '').trim();
 
         // Handle potential trailing commas or incomplete JSON
@@ -601,8 +599,12 @@ Return the complete JSON object with accurate market intelligence.` },
           const fixedJsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
           analysisData = JSON.parse(fixedJsonStr);
         }
+        // If thoughtProcess is in the JSON, use it; otherwise, use the extracted text if available
+        if (!analysisData.thoughtProcess && thoughtProcessText) {
+          analysisData.thoughtProcess = thoughtProcessText;
+        }
         console.log("Parsed analysis data:", JSON.stringify(analysisData, null, 2));
-        console.log("Extracted thought process:", thoughtProcessText);
+        console.log("Extracted thought process:", analysisData.thoughtProcess || "None");
       } catch (parseError) {
         console.error("Failed to parse Gemini response:", text);
         console.error("Raw response text:", text);
@@ -774,7 +776,7 @@ Return the complete JSON object with accurate market intelligence.` },
         referenceImageUrl: localReferenceImageUrl,
         marketSummary: marketData?.marketSummary || "AI analysis based pricing",
         confidence: confidenceScore,
-        thoughtProcess: thoughtProcessText || "No detailed thought process provided."
+        thoughtProcess: analysisData.thoughtProcess || "No detailed thought process provided."
       };
 
       const validatedAnalysis = insertAnalysisSchema.parse(analysisInput);
@@ -1249,6 +1251,68 @@ async function getMultiModelAnalysis(base64Image: string) {
     'gemini-2.0-flash-exp'
   ];
 
+  const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `
+You are an expert product research analyst specializing in resale market intelligence. Your task is to analyze the provided image with extreme precision and perform comprehensive market research to return verified, actionable data for resellers.
+
+ANALYSIS METHODOLOGY:
+1. VISUAL EXAMINATION:
+   - Identify ALL visible text, logos, model numbers, serial numbers, and distinctive features.
+   - Note product condition indicators (packaging, wear, accessories).
+   - Classify product category (electronics, clothing, collectibles, etc.).
+   - Extract specific model identifiers and generation/version markers.
+
+2. PRODUCT IDENTIFICATION:
+   - Cross-reference visual elements with known product databases.
+   - Use Google Search with specific model numbers and brand combinations.
+   - Verify authenticity markers and distinguish from replicas/counterfeits.
+   - Confirm exact product variant (color, storage size, regional version).
+
+3. MARKET RESEARCH:
+   - Research current retail prices from major retailers (Amazon, Best Buy, Walmart, Target).
+   - Analyze recent sold listings on eBay, Facebook Marketplace, Mercari, OfferUp.
+   - Factor in product condition, completeness, and market demand.
+   - Consider seasonal trends and market saturation.
+
+4. VALIDATION:
+   - Cross-check pricing across multiple platforms.
+   - Verify product specifications and features.
+   - Ensure reference image accuracy and source credibility.
+
+OUTPUT FORMAT (JSON):
+{
+  "productName": "Complete product name with brand, model, and key specifications",
+  "description": "Comprehensive description including features, specifications, condition notes, and market positioning",
+  "category": "Primary product category (Electronics, Fashion, Home, Collectibles, etc.)",
+  "brand": "Brand name",
+  "model": "Model number or identifier",
+  "condition": "Apparent condition from image (New, Like New, Good, Fair)",
+  "averageSalePrice": "Current retail price range for new items ($X - $Y USD)",
+  "resellPrice": "Recent sold price range for similar condition ($X - $Y USD)",
+  "marketDemand": "High/Medium/Low based on search volume and listing frequency",
+  "profitMargin": "Estimated profit percentage for resellers",
+  "referenceImageUrl": "REQUIRED: Direct image URL from verified retailer (amazon.com, bestbuy.com, target.com, walmart.com, skechers.com, etc.). Must be actual product photo, not placeholder.",
+  "confidence": "Overall confidence in the analysis (0.0 to 1.0)",
+  "sources": ["List of sources or platforms used for pricing data"],
+  "thoughtProcess": "Provide a detailed step-by-step explanation of your reasoning and analysis process, including intermediate observations and decisions."
+}
+
+ACCURACY REQUIREMENTS:
+- Use only verified data from actual search results.
+- Provide specific price ranges with 90%+ confidence.
+- Include model-specific details when identifiable.
+- Flag uncertainty with conservative estimates and lower confidence scores.
+- Prioritize recent market data (last 30-60 days).
+
+QUALITY STANDARDS:
+- Product identification must be 85%+ confident or state limitations in the description.
+- Price data must reflect current market conditions.
+- Reference images must match exact product variant.
+- All URLs must be from established retailers or marketplaces.
+- Return ONLY the JSON object, without any additional text or markdown, to ensure parsing reliability.
+
+Analyze the image thoroughly and return only the JSON object with accurate, research-backed data.
+`;
+
   const results = await Promise.all(
     models.map(async (model) => {
       try {
@@ -1267,7 +1331,7 @@ async function getMultiModelAnalysis(base64Image: string) {
             ],
           }],
         });
-        return result;
+        return result as any; // Type assertion to handle potential API response structure issues
       } catch (error) {
         console.error(`Error with model ${model}:`, error);
         return null;
@@ -1276,7 +1340,12 @@ async function getMultiModelAnalysis(base64Image: string) {
   );
 
   // Filter out failed results
-  const validResults = results.filter(r => r && r.candidates?.[0]?.content?.parts?.[0]?.text);
+  const validResults = results.filter((r): r is any => {
+    if (!r || !r.candidates || r.candidates.length === 0 || !r.candidates[0].content || !r.candidates[0].content.parts || r.candidates[0].content.parts.length === 0 || !r.candidates[0].content.parts[0]) {
+      return false;
+    }
+    return typeof r.candidates[0].content.parts[0].text === 'string';
+  });
 
   if (validResults.length === 0) {
     throw new Error("All model analyses failed");
@@ -1284,7 +1353,7 @@ async function getMultiModelAnalysis(base64Image: string) {
 
   // Parse and compare results
   const parsedResults = validResults.map(result => {
-    const text = result.candidates[0].content.parts[0].text;
+    const text = result.candidates[0].content.parts[0].text as string;
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return null;
