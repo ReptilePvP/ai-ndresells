@@ -286,17 +286,24 @@ export default function AdminDiagnostics() {
                 </Badge>
               </div>
 
-              {/* Visual Comparison */}
+              {/* Database Status */}
               <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-sm">Visual Comparison</h3>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <h3 className="font-semibold text-sm">Database Connection</h3>
+                  {systemStatus?.apiStatus?.database === 'Connected' ? (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  )}
                 </div>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                  Side-by-side image analysis with marketplace references
+                  PostgreSQL database for user data and analysis storage
                 </p>
-                <Badge variant="default" className="text-xs">
-                  Active
+                <Badge 
+                  variant={systemStatus?.apiStatus?.database === 'Connected' ? 'default' : 'destructive'}
+                  className="text-xs"
+                >
+                  {systemStatus?.apiStatus?.database || 'Unknown'}
                 </Badge>
               </div>
             </div>
@@ -402,9 +409,22 @@ export default function AdminDiagnostics() {
               </div>
               <div className="flex items-center justify-between">
                 <span>Database</span>
-                <Badge variant="default" className="bg-green-500">
-                  <CheckCircle className="mr-1 h-3 w-3" />
-                  {stats?.apiStatus?.database || 'Connected'}
+                <Badge 
+                  variant="default" 
+                  className={
+                    stats?.apiStatus?.database === 'Connected' 
+                      ? "bg-green-500" 
+                      : stats?.apiStatus?.database === 'Error'
+                      ? "bg-red-500"
+                      : "bg-yellow-500"
+                  }
+                >
+                  {stats?.apiStatus?.database === 'Connected' ? (
+                    <CheckCircle className="mr-1 h-3 w-3" />
+                  ) : (
+                    <XCircle className="mr-1 h-3 w-3" />
+                  )}
+                  {stats?.apiStatus?.database || 'Unknown'}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">

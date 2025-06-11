@@ -193,13 +193,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         geminiApiStatus = 'Error';
       }
 
+      // Test Database connection
+      let databaseStatus = 'Unknown';
+      try {
+        const { testDatabaseConnection } = await import('./db');
+        const isConnected = await testDatabaseConnection();
+        databaseStatus = isConnected ? 'Connected' : 'Error';
+      } catch (error) {
+        console.error('Database connection test failed:', error);
+        databaseStatus = 'Error';
+      }
+
       const enhancedStats = {
         ...stats,
         apiStatus: {
           ebayApi: ebayApiStatus,
           stockxApi: stockxApiStatus,
           geminiApi: geminiApiStatus,
-          database: 'Connected'
+          database: databaseStatus
         }
       };
 
@@ -1128,14 +1139,25 @@ Keep response concise for real-time display.`;
         geminiApiStatus = 'Error';
       }
 
+      // Test Database connection
+      let databaseStatus = 'Unknown';
+      try {
+        const { testDatabaseConnection } = await import('./db');
+        const isConnected = await testDatabaseConnection();
+        databaseStatus = isConnected ? 'Connected' : 'Error';
+      } catch (error) {
+        console.error('Database connection test failed:', error);
+        databaseStatus = 'Error';
+      }
+
       const systemStatus = {
         apiStatus: {
           ebayApi: ebayApiStatus,
           stockxApi: stockxApiStatus,
           geminiApi: geminiApiStatus,
-          database: 'Connected'
+          database: databaseStatus
         },
-        overallStatus: (ebayApiStatus === 'Connected' && geminiApiStatus === 'Connected') ? 'operational' : 'degraded'
+        overallStatus: (ebayApiStatus === 'Connected' && geminiApiStatus === 'Connected' && databaseStatus === 'Connected') ? 'operational' : 'degraded'
       };
 
       res.json(systemStatus);
