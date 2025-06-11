@@ -26,6 +26,28 @@ const apiKey = process.env.GEMINI_API_KEY ||
                "";
 const genAI = new GoogleGenAI({ apiKey });
 
+// Define system prompt for product analysis
+const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `You are an expert product analyst specializing in resale market intelligence.
+Your task is to analyze product images and provide detailed market analysis.
+
+REQUIREMENTS:
+1. Examine the image for ALL visible details: brand logos, model numbers, text, distinctive features
+2. Use Google Search to verify product identification and gather current market data
+3. Research pricing from multiple sources: retail stores and recent sold listings
+4. Provide specific, data-backed pricing ranges with high confidence
+
+Return a JSON object with this structure:
+{
+  "productName": "string",
+  "description": "string",
+  "averageSalePrice": "string",
+  "resellPrice": "string",
+  "referenceImageUrl": "string (optional)",
+  "marketSummary": "string (optional)",
+  "confidence": number,
+  "thinkingProcess": "string (detailed analysis process)"
+}`;
+
 // Initialize e-commerce platform services
 const ebayService = createEbayService();
 const ecommerceService = createEcommerceService();
@@ -432,92 +454,28 @@ If no clear product is visible, return: {"productName": "No product detected", "
       }
 
       try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: SYSTEM_PROMPT_PRODUCT_ANALYSIS },
-                { text: `TASK: Analyze this product image for resale market intelligence.
+        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
-REQUIREMENTS:
-1. Examine the image for ALL visible details: brand logos, model numbers, text, distinctive features
-2. Use Google Search to verify product identification and gather current market data
-3. Research pricing from multiple sources: retail stores and recent sold listings
-4. Provide specific, data-backed pricing ranges with high confidence
-
-GOOGLE SEARCH STRATEGY (REQUIRED):
-You have access to Google Search. Use it to verify product details and gather accurate pricing:
-
-1. PRODUCT IDENTIFICATION:
-   - Search: "[exact visible text/model numbers from image]"
-   - Search: "[brand] [product type] [specific colorway/variant]"
-   - Verify exact model name, SKU, and official product details
-
-2. RETAIL PRICING VERIFICATION:
-   - Search: "[verified product name] price site:amazon.com"
-   - Search: "[verified product name] site:bestbuy.com"
-   - Search: "[verified product name] site:target.com"
-   - Get current retail prices from multiple sources
-
-3. RESALE MARKET RESEARCH:
-   - Search: "[verified product name] sold site:ebay.com"
-   - Search: "[verified product name] resale value"
-   - Check recent sold listings for accurate resale pricing
-
-4. REFERENCE IMAGE ACQUISITION:
-   - Search: "[verified product name] site:amazon.com" for official product images
-   - Search: "[verified product name] site:[brand-website].com" for brand images
-   - Ensure reference image matches exact colorway and variant
-
-CRITICAL: Use Google Search results to validate ALL pricing data. Do not estimate - only use verified market prices from search results.
-
-REFERENCE IMAGE REQUIREMENTS:
-- PRIORITY: Use retailer domains (.com sites from major stores)
-- Must show exact same product variant (color, model, size)
-- High resolution and clear product visibility
-- Extract direct image URL from search results
-- If no retailer image found, use high-quality marketplace image as fallback
-
-CRITICAL: Use only current, verified data from actual search results. Do not estimate or guess pricing.
-
-Return the complete JSON object with accurate market intelligence.` },
-                {
-                  inline_data: {
-                    mime_type: "image/jpeg",
-                    data: base64Image
-                  }
-                }
-              ]
-            }],
-            generationConfig: {
-              temperature: 0.1,
-              topK: 32,
-              topP: 1,
-              maxOutputTokens: 2048,
-            }
-          })
+        const result = await model.generateContent({
+          contents: [{
+            parts: [
+              { text: SYSTEM_PROMPT_PRODUCT_ANALYSIS },
+              { text: `TASK: Analyze this product image for resale market intelligence.` },
+              { inlineData: { mimeType: "image/jpeg", data: base64Image } }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            topK: 32,
+            topP: 1,
+            maxOutputTokens: 2048,
+          }
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Gemini API error:", errorData);
-          throw new Error(`Gemini API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
-        }
-
-        const result = await response.json();
-        
-        if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
-          console.error("Invalid response structure from Gemini API:", result);
-          throw new Error("Invalid response from AI model");
-        }
-
-        const responseText = result.candidates[0].content.parts[0].text;
+        const response = await result.response;
+        const responseText = response.text();
         console.log("Raw AI response:", responseText);
-        
+
         // Clean the response to extract JSON
         let cleanText = responseText.trim();
         if (cleanText.startsWith('```json')) {
@@ -534,37 +492,34 @@ Return the complete JSON object with accurate market intelligence.` },
         }
 
         const jsonStr = jsonMatch[0];
+        type AnalysisData = {
+          productName: string;
+          description: string;
+          averageSalePrice: string;
+          resellPrice: string;
+          referenceImageUrl?: string;
+          marketSummary?: string;
+          confidence: number;
+          thinkingProcess?: string;
+        };
+        let analysisData: AnalysisData;
         try {
           analysisData = JSON.parse(jsonStr);
         } catch (e) {
-          // Attempt to fix common JSON issues
-          const fixedJsonStr = jsonStr
-            .replace(/,\s*}/g, '}')
-            .replace(/,\s*]/g, ']')
-            .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":'); // Fix unquoted keys
-          analysisData = JSON.parse(fixedJsonStr);
+          console.error("JSON parse error:", e);
+          throw new Error("Failed to parse AI response");
         }
 
-        // Store the thinking process from the model's response
-        const thinkingProcess = responseText;
-
-        // Create analysis record with thinking process
-        const analysis = await storage.createAnalysis({
-          uploadId,
-          productName: analysisData.productName,
-          description: analysisData.description,
-          averageSalePrice: analysisData.averageSalePrice,
-          resellPrice: analysisData.resellPrice,
-          referenceImageUrl: analysisData.referenceImageUrl,
-          marketSummary: analysisData.marketSummary,
-          confidence: analysisData.confidence,
-          thinkingProcess: thinkingProcess
-        });
-
-        // Cache the analysis result
-        cacheAnalysis(imageHash, {
+        // Cache the analysis
+        setCachedAnalysis(imageHash, {
           analysisData,
           timestamp: Date.now()
+        });
+
+        // Save analysis to database
+        const analysis = await storage.createAnalysis({
+          uploadId,
+          ...analysisData
         });
 
         res.json(analysis);
