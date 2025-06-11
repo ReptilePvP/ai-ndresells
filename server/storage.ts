@@ -484,8 +484,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAILog(log: InsertAILog): Promise<AILog> {
-    const [created] = await db.insert(aiLogs).values(log).returning();
-    return created;
+    try {
+      const [created] = await db.insert(aiLogs).values(log).returning();
+      return created;
+    } catch (error) {
+      console.error("Database error creating AI log:", error);
+      console.error("AI log data:", log);
+      throw new Error(`Failed to create AI log: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async getAILogs(uploadId?: number, limit: number = 50): Promise<AILog[]> {

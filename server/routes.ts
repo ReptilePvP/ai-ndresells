@@ -421,7 +421,7 @@ If no clear product is visible, return: {"productName": "No product detected", "
     try {
       const uploadId = parseInt(req.params.uploadId);
       aiLog.uploadId = uploadId;
-      
+
       const upload = await storage.getUpload(uploadId);
 
       if (!upload) {
@@ -590,10 +590,9 @@ If no clear product is visible, return: {"productName": "No product detected", "
     } catch (error) {
       aiLog.error = error instanceof Error ? error.message : "Unknown analysis error";
       aiLog.processingTime = Date.now() - startTime;
-      console.log("AI Analysis Log:", aiLog);
-      console.error("Analysis error:", error);
-      
-      // Store failed AI log in database
+      console.log("AI Analysis Error Log:", aiLog);
+
+      // Store failed AI log
       try {
         await storage.createAILog({
           uploadId: aiLog.uploadId,
@@ -606,14 +605,16 @@ If no clear product is visible, return: {"productName": "No product detected", "
           success: aiLog.success,
           error: aiLog.error
         });
+        console.log("Failed AI log stored for upload:", uploadId);
       } catch (logError) {
-        console.error("Failed to store AI log:", logError);
+        console.error("Failed to store error AI log:", logError);
+        console.error("Error AI log data:", aiLog);
       }
-      
+
+      console.error("Analysis error for upload", uploadId, ":", error);
       res.status(500).json({ 
-        message: "Failed to analyze image",
-        error: error instanceof Error ? error.message : "Unknown error",
-        details: error instanceof Error ? error.stack : undefined
+        message: error instanceof Error ? error.message : "Analysis failed",
+        uploadId: uploadId
       });
     }
   });
