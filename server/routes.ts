@@ -461,7 +461,7 @@ Focus on identifying authentic products for resale market analysis.
 `;
 
       // Use multi-API analyzer for comprehensive product analysis
-      const productAnalysis = await multiAPIAnalyzer.analyzeImage(base64Image, 'gemini');
+      const productAnalysis = await multiAPIAnalyzer.analyzeImage(base64Image, 'gemini', uploadedFile.path);
 
       // Get marketplace data using authenticated APIs
       let stockxData = null;
@@ -540,7 +540,7 @@ Focus on identifying authentic products for resale market analysis.
       console.error("Analysis error:", error);
       res.status(500).json({ 
         message: "Analysis failed", 
-        error: error.message,
+        error: error instanceof Error ? error.message : "Unknown error",
         productName: "Analysis Error",
         description: "Unable to complete product analysis. Please try again.",
         averageSalePrice: "Unavailable",
