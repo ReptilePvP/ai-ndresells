@@ -42,8 +42,8 @@ interface StockXPriceData {
 }
 
 export class StockXApiService {
-  private readonly baseUrl = 'https://stockx.com/api/v3';
-  private readonly searchUrl = 'https://stockx.com/api/v3/browse';
+  private readonly baseUrl = 'https://gateway.stockx.com/public/v1';
+  private readonly searchUrl = 'https://gateway.stockx.com/public/v1/catalog/search';
   private readonly tokenUrl = 'https://accounts.stockx.com/oauth/token';
   private apiKey: string | null = null;
   private clientId: string | null = null;
@@ -76,20 +76,21 @@ export class StockXApiService {
       throw new Error('StockX OAuth credentials not configured');
     }
 
-    console.log('Attempting StockX OAuth 2.0 authentication...');
+    console.log('Generating StockX OAuth token using correct Auth0 flow...');
 
     try {
-      // Use correct OAuth 2.0 endpoint and parameters according to StockX API docs
+      // StockX uses Auth0 for OAuth 2.0 authentication
       const response = await fetch(this.tokenUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json',
-          'Authorization': `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          audience: 'gateway.stockx.com'
+        body: JSON.stringify({
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          audience: 'gateway.stockx.com',
+          grant_type: 'client_credentials'
         })
       });
 
@@ -97,10 +98,10 @@ export class StockXApiService {
         const errorText = await response.text();
         console.error(`StockX OAuth error: ${response.status} ${response.statusText}`, errorText);
         
-        // If OAuth fails due to grant type restrictions, try direct API key approach
-        if (this.apiKey && (response.status === 400 || response.status === 403)) {
-          console.log('OAuth failed, using API key authentication');
-          return this.apiKey;
+        // Check if it's a grant type issue
+        if (errorText.includes('Grant type') || errorText.includes('unauthorized_client')) {
+          console.log('Client credentials grant not allowed - credentials may need authorization code flow');
+          throw new Error('StockX credentials require user authorization flow');
         }
         
         throw new Error(`StockX OAuth failed: ${response.status} ${response.statusText}`);
@@ -108,19 +109,12 @@ export class StockXApiService {
 
       const tokenData = await response.json();
       this.accessToken = tokenData.access_token;
-      this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000) - 60000; // 1 minute buffer
+      this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000) - 60000;
 
-      console.log('✓ StockX OAuth token generated successfully');
-      return this.accessToken || '';
+      console.log('StockX OAuth token generated successfully');
+      return this.accessToken;
     } catch (error) {
-      console.error('StockX OAuth token generation failed:', error);
-      
-      // Fallback to API key if available
-      if (this.apiKey) {
-        console.log('Using StockX API key as fallback');
-        return this.apiKey;
-      }
-      
+      console.error('StockX OAuth authentication failed:', error);
       throw error;
     }
   }
@@ -142,18 +136,9 @@ export class StockXApiService {
         'User-Agent': this.userAgent,
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
         ...options.headers as Record<string, string>
       };
-
-      // StockX API authentication
-      if (token === this.apiKey && this.apiKey) {
-        // API key authentication
-        headers['X-API-Key'] = this.apiKey;
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
-      } else if (token) {
-        // OAuth token authentication
-        headers['Authorization'] = `Bearer ${token}`;
-      }
 
       const response = await fetch(url, {
         ...options,
