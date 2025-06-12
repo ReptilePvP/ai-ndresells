@@ -246,11 +246,15 @@ export class StockXOAuthService {
     const now = Date.now();
     const maxAge = 10 * 60 * 1000; // 10 minutes
     
-    for (const [state, authState] of this.authStates.entries()) {
+    const statesToDelete: string[] = [];
+    for (const state of this.authStates.keys()) {
+      const authState = this.authStates.get(state)!;
       if (now - authState.timestamp > maxAge) {
-        this.authStates.delete(state);
+        statesToDelete.push(state);
       }
     }
+    
+    statesToDelete.forEach(state => this.authStates.delete(state));
   }
 }
 

@@ -57,7 +57,72 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // StockX OAuth authorization flow
+  app.get('/api/auth/stockx/authorize', async (req, res) => {
+    try {
+      const { createStockXOAuthService } = await import('./stockx-oauth');
+      const oauthService = createStockXOAuthService();
+      
+      if (!oauthService) {
+        return res.status(500).json({ error: 'StockX OAuth not configured' });
+      }
 
+      const { authUrl, state } = oauthService.generateAuthUrl();
+      res.json({ authUrl, state });
+    } catch (error) {
+      console.error('StockX OAuth initialization error:', error);
+      res.status(500).json({ error: 'Failed to initialize StockX authorization' });
+    }
+  });
+
+  app.get('/api/auth/stockx/callback', async (req, res) => {
+    try {
+      const { code, state, error, error_description } = req.query;
+
+      if (error) {
+        console.error('StockX OAuth error:', error, error_description);
+        return res.redirect(`/?auth_error=${encodeURIComponent('StockX authorization failed')}`);
+      }
+
+      if (!code || !state) {
+        return res.redirect(`/?auth_error=${encodeURIComponent('Missing authorization parameters')}`);
+      }
+
+      const { createStockXOAuthService } = await import('./stockx-oauth');
+      const oauthService = createStockXOAuthService();
+      
+      if (!oauthService) {
+        return res.redirect(`/?auth_error=${encodeURIComponent('OAuth service not available')}`);
+      }
+
+      await oauthService.exchangeCodeForToken(code as string, state as string);
+      res.redirect('/?stockx_auth=success');
+    } catch (error) {
+      console.error('StockX OAuth callback error:', error);
+      res.redirect(`/?auth_error=${encodeURIComponent('Authorization failed')}`);
+    }
+  });
+
+  app.get('/api/auth/stockx/status', async (req, res) => {
+    try {
+      const { createStockXOAuthService } = await import('./stockx-oauth');
+      const oauthService = createStockXOAuthService();
+      
+      if (!oauthService) {
+        return res.json({ 
+          authenticated: false, 
+          needsAuthorization: true,
+          error: 'OAuth service not configured'
+        });
+      }
+
+      const status = oauthService.getAuthStatus();
+      res.json(status);
+    } catch (error) {
+      console.error('StockX OAuth status error:', error);
+      res.status(500).json({ error: 'Failed to check authorization status' });
+    }
+  });
 
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
