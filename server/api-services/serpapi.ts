@@ -51,34 +51,40 @@ export class SerpAPIService {
   private baseUrl = 'https://serpapi.com/search';
 
   constructor() {
-    this.apiKey = '0df2fcc3b6090d2083f7e1840e585f994b0d0b5339a53c77c4d30a7760701e60';
+    this.apiKey = process.env.SERPAPI_KEY || '0df2fcc3b6090d2083f7e1840e585f994b0d0b5339a53c77c4d30a7760701e60';
   }
 
   async analyzeImage(imageUrl: string): Promise<ParsedAnalysisResult> {
     try {
-      const response = await fetch(this.baseUrl, {
+      // According to SerpAPI documentation, build URL with query parameters
+      const url = new URL(this.baseUrl);
+      url.searchParams.set('engine', 'google_lens');
+      url.searchParams.set('url', imageUrl);
+      url.searchParams.set('api_key', this.apiKey);
+      url.searchParams.set('hl', 'en');
+      url.searchParams.set('gl', 'us');
+
+      console.log('SerpAPI Google Lens request URL:', url.toString().replace(this.apiKey, '[API_KEY]'));
+
+      const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; Product-Analyzer/1.0)',
-        },
-        params: new URLSearchParams({
-          engine: 'google_lens',
-          url: imageUrl,
-          api_key: this.apiKey,
-          hl: 'en',
-          gl: 'us'
-        } as any)
+        }
       });
 
       if (!response.ok) {
-        throw new Error(`SerpAPI request failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error('SerpAPI error response:', errorText);
+        throw new Error(`SerpAPI request failed: ${response.status} - ${errorText}`);
       }
 
       const data: SerpAPIResponse = await response.json();
+      console.log('SerpAPI response:', JSON.stringify(data, null, 2));
       return this.parseResponse(data);
     } catch (error) {
       console.error('SerpAPI analysis error:', error);
-      throw new Error(`SerpAPI analysis failed: ${error.message}`);
+      throw new Error(`SerpAPI analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -106,7 +112,7 @@ export class SerpAPIService {
       return this.parseResponse(data);
     } catch (error) {
       console.error('SerpAPI analysis error:', error);
-      throw new Error(`SerpAPI analysis failed: ${error.message}`);
+      throw new Error(`SerpAPI analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -122,13 +128,13 @@ export class SerpAPIService {
 
     // Extract pricing information from multiple sources
     const visualPrices = visualMatches
-      .filter(match => match.price?.value)
-      .map(match => match.price.value)
+      .filter(match => match.price?.value !== undefined)
+      .map(match => match.price!.value!)
       .filter(price => !isNaN(price) && price > 0);
 
     const shoppingPrices = shoppingResults
       .filter(result => result.price)
-      .map(result => parseFloat(result.price.replace(/[^0-9.]/g, '')))
+      .map(result => parseFloat(result.price!.replace(/[^0-9.]/g, '')))
       .filter(price => !isNaN(price) && price > 0);
 
     const allPrices = [...visualPrices, ...shoppingPrices];
@@ -137,12 +143,15 @@ export class SerpAPIService {
     let resellPrice = 'Price not available';
 
     if (allPrices.length > 0) {
-      const avgPrice = allPrices.reduce((a, b) => a + b, 0) / allPrices.length;
-      const minPrice = Math.min(...allPrices);
-      const maxPrice = Math.max(...allPrices);
-      
-      averageSalePrice = `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`;
-      resellPrice = `$${(avgPrice * 0.6).toFixed(2)} - $${(avgPrice * 0.85).toFixed(2)}`;
+      const avgPrice = allPrices.reduce((a, b) => (a || 0) + (b || 0), 0) / allPrices.length;
+      const validPrices = allPrices.filter(p => p !== undefined) as number[];
+      if (validPrices.length > 0) {
+        const minPrice = Math.min(...validPrices);
+        const maxPrice = Math.max(...validPrices);
+        
+        averageSalePrice = `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`;
+        resellPrice = `$${(avgPrice * 0.6).toFixed(2)} - $${(avgPrice * 0.85).toFixed(2)}`;
+      }
     }
 
     // Determine category and brand from product name
@@ -169,7 +178,8 @@ export class SerpAPIService {
       referenceImageUrl,
       confidence,
       sources: ['SerpAPI', 'Google Lens'],
-      thoughtProcess: `SerpAPI analysis found ${visualMatches.length} visual matches and ${shoppingResults.length} shopping results. ${knowledgeGraph ? 'Knowledge graph data available.' : 'No knowledge graph data.'} Price data extracted from ${allPrices.length} sources across visual and shopping results.`
+      thoughtProcess: `SerpAPI analysis found ${visualMatches.length} visual matches and ${shoppingResults.length} shopping results. ${knowledgeGraph ? 'Knowledge graph data available.' : 'No knowledge graph data.'} Price data extracted from ${allPrices.length} sources across visual and shopping results.`,
+      apiProvider: 'serpapi'
     };
   }
 
