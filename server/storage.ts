@@ -61,6 +61,9 @@ export interface IStorage {
     };
   }>;
   getAllUploadsWithAnalyses(): Promise<(Upload & { analyses: AnalysisWithUpload[]; user?: UserWithoutPassword })[]>;
+
+  updateUserEmail(userId: number, email: string): Promise<User | undefined>;
+  updateUserPassword(userId: number, hashedPassword: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -480,6 +483,22 @@ export class DatabaseStorage implements IStorage {
     }
 
     return uploadIds.length;
+  }
+
+  async updateUserEmail(userId: number, email: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ email, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async updateUserPassword(userId: number, hashedPassword: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(users.id, userId));
   }
 }
 

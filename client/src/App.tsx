@@ -11,6 +11,7 @@ import Analyzer from "@/pages/analyzer";
 import Dashboard from "@/pages/dashboard";
 import History from "@/pages/history";
 import Saved from "@/pages/saved";
+import Profile from "@/pages/profile";
 import AdminDiagnostics from "@/pages/admin";
 import { LiveAnalysisPage } from "@/pages/live-analysis";
 
@@ -24,7 +25,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/history" component={History} />
       <Route path="/saved" component={Saved} />
-
+      <Route path="/profile" component={Profile} />
       <Route path="/admin" component={AdminDiagnostics} />
       <Route component={NotFound} />
     </Switch>

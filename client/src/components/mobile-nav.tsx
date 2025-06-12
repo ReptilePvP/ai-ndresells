@@ -44,12 +44,12 @@ export function MobileNav() {
         </Link>
 
         {isAuthenticated ? (
-          <Link href="/saved">
+          <Link href="/profile">
             <button className={`flex flex-col items-center py-2 px-3 transition-colors ${
-              isActive("/saved") ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
+              isActive("/profile") ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
             }`}>
-              <i className="fas fa-bookmark text-lg mb-1"></i>
-              <span className="text-xs">Saved</span>
+              <i className="fas fa-user text-lg mb-1"></i>
+              <span className="text-xs">Profile</span>
             </button>
           </Link>
         ) : (

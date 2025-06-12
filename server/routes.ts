@@ -144,6 +144,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ user: userWithoutPassword });
   });
 
+  app.put("/api/auth/update-email", requireAuth, async (req, res) => {
+    try {
+      const { email, currentPassword } = req.body;
+      const user = (req as any).user;
+
+      if (!email || !currentPassword) {
+        return res.status(400).json({ message: "Email and current password are required" });
+      }
+
+      // Verify current password
+      const isValidPassword = await verifyPassword(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+
+      // Check if email is already taken
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser && existingUser.id !== user.id) {
+        return res.status(409).json({ message: "Email is already in use" });
+      }
+
+      // Update email
+      const updatedUser = await storage.updateUserEmail(user.id, email);
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      
+      res.json({ user: userWithoutPassword, message: "Email updated successfully" });
+    } catch (error) {
+      console.error("Update email error:", error);
+      res.status(500).json({ message: "Failed to update email" });
+    }
+  });
+
+  app.put("/api/auth/update-password", requireAuth, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const user = (req as any).user;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters long" });
+      }
+
+      // Verify current password
+      const isValidPassword = await verifyPassword(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+
+      // Hash new password
+      const hashedNewPassword = await hashPassword(newPassword);
+      
+      // Update password
+      await storage.updateUserPassword(user.id, hashedNewPassword);
+      
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Update password error:", error);
+      res.status(500).json({ message: "Failed to update password" });
+    }
+  });
+
   // Admin routes
   app.get("/api/admin/stats", requireAdmin, async (req, res) => {
     try {
