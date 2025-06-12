@@ -460,23 +460,9 @@ Analyze this product image and provide detailed information. Respond with only a
 Focus on identifying authentic products for resale market analysis.
 `;
 
-      const aiResult = await genAI.models.generateContent({
-        model: 'gemini-2.5-flash-preview-05-20',
-        contents: [{
-          role: "user",
-          parts: [
-            { text: ANALYSIS_PROMPT },
-            {
-              inlineData: {
-                mimeType: uploadedFile.mimetype,
-                data: base64Image
-              }
-            }
-          ]
-        }]
-      });
-
-      const aiResponse = aiResult.response.text();
+      // Use multi-API analyzer for comprehensive product analysis
+      const analysisResult = await multiAPIAnalyzer.analyzeImage(base64Image, uploadPath);
+      const aiResponse = JSON.stringify(analysisResult);
       let productAnalysis;
       
       try {
