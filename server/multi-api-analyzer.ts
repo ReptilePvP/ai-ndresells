@@ -149,19 +149,11 @@ Return ONLY a JSON object with this exact structure:
   }
 
   private async analyzeWithSearchAPI(base64Image: string, uploadPath?: string): Promise<UnifiedAnalysisResult> {
-    // For SearchAPI, we need to provide an image URL
-    // Convert base64 to a temporary accessible URL or use the upload path
-    let imageUrl: string;
-    
-    if (uploadPath) {
-      // Use the upload path as URL (assuming it's accessible)
-      imageUrl = `${process.env.PUBLIC_URL || 'http://localhost:5000'}/api/image/${uploadPath}`;
-    } else {
-      // For live analysis or when upload path is not available, we need to handle this differently
-      throw new Error("SearchAPI requires an accessible image URL. Upload the image first.");
+    if (!uploadPath) {
+      throw new Error("SearchAPI requires an uploaded image. Upload the image first to use Google Lens analysis.");
     }
 
-    return await searchAPIService.analyzeImage(imageUrl);
+    return await searchAPIService.analyzeImageFromBase64(base64Image, uploadPath);
   }
 
   private async analyzeWithSerpAPI(base64Image: string, uploadPath?: string): Promise<UnifiedAnalysisResult> {
