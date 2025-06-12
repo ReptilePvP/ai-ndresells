@@ -65,6 +65,63 @@ export class SearchAPIService {
     }
   }
 
+  async analyzeImageFromUrl(imageUrl: string, uploadId: string): Promise<ParsedAnalysisResult> {
+    try {
+      const url = new URL(this.baseUrl);
+      url.searchParams.set('engine', 'google_lens');
+      url.searchParams.set('url', imageUrl);
+      url.searchParams.set('api_key', this.apiKey);
+      url.searchParams.set('hl', 'en');
+      url.searchParams.set('gl', 'us');
+      url.searchParams.set('no_cache', 'false');
+
+      console.log('SearchAPI Google Lens request URL:', url.toString().replace(this.apiKey, '[API_KEY]'));
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Product-Analyzer/1.0)',
+          'Accept': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('SearchAPI error response:', response.status, errorText);
+        
+        if (response.status === 401) {
+          throw new Error('SearchAPI authentication failed. Please check your API key.');
+        } else if (response.status === 403) {
+          throw new Error('SearchAPI access forbidden. Please verify your subscription and permissions.');
+        } else if (response.status === 429) {
+          throw new Error('SearchAPI rate limit exceeded. Please try again later.');
+        }
+        
+        throw new Error(`SearchAPI request failed: ${response.status} - ${errorText}`);
+      }
+
+      const data: SearchAPIResponse = await response.json();
+      
+      // Check for SearchAPI-specific error in response
+      if ((data as any).error) {
+        console.error('SearchAPI returned error:', (data as any).error);
+        throw new Error(`SearchAPI error: ${(data as any).error.message || 'Unknown error'}`);
+      }
+      
+      console.log('SearchAPI response keys:', Object.keys(data));
+      console.log('SearchAPI visual_matches count:', data.visual_matches?.length || 0);
+      console.log('SearchAPI shopping_results count:', data.shopping_results?.length || 0);
+
+      return this.parseSearchAPIResponse(data, uploadId);
+    } catch (error) {
+      console.error('SearchAPI analysis error:', error);
+      if (error instanceof Error) {
+        throw new Error(`SearchAPI analysis failed: ${error.message}`);
+      }
+      throw new Error('SearchAPI analysis failed with unknown error');
+    }
+  }
+
   async analyzeImageFromBase64(base64Image: string, uploadId: string): Promise<ParsedAnalysisResult> {
     // Convert base64 to publicly accessible URL
     const imageUrl = `${process.env.PUBLIC_URL || 'http://localhost:5000'}/api/image/${uploadId}`;

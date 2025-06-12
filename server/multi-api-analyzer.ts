@@ -63,6 +63,22 @@ export class MultiAPIAnalyzer {
     }
   }
 
+  async analyzeImageWithFallback(
+    base64Image: string, 
+    originalProvider: 'searchapi' | 'serpapi',
+    uploadPath?: string
+  ): Promise<UnifiedAnalysisResult> {
+    console.log(`Performing fallback analysis from ${originalProvider} to Gemini`);
+    
+    const result = await this.analyzeWithGemini(base64Image);
+    result.apiProvider = 'gemini';
+    
+    // Add note about fallback in thought process
+    result.thoughtProcess = `Originally attempted with ${originalProvider} but switched to Gemini AI. ${result.thoughtProcess}`;
+    
+    return result;
+  }
+
   private async analyzeWithGemini(base64Image: string): Promise<UnifiedAnalysisResult> {
     const GEMINI_PROMPT = `
 Analyze this product image and provide detailed information for resale market intelligence.
@@ -147,7 +163,15 @@ Return ONLY a JSON object with this exact structure:
       throw new Error("SearchAPI requires an uploaded image. Upload the image first to use Google Lens analysis.");
     }
 
-    const result = await searchAPIService.analyzeImageFromBase64(base64Image, uploadPath);
+    // Construct proper public URL for the image
+    const baseUrl = process.env.REPL_SLUG 
+      ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+      : process.env.PUBLIC_URL || 'http://localhost:5000';
+    
+    const imageUrl = `${baseUrl}/api/image/${uploadPath}`;
+    console.log('SearchAPI using image URL:', imageUrl);
+
+    const result = await searchAPIService.analyzeImageFromUrl(imageUrl, uploadPath);
     return {
       ...result,
       apiProvider: 'searchapi'
