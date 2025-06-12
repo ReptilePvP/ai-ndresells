@@ -5,6 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import AnalysisProgress from "@/components/analysis-progress";
+import { Save, Share2, DollarSign, TrendingUp, Clock, ExternalLink, ThumbsUp, ThumbsDown, MessageSquare, ImageIcon } from "lucide-react";
 
 interface ResultsPanelProps {
   analysis: Analysis;

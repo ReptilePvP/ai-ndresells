@@ -64,6 +64,7 @@ export interface IStorage {
 
   updateUserEmail(userId: number, email: string): Promise<User | undefined>;
   updateUserPassword(userId: number, hashedPassword: string): Promise<void>;
+  updateUserApiProvider(userId: number, apiProvider: 'gemini' | 'searchapi' | 'serpapi'): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -499,6 +500,15 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ password: hashedPassword, updatedAt: new Date() })
       .where(eq(users.id, userId));
+  }
+
+  async updateUserApiProvider(userId: number, apiProvider: 'gemini' | 'searchapi' | 'serpapi'): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ apiProvider, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
   }
 }
 

@@ -18,6 +18,7 @@ import { createMarketDataService } from './market-data-service';
 import { createIntelligentPricing } from './intelligent-pricing';
 import { accuracyValidator } from './accuracy-validator';
 import { generateImageHash, getCachedAnalysis, setCachedAnalysis, hasNegativeFeedback } from './cache';
+import { multiAPIAnalyzer } from './multi-api-analyzer';
 
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY || 
@@ -205,6 +206,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Update password error:", error);
       res.status(500).json({ message: "Failed to update password" });
+    }
+  });
+
+  app.put("/api/auth/update-api-provider", requireAuth, async (req, res) => {
+    try {
+      const { apiProvider } = req.body;
+      const user = (req as any).user;
+
+      if (!apiProvider || !['gemini', 'searchapi', 'serpapi'].includes(apiProvider)) {
+        return res.status(400).json({ message: "Valid API provider is required (gemini, searchapi, or serpapi)" });
+      }
+
+      // Update API provider
+      const updatedUser = await storage.updateUserApiProvider(user.id, apiProvider);
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      
+      res.json({ user: userWithoutPassword, message: "API provider updated successfully" });
+    } catch (error) {
+      console.error("Update API provider error:", error);
+      res.status(500).json({ message: "Failed to update API provider" });
     }
   });
 
@@ -454,13 +475,21 @@ If no clear product is visible, return: {"productName": "No product detected", "
   });
 
   // Analyze product endpoint
-  app.post("/api/analyze/:uploadId", async (req, res) => {
+  app.post("/api/analyze/:uploadId", optionalAuth, async (req, res) => {
     try {
       const uploadId = parseInt(req.params.uploadId);
       const upload = await storage.getUpload(uploadId);
 
       if (!upload) {
         return res.status(404).json({ message: "Upload not found" });
+      }
+
+      // Get user's preferred API provider
+      const user = (req as any).user;
+      let apiProvider: 'gemini' | 'searchapi' | 'serpapi' = 'gemini'; // default
+      
+      if (user && user.apiProvider) {
+        apiProvider = user.apiProvider;
       }
 
       // Read image file
@@ -500,343 +529,20 @@ If no clear product is visible, return: {"productName": "No product detected", "
         'gemini-2.5-flash-preview-05-20' : 
         'gemini-2.0-flash-exp';
 
-      // Use Gemini to analyze the image
-      const GEMINI_MODEL = model;
+      console.log(`Using ${apiProvider} for image analysis`);
+      
+      // Use the multi-API analyzer
+      const analysisData = await multiAPIAnalyzer.analyzeImage(
+        base64Image, 
+        apiProvider,
+        upload.filename
+      );
 
-      const SYSTEM_PROMPT_PRODUCT_ANALYSIS = `
-You are an expert product research analyst specializing in resale market intelligence. Your task is to analyze the provided image with extreme precision and perform comprehensive market research to return verified, actionable data for resellers.
-
-ANALYSIS METHODOLOGY:
-1. VISUAL EXAMINATION:
-   - Identify ALL visible text, logos, model numbers, serial numbers, and distinctive features.
-   - Note product condition indicators (packaging, wear, accessories).
-   - Classify product category (electronics, clothing, collectibles, etc.).
-   - Extract specific model identifiers and generation/version markers.
-
-2. PRODUCT IDENTIFICATION:
-   - Cross-reference visual elements with known product databases.
-   - Use Google Search with specific model numbers and brand combinations.
-   - Verify authenticity markers and distinguish from replicas/counterfeits.
-   - Confirm exact product variant (color, storage size, regional version).
-
-3. MARKET RESEARCH:
-   - Research current retail prices from major retailers (Amazon, Best Buy, Walmart, Target).
-   - Analyze recent sold listings on eBay, Facebook Marketplace, Mercari, OfferUp.
-   - Factor in product condition, completeness, and market demand.
-   - Consider seasonal trends and market saturation.
-
-4. VALIDATION:
-   - Cross-check pricing across multiple platforms.
-   - Verify product specifications and features.
-   - Ensure reference image accuracy and source credibility.
-
-OUTPUT FORMAT (JSON):
-{
-  "productName": "Complete product name with brand, model, and key specifications",
-  "description": "Comprehensive description including features, specifications, condition notes, and market positioning",
-  "category": "Primary product category (Electronics, Fashion, Home, Collectibles, etc.)",
-  "brand": "Brand name",
-  "model": "Model number or identifier",
-  "condition": "Apparent condition from image (New, Like New, Good, Fair)",
-  "averageSalePrice": "Current retail price range for new items ($X - $Y USD)",
-  "resellPrice": "Recent sold price range for similar condition ($X - $Y USD)",
-  "marketDemand": "High/Medium/Low based on search volume and listing frequency",
-  "profitMargin": "Estimated profit percentage for resellers",
-  "referenceImageUrl": "REQUIRED: Direct image URL from verified retailer (amazon.com, bestbuy.com, target.com, walmart.com, skechers.com, etc.). Must be actual product photo, not placeholder.",
-  "confidence": "Overall confidence in the analysis (0.0 to 1.0)",
-  "sources": ["List of sources or platforms used for pricing data"],
-  "thoughtProcess": "Provide a detailed step-by-step explanation of your reasoning and analysis process, including intermediate observations and decisions."
-}
-
-ACCURACY REQUIREMENTS:
-- Use only verified data from actual search results.
-- Provide specific price ranges with 90%+ confidence.
-- Include model-specific details when identifiable.
-- Flag uncertainty with conservative estimates and lower confidence scores.
-- Prioritize recent market data (last 30-60 days).
-
-QUALITY STANDARDS:
-- Product identification must be 85%+ confident or state limitations in the description.
-- Price data must reflect current market conditions.
-- Reference images must match exact product variant.
-- All URLs must be from established retailers or marketplaces.
-- Return ONLY the JSON object, without any additional text or markdown, to ensure parsing reliability.
-
-Analyze the image thoroughly and return only the JSON object with accurate, research-backed data.
-`;
-
-      const result = await genAI.models.generateContent({
-        model: GEMINI_MODEL,
-        tools: [
-          {
-            googleSearchRetrieval: {
-              dynamicRetrievalConfig: {
-                mode: "DYNAMIC",
-                dynamicThreshold: 0.7
-              }
-            }
-          }
-        ],
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: SYSTEM_PROMPT_PRODUCT_ANALYSIS },
-              { text: `TASK: Analyze this product image for resale market intelligence.
-
-REQUIREMENTS:
-1. Examine the image for ALL visible details: brand logos, model numbers, text, distinctive features
-2. Use Google Search to verify product identification and gather current market data
-3. Research pricing from multiple sources: retail stores and recent sold listings
-4. Provide specific, data-backed pricing ranges with high confidence
-
-GOOGLE SEARCH STRATEGY (REQUIRED):
-You have access to Google Search. Use it to verify product details and gather accurate pricing:
-
-1. PRODUCT IDENTIFICATION:
-   - Search: "[exact visible text/model numbers from image]"
-   - Search: "[brand] [product type] [specific colorway/variant]"
-   - Verify exact model name, SKU, and official product details
-
-2. RETAIL PRICING VERIFICATION:
-   - Search: "[verified product name] price site:amazon.com"
-   - Search: "[verified product name] site:bestbuy.com"
-   - Search: "[verified product name] site:target.com"
-   - Get current retail prices from multiple sources
-
-3. RESALE MARKET RESEARCH:
-   - Search: "[verified product name] sold site:ebay.com"
-   - Search: "[verified product name] resale value"
-   - Check recent sold listings for accurate resale pricing
-
-4. REFERENCE IMAGE ACQUISITION:
-   - Search: "[verified product name] site:amazon.com" for official product images
-   - Search: "[verified product name] site:[brand-website].com" for brand images
-   - Ensure reference image matches exact colorway and variant
-
-CRITICAL: Use Google Search results to validate ALL pricing data. Do not estimate - only use verified market prices from search results.
-
-REFERENCE IMAGE REQUIREMENTS:
-- PRIORITY: Use retailer domains (.com sites from major stores)
-- Must show exact same product variant (color, model, size)
-- High resolution and clear product visibility
-- Extract direct image URL from search results
-- If no retailer image found, use high-quality marketplace image as fallback
-
-CRITICAL: Use only current, verified data from actual search results. Do not estimate or guess pricing.
-
-Return the complete JSON object with accurate market intelligence.` },
-              {
-                inlineData: {
-                  mimeType: upload.mimeType,
-                  data: base64Image,
-                },
-              },
-            ],
-          },
-        ],
-      } as any);
-
-      if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
-        throw new Error("Invalid response structure from AI model");
-      }
-
-      const text = result.candidates[0].content.parts?.[0]?.text;
-      if (!text) {
-        throw new Error("No text content in AI response");
-      }
-
-      // Parse JSON response with improved error handling
-      let analysisData;
-      try {
-        console.log("Raw Gemini response:", text.substring(0, 1000));
-        
-        // Clean the response to extract JSON, removing markdown formatting
-        let cleanText = text.trim();
-
-        // Remove markdown code blocks if present
-        if (cleanText.startsWith('```json')) {
-          cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        } else if (cleanText.startsWith('```')) {
-          cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
-        }
-
-        console.log("Cleaned text for JSON parsing:", cleanText.substring(0, 500));
-
-        // Multiple strategies for finding JSON
-        let jsonStr = '';
-        
-        // Strategy 1: Look for complete JSON object with nested braces
-        const complexJsonMatch = cleanText.match(/\{(?:[^{}]|\{[^{}]*\})*\}/);
-        if (complexJsonMatch) {
-          jsonStr = complexJsonMatch[0];
-          console.log("Found JSON using complex regex match");
-        } else {
-          // Strategy 2: Find by counting braces
-          const firstBrace = cleanText.indexOf('{');
-          if (firstBrace !== -1) {
-            let braceCount = 0;
-            let lastBrace = firstBrace;
-            
-            for (let i = firstBrace; i < cleanText.length; i++) {
-              if (cleanText[i] === '{') braceCount++;
-              if (cleanText[i] === '}') {
-                braceCount--;
-                if (braceCount === 0) {
-                  lastBrace = i;
-                  break;
-                }
-              }
-            }
-            
-            if (braceCount === 0) {
-              jsonStr = cleanText.substring(firstBrace, lastBrace + 1);
-              console.log("Found JSON using brace counting");
-            }
-          }
-        }
-
-        if (!jsonStr) {
-          throw new Error("No valid JSON structure found in response");
-        }
-
-        console.log("Attempting to parse JSON:", jsonStr.substring(0, 200));
-
-        // Multiple parsing attempts with different fixes
-        let parseAttempts = [
-          // Original string
-          jsonStr,
-          // Fix trailing commas
-          jsonStr.replace(/,(\s*[}\]])/g, '$1'),
-          // Fix unquoted keys
-          jsonStr.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":'),
-          // Fix single quotes
-          jsonStr.replace(/:\s*'([^']*)'/g, ': "$1"'),
-          // Combination of all fixes
-          jsonStr
-            .replace(/,(\s*[}\]])/g, '$1')
-            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
-            .replace(/:\s*'([^']*)'/g, ': "$1"')
-        ];
-
-        let parseSuccess = false;
-        for (let i = 0; i < parseAttempts.length; i++) {
-          try {
-            analysisData = JSON.parse(parseAttempts[i]);
-            parseSuccess = true;
-            console.log(`JSON parse successful on attempt ${i + 1}`);
-            break;
-          } catch (e) {
-            console.log(`Parse attempt ${i + 1} failed:`, e.message);
-          }
-        }
-
-        if (!parseSuccess) {
-          throw new Error("All JSON parsing attempts failed");
-        }
-
-        // Validate and ensure required fields exist
-        if (!analysisData || typeof analysisData !== 'object') {
-          throw new Error("Parsed data is not a valid object");
-        }
-
-        // Set defaults for missing fields
-        analysisData.productName = analysisData.productName || "Unknown Product";
-        analysisData.description = analysisData.description || "No description available";
-        analysisData.averageSalePrice = analysisData.averageSalePrice || "Price not available";
-        analysisData.resellPrice = analysisData.resellPrice || "Price not available";
-        analysisData.confidence = analysisData.confidence || 0.5;
-        analysisData.thoughtProcess = analysisData.thoughtProcess || "Analysis completed successfully.";
-
-        console.log("Successfully parsed and validated analysis data:", {
-          productName: analysisData.productName,
-          hasDescription: !!analysisData.description,
-          hasRetailPrice: !!analysisData.averageSalePrice,
-          hasResellPrice: !!analysisData.resellPrice
-        });
-
-      } catch (parseError) {
-        console.error("All JSON parsing strategies failed:", parseError);
-        console.error("Raw response (first 2000 chars):", text.substring(0, 2000));
-        
-        // Enhanced fallback: try to extract basic information from the text using multiple patterns
-        let extractedProductName = "Unknown Product";
-        let extractedDescription = "Analysis completed but response parsing failed";
-        let extractedRetailPrice = "Price analysis failed";
-        let extractedResellPrice = "Price analysis failed";
-        
-        // Try multiple patterns to extract product name
-        const productPatterns = [
-          /"productName":\s*"([^"]+)"/i,
-          /"title":\s*"([^"]+)"/i,
-          /product[^:]*:\s*["']?([^"',\n]+)["']?/i,
-          /analyzing[^:]*:\s*["']?([^"',\n]+)["']?/i
-        ];
-        
-        for (const pattern of productPatterns) {
-          const match = text.match(pattern);
-          if (match) {
-            extractedProductName = match[1].trim();
-            break;
-          }
-        }
-        
-        // Try to extract pricing information
-        const pricePatterns = [
-          /"averageSalePrice":\s*"([^"]+)"/i,
-          /"retail[^"]*":\s*"([^"]+)"/i,
-          /retail[^:]*:\s*\$?([0-9.,\-\s]+)/i
-        ];
-        
-        for (const pattern of pricePatterns) {
-          const match = text.match(pattern);
-          if (match) {
-            extractedRetailPrice = match[1].trim();
-            break;
-          }
-        }
-        
-        // Try to extract resell pricing
-        const resellPatterns = [
-          /"resellPrice":\s*"([^"]+)"/i,
-          /"resale[^"]*":\s*"([^"]+)"/i,
-          /resell[^:]*:\s*\$?([0-9.,\-\s]+)/i
-        ];
-        
-        for (const pattern of resellPatterns) {
-          const match = text.match(pattern);
-          if (match) {
-            extractedResellPrice = match[1].trim();
-            break;
-          }
-        }
-        
-        // Try to extract description
-        const descPatterns = [
-          /"description":\s*"([^"]+)"/i,
-          /description[^:]*:\s*["']?([^"',\n]{20,})["']?/i
-        ];
-        
-        for (const pattern of descPatterns) {
-          const match = text.match(pattern);
-          if (match) {
-            extractedDescription = match[1].trim().substring(0, 200);
-            break;
-          }
-        }
-        
-        analysisData = {
-          productName: extractedProductName,
-          description: extractedDescription,
-          averageSalePrice: extractedRetailPrice,
-          resellPrice: extractedResellPrice,
-          referenceImageUrl: null,
-          confidence: 0.3,
-          thoughtProcess: `Response parsing failed. Error: ${parseError.message}. Extracted available information using pattern matching.`
-        };
-        
-        console.log("Using enhanced fallback data:", analysisData);
-      }
+      console.log("Multi-API analysis completed:", {
+        apiProvider: analysisData.apiProvider,
+        productName: analysisData.productName,
+        confidence: analysisData.confidence
+      });
 
       // Initialize all variables at the start
       let localReferenceImageUrl: string | null = null;

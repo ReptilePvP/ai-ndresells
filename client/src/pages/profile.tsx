@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserSettings } from "@/hooks/useUserSettings";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -17,6 +19,7 @@ interface UpdateProfileData {
 
 export default function Profile() {
   const { user, isAuthenticated } = useAuth();
+  const { settings, updateApiProvider, isLoading: settingsLoading } = useUserSettings();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -95,6 +98,23 @@ export default function Profile() {
       });
     }
   });
+
+  const handleApiProviderChange = async (provider: "gemini" | "searchapi" | "serpapi") => {
+    try {
+      await updateApiProvider(provider);
+      toast({
+        title: "Success",
+        description: `API provider updated to ${provider.charAt(0).toUpperCase() + provider.slice(1)}`
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update API provider",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -327,6 +347,72 @@ export default function Profile() {
             </CardContent>
           </Card>
         </div>
+
+        {/* API Provider Selection */}
+        <Card className="mt-8 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/20 dark:border-gray-700/50">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <i className="fas fa-cogs mr-3 text-purple-600"></i>
+              Image Analysis API
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Choose which AI service to use for analyzing your product images. Each service has different strengths and capabilities.
+              </p>
+              <RadioGroup
+                value={settings.apiProvider}
+                onValueChange={handleApiProviderChange}
+                disabled={settingsLoading}
+                className="space-y-4"
+              >
+                <div className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <RadioGroupItem value="gemini" id="gemini" />
+                  <div className="flex-1">
+                    <Label htmlFor="gemini" className="font-medium">Google Gemini (Recommended)</Label>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Advanced AI with comprehensive product analysis and pricing data
+                    </p>
+                  </div>
+                  <div className="flex items-center">
+                    <i className="fas fa-robot text-blue-600 text-lg"></i>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <RadioGroupItem value="searchapi" id="searchapi" />
+                  <div className="flex-1">
+                    <Label htmlFor="searchapi" className="font-medium">SearchAPI</Label>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Google Lens integration for visual product searches and identification
+                    </p>
+                  </div>
+                  <div className="flex items-center">
+                    <i className="fas fa-search text-green-600 text-lg"></i>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <RadioGroupItem value="serpapi" id="serpapi" />
+                  <div className="flex-1">
+                    <Label htmlFor="serpapi" className="font-medium">SerpAPI</Label>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Google Lens API with extensive search result parsing and data extraction
+                    </p>
+                  </div>
+                  <div className="flex items-center">
+                    <i className="fas fa-eye text-orange-600 text-lg"></i>
+                  </div>
+                </div>
+              </RadioGroup>
+              {settingsLoading && (
+                <div className="flex items-center justify-center py-2">
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Updating API provider...</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Security Tips */}
         <Card className="mt-8 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/20 dark:border-gray-700/50">
