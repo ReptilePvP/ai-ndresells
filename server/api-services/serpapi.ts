@@ -43,6 +43,7 @@ interface ParsedAnalysisResult {
   confidence: number;
   sources: string[];
   thoughtProcess: string;
+  apiProvider: 'gemini' | 'searchapi' | 'serpapi';
 }
 
 export class SerpAPIService {

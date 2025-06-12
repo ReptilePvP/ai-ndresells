@@ -50,6 +50,7 @@ interface ParsedAnalysisResult {
   confidence: number;
   sources: string[];
   thoughtProcess: string;
+  apiProvider: 'gemini' | 'searchapi' | 'serpapi';
 }
 
 export class SearchAPIService {
@@ -175,7 +176,8 @@ export class SearchAPIService {
       referenceImageUrl,
       confidence,
       sources: ['SearchAPI', 'Google Lens'],
-      thoughtProcess: `SearchAPI Google Lens analysis found ${visualMatches.length} visual matches and ${shoppingResults.length} shopping results. ${knowledgeGraph ? 'Knowledge graph data available.' : 'No knowledge graph data.'} Price data extracted from ${allPrices.length} sources.`
+      thoughtProcess: `SearchAPI Google Lens analysis found ${visualMatches.length} visual matches and ${shoppingResults.length} shopping results. ${knowledgeGraph ? 'Knowledge graph data available.' : 'No knowledge graph data.'} Price data extracted from ${allPrices.length} sources.`,
+      apiProvider: 'searchapi'
     };
   }
 

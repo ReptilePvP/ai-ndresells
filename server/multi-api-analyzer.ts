@@ -144,7 +144,7 @@ Return ONLY a JSON object with this exact structure:
         apiProvider: 'gemini'
       };
     } catch (parseError) {
-      throw new Error(`Failed to parse Gemini response: ${parseError.message}`);
+      throw new Error(`Failed to parse Gemini response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
     }
   }
 
@@ -153,7 +153,11 @@ Return ONLY a JSON object with this exact structure:
       throw new Error("SearchAPI requires an uploaded image. Upload the image first to use Google Lens analysis.");
     }
 
-    return await searchAPIService.analyzeImageFromBase64(base64Image, uploadPath);
+    const result = await searchAPIService.analyzeImageFromBase64(base64Image, uploadPath);
+    return {
+      ...result,
+      apiProvider: 'searchapi'
+    };
   }
 
   private async analyzeWithSerpAPI(base64Image: string, uploadPath?: string): Promise<UnifiedAnalysisResult> {
@@ -168,7 +172,11 @@ Return ONLY a JSON object with this exact structure:
       throw new Error("SerpAPI requires an accessible image URL. Upload the image first.");
     }
 
-    return await serpAPIService.analyzeImageWithParams(imageUrl);
+    const result = await serpAPIService.analyzeImageWithParams(imageUrl);
+    return {
+      ...result,
+      apiProvider: 'serpapi'
+    };
   }
 }
 

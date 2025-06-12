@@ -32,22 +32,28 @@ function Router() {
   );
 }
 
+function AppContent() {
+  return (
+    <UserSettingsProvider>
+      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+        <Header />
+        <main className="pb-16 md:pb-0">
+          <Router />
+        </main>
+        <MobileNav />
+        <Toaster />
+      </div>
+    </UserSettingsProvider>
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider defaultTheme="light" storageKey="ui-theme">
           <TooltipProvider>
-            <UserSettingsProvider>
-              <div className="min-h-screen bg-slate-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
-                <Header />
-                <main className="pb-16 md:pb-0">
-                  <Router />
-                </main>
-                <MobileNav />
-                <Toaster />
-              </div>
-            </UserSettingsProvider>
+            <AppContent />
           </TooltipProvider>
         </ThemeProvider>
       </QueryClientProvider>
