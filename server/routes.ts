@@ -577,9 +577,11 @@ Return the complete JSON object with accurate market intelligence.` },
         throw new Error("No text content in AI response");
       }
 
-      // Parse JSON response
+      // Parse JSON response with improved error handling
       let analysisData;
       try {
+        console.log("Raw Gemini response:", text.substring(0, 1000));
+        
         // Clean the response to extract JSON, removing markdown formatting
         let cleanText = text.trim();
 
@@ -590,46 +592,96 @@ Return the complete JSON object with accurate market intelligence.` },
           cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
         }
 
-        // Find the JSON object - more robust approach
+        console.log("Cleaned text for JSON parsing:", cleanText.substring(0, 500));
+
+        // Find the JSON object using multiple strategies
         let jsonStr = cleanText;
         
-        // If there's text before or after the JSON, extract just the JSON part
-        const jsonStart = cleanText.indexOf('{');
-        const jsonEnd = cleanText.lastIndexOf('}');
-        
-        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-          jsonStr = cleanText.substring(jsonStart, jsonEnd + 1);
+        // Strategy 1: Look for complete JSON object
+        const jsonMatch = cleanText.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[0];
+          console.log("Found JSON using regex match");
+        } else {
+          // Strategy 2: Find by braces
+          const jsonStart = cleanText.indexOf('{');
+          const jsonEnd = cleanText.lastIndexOf('}');
+          
+          if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+            jsonStr = cleanText.substring(jsonStart, jsonEnd + 1);
+            console.log("Found JSON using brace matching");
+          }
         }
+
+        console.log("Attempting to parse JSON:", jsonStr.substring(0, 200));
 
         // Handle potential trailing commas or incomplete JSON
         try {
           analysisData = JSON.parse(jsonStr);
         } catch (e) {
-          // Attempt to fix common JSON issues (e.g., trailing commas)
-          const fixedJsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+          console.log("Initial JSON parse failed, trying fixes...");
+          // Attempt to fix common JSON issues
+          let fixedJsonStr = jsonStr
+            .replace(/,\s*}/g, '}')          // Remove trailing commas in objects
+            .replace(/,\s*]/g, ']')          // Remove trailing commas in arrays
+            .replace(/([{,]\s*)(\w+):/g, '$1"$2":')  // Quote unquoted keys
+            .replace(/:\s*'([^']*)'/g, ': "$1"');    // Replace single quotes with double quotes
+          
           analysisData = JSON.parse(fixedJsonStr);
+          console.log("JSON parse successful after fixes");
         }
 
-        // Ensure thoughtProcess exists
-        if (!analysisData.thoughtProcess) {
-          analysisData.thoughtProcess = "Analysis completed successfully.";
+        // Validate and ensure required fields exist
+        if (!analysisData || typeof analysisData !== 'object') {
+          throw new Error("Parsed data is not a valid object");
         }
 
-        console.log("Successfully parsed analysis data");
+        // Set defaults for missing fields
+        analysisData.productName = analysisData.productName || "Unknown Product";
+        analysisData.description = analysisData.description || "No description available";
+        analysisData.averageSalePrice = analysisData.averageSalePrice || "Price not available";
+        analysisData.resellPrice = analysisData.resellPrice || "Price not available";
+        analysisData.confidence = analysisData.confidence || 0.5;
+        analysisData.thoughtProcess = analysisData.thoughtProcess || "Analysis completed successfully.";
+
+        console.log("Successfully parsed and validated analysis data:", {
+          productName: analysisData.productName,
+          hasDescription: !!analysisData.description,
+          hasRetailPrice: !!analysisData.averageSalePrice,
+          hasResellPrice: !!analysisData.resellPrice
+        });
+
       } catch (parseError) {
-        console.error("Failed to parse Gemini response:", parseError);
-        console.error("Raw response text:", text.substring(0, 500) + "...");
+        console.error("All JSON parsing strategies failed:", parseError);
+        console.error("Raw response (first 1000 chars):", text.substring(0, 1000));
         
-        // Fallback: create a basic analysis object
+        // Enhanced fallback: try to extract basic information from the text
+        let extractedProductName = "Unknown Product";
+        let extractedDescription = "Analysis completed but response parsing failed";
+        
+        // Try to extract product name from common patterns
+        const productNameMatch = text.match(/(?:product[^:]*:|title[^:]*:|name[^:]*:)\s*["']?([^"',\n]+)["']?/i);
+        if (productNameMatch) {
+          extractedProductName = productNameMatch[1].trim();
+        }
+        
+        // Try to extract description
+        const descriptionMatch = text.match(/(?:description[^:]*:|desc[^:]*:)\s*["']?([^"',\n]{20,})["']?/i);
+        if (descriptionMatch) {
+          extractedDescription = descriptionMatch[1].trim().substring(0, 200);
+        }
+        
         analysisData = {
-          productName: "Product Analysis",
-          description: "Analysis completed but response parsing failed",
-          averageSalePrice: "Price not available",
-          resellPrice: "Price not available", 
+          productName: extractedProductName,
+          description: extractedDescription,
+          averageSalePrice: "Price analysis failed",
+          resellPrice: "Price analysis failed", 
           referenceImageUrl: null,
-          confidence: 0.5,
-          thoughtProcess: "Response parsing failed, but analysis was attempted."
+          confidence: 0.3,
+          thoughtProcess: `Response parsing failed. Error: ${parseError.message}. Extracted what information was possible from the response.`
         };
+        
+        console.log("Using enhanced fallback data:", analysisData);
       }
 
       // Initialize all variables at the start
