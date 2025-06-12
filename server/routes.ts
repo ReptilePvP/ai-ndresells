@@ -17,7 +17,7 @@ import { createPricingAggregator } from './pricing-aggregator';
 import { createMarketDataService } from './market-data-service';
 import { createIntelligentPricing } from './intelligent-pricing';
 import { accuracyValidator } from './accuracy-validator';
-import { generateImageHash, getCachedAnalysis, setCachedAnalysis, hasNegativeFeedback } from './cache';
+import { generateImageHash, getCachedAnalysis, setCachedAnalysis, hasNegativeFeedback, clearSpecificCache } from './cache';
 import { multiAPIAnalyzer } from './multi-api-analyzer';
 
 // Initialize Gemini AI
@@ -438,13 +438,13 @@ If no clear product is visible, return: {"productName": "No product detected", "
         const analysisData = JSON.parse(jsonMatch[0]);
         res.json(analysisData);
 
-        // Cache the result
+        // Cache the result with API provider
         const analysisToCache = {
           analysisData: analysisData,
           timestamp: Date.now(),
           confidence: analysisData.confidence || 0.5
         };
-        setCachedAnalysis(imageHash, analysisToCache);
+        setCachedAnalysis(imageHash, analysisToCache, liveApiProvider);
       } catch (parseError) {
         // Fallback if JSON parsing fails
         res.json({
@@ -979,7 +979,6 @@ Keep response concise for real-time display.`;
             const imageHash = generateImageHash(imageBuffer);
             
             // Remove from cache so future uploads get fresh analysis
-            const { clearSpecificCache } = await import('./cache');
             clearSpecificCache(imageHash);
             
             console.log(`Cache invalidated for analysis ${validatedData.analysisId} due to negative feedback`);
