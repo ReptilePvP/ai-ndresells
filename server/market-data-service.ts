@@ -1,7 +1,7 @@
 import { EbayApiService, createEbayService } from './ebay-api';
 import { EcommercePlatformService, createEcommerceService } from './ecommerce-platforms';
 import { EbayProductionService, createEbayProductionService } from './ebay-production-auth';
-import { StockXApiService, createStockXService } from './stockx-api';
+// import { StockXApiService, createStockXService } from './stockx-api'; // DISABLED
 
 interface MarketDataResult {
   retailPrice: string;
@@ -15,13 +15,13 @@ export class MarketDataService {
   private ebayService: EbayApiService | null;
   private ebayProdService: EbayProductionService | null;
   private ecommerceService: EcommercePlatformService;
-  private stockxService: StockXApiService | null;
+  // private stockxService: StockXApiService | null; // DISABLED
 
   constructor() {
     this.ebayService = createEbayService();
     this.ebayProdService = createEbayProductionService();
     this.ecommerceService = createEcommerceService();
-    this.stockxService = createStockXService();
+    // this.stockxService = createStockXService(); // DISABLED
   }
 
   async getMarketData(productName: string, geminiRetailPrice: string, geminiResellPrice: string): Promise<MarketDataResult> {
@@ -43,32 +43,8 @@ export class MarketDataService {
     let retailPrices: number[] = [];
     let resellPrices: number[] = [];
 
-    // Try StockX marketplace data for sneakers and streetwear
-    console.log('Checking StockX service availability...');
-    if (this.stockxService) {
-      try {
-        console.log('Calling StockX marketplace search for:', productName);
-        const stockxData = await this.stockxService.getProductPricing(productName);
-        
-        if (stockxData) {
-          console.log('StockX response:', stockxData);
-          if (stockxData.retailPrice > 0) {
-            retailPrices.push(stockxData.retailPrice);
-          }
-          if (stockxData.averagePrice > 0) {
-            resellPrices.push(stockxData.averagePrice);
-          }
-          sources.push(stockxData.dataSource);
-          console.log(`StockX success: Retail $${stockxData.retailPrice}, Resell $${stockxData.averagePrice}`);
-        } else {
-          console.log('StockX API access restricted - authentic pricing data unavailable');
-        }
-      } catch (error) {
-        console.error('StockX marketplace access error:', (error as Error).message || error);
-      }
-    } else {
-      console.log('StockX service not configured');
-    }
+    // StockX marketplace data disabled
+    console.log('StockX service disabled');
 
     // Try eBay production marketplace data
     console.log('Checking eBay production service availability...');

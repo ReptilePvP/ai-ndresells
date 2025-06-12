@@ -55,11 +55,16 @@ export class MultiAPIAnalyzer {
     } catch (error) {
       console.error(`${apiProvider} analysis failed:`, error);
 
-      // Instead of automatic fallback, throw error with fallback suggestion
-      const fallbackError = new Error(`${apiProvider} analysis failed. Would you like to try Gemini instead?`);
-      (fallbackError as any).suggestFallback = apiProvider !== 'gemini';
-      (fallbackError as any).originalError = error;
-      throw fallbackError;
+      if (apiProvider === 'gemini') {
+        // If Gemini fails, there's no fallback
+        throw error;
+      }
+
+      // Fallback to Gemini
+      console.log(`Falling back to Gemini due to ${apiProvider} failure.`);
+      const result = await this.analyzeWithGemini(base64Image);
+      result.thoughtProcess = `Analysis with ${apiProvider} failed. ${error instanceof Error ? error.message : 'Unknown error'}. Falling back to Gemini. ${result.thoughtProcess}`;
+      return result;
     }
   }
 

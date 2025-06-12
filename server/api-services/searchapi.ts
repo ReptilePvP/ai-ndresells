@@ -65,10 +65,25 @@ export class SearchAPIService {
   }
 
   async analyzeImageFromUrl(imageUrl: string, uploadId: string): Promise<ParsedAnalysisResult> {
+    let data = await this.performSearch(imageUrl, 'visual_matches');
+
+    if (!data.visual_matches?.length && !data.shopping_results?.length && !data.knowledge_graph) {
+      console.log("Visual matches failed, trying 'all' search type");
+      data = await this.performSearch(imageUrl, 'all');
+    }
+
+    if (!data.visual_matches?.length && !data.shopping_results?.length && !data.knowledge_graph) {
+      throw new Error('SearchAPI did not return any results for any search type.');
+    }
+
+    return this.parseResponse(data);
+  }
+
+  private async performSearch(imageUrl: string, searchType: 'visual_matches' | 'all'): Promise<SearchAPIResponse> {
     try {
       const params = new URLSearchParams({
         'engine': 'google_lens',
-        'search_type': 'visual_matches',
+        'search_type': searchType,
         'url': imageUrl,
         'api_key': this.apiKey,
         'hl': 'en',
@@ -77,7 +92,7 @@ export class SearchAPIService {
       });
 
       const requestUrl = `${this.baseUrl}?${params}`;
-      console.log('SearchAPI Google Lens request URL:', requestUrl.replace(this.apiKey, '[API_KEY]'));
+      console.log(`SearchAPI Google Lens request URL (type: ${searchType}):`, requestUrl.replace(this.apiKey, '[API_KEY]'));
 
       const response = await fetch(requestUrl, {
         method: 'GET',
@@ -103,19 +118,15 @@ export class SearchAPIService {
 
       const data: SearchAPIResponse = await response.json();
 
-      // Check for SearchAPI-specific error in response
       if ((data as any).error) {
-        console.error('SearchAPI returned error:', (data as any).error);
-        throw new Error(`SearchAPI error: ${(data as any).error.message || 'Unknown error'}`);
+        const errorMessage = (data as any).error.message || (data as any).error;
+        console.error('SearchAPI returned error:', errorMessage);
+        throw new Error(`SearchAPI error: ${errorMessage}`);
       }
 
-      console.log('SearchAPI response keys:', Object.keys(data));
-      console.log('SearchAPI visual_matches count:', data.visual_matches?.length || 0);
-      console.log('SearchAPI shopping_results count:', data.shopping_results?.length || 0);
-
-      return this.parseSearchAPIResponse(data, uploadId);
+      return data;
     } catch (error) {
-      console.error('SearchAPI analysis error:', error);
+      console.error(`SearchAPI analysis error (type: ${searchType}):`, error);
       if (error instanceof Error) {
         throw new Error(`SearchAPI analysis failed: ${error.message}`);
       }
@@ -172,8 +183,13 @@ export class SearchAPIService {
 
       // Check for SearchAPI-specific error in response
       if ((data as any).error) {
-        console.error('SearchAPI returned error:', (data as any).error);
-        throw new Error(`SearchAPI error: ${(data as any).error.message || 'Unknown error'}`);
+        const errorMessage = (data as any).error.message || (data as any).error;
+        console.error('SearchAPI returned error:', errorMessage);
+        throw new Error(`SearchAPI error: ${errorMessage}`);
+      }
+
+      if (!data.visual_matches?.length && !data.shopping_results?.length && !data.knowledge_graph) {
+        throw new Error('SearchAPI did not return any visual, shopping, or knowledge graph results.');
       }
 
       console.log('SearchAPI response keys:', Object.keys(data));
