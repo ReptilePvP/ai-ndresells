@@ -1,0 +1,39 @@
+1:27:03 PM [express] GET /api/auth/me 304 in 336ms :: {"user":{"id":1,"username":"admin","email":"ad…
+1:27:03 PM [express] GET /api/auth/me 304 in 117ms :: {"user":{"id":1,"username":"admin","email":"ad…
+1:27:22 PM [express] POST /api/upload 200 in 4139ms :: {"id":175,"userId":1,"sessionId":"fozxwo","fi…
+Using searchapi for image analysis
+SearchAPI using image URL: https://workspace.rocketleaguepr2.repl.co/api/image/cd19ccbbaa8395c44569038dbb1f26b5
+SearchAPI Google Lens request URL: https://www.searchapi.io/api/v1/search?engine=google_lens&url=https%3A%2F%2Fworkspace.rocketleaguepr2.repl.co%2Fapi%2Fimage%2Fcd19ccbbaa8395c44569038dbb1f26b5&api_key=[API_KEY]&hl=en&gl=us&no_cache=false
+SearchAPI returned error: Google Lens didn't return any results.
+SearchAPI analysis error: Error: SearchAPI error: Unknown error
+    at SearchAPIService.analyzeImageFromUrl (/home/runner/workspace/server/api-services/searchapi.ts:108:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async MultiAPIAnalyzer.analyzeWithSearchAPI (/home/runner/workspace/server/multi-api-analyzer.ts:174:20)
+    at async MultiAPIAnalyzer.analyzeImage (/home/runner/workspace/server/multi-api-analyzer.ts:44:20)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:697:24)
+searchapi analysis failed: Error: SearchAPI analysis failed: SearchAPI error: Unknown error
+    at SearchAPIService.analyzeImageFromUrl (/home/runner/workspace/server/api-services/searchapi.ts:119:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async MultiAPIAnalyzer.analyzeWithSearchAPI (/home/runner/workspace/server/multi-api-analyzer.ts:174:20)
+    at async MultiAPIAnalyzer.analyzeImage (/home/runner/workspace/server/multi-api-analyzer.ts:44:20)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:697:24)
+1:27:29 PM [express] POST /api/analyze/175 422 in 6679ms :: {"error":"api_failed","message":"searcha…
+1:34:16 PM [express] GET /api/auth/me 304 in 355ms :: {"user":{"id":1,"username":"admin","email":"ad…
+1:34:21 PM [express] POST /api/upload 200 in 5439ms :: {"id":176,"userId":1,"sessionId":"fozxwo","fi…
+Using searchapi for image analysis
+SearchAPI using image URL: https://workspace.rocketleaguepr2.repl.co/api/image/b00e13223270cc9672b1d47eeb2641c9
+SearchAPI Google Lens request URL: https://www.searchapi.io/api/v1/search?engine=google_lens&url=https%3A%2F%2Fworkspace.rocketleaguepr2.repl.co%2Fapi%2Fimage%2Fb00e13223270cc9672b1d47eeb2641c9&api_key=[API_KEY]&hl=en&gl=us&no_cache=false
+SearchAPI returned error: Google Lens didn't return any results.
+SearchAPI analysis error: Error: SearchAPI error: Unknown error
+    at SearchAPIService.analyzeImageFromUrl (/home/runner/workspace/server/api-services/searchapi.ts:108:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async MultiAPIAnalyzer.analyzeWithSearchAPI (/home/runner/workspace/server/multi-api-analyzer.ts:174:20)
+    at async MultiAPIAnalyzer.analyzeImage (/home/runner/workspace/server/multi-api-analyzer.ts:44:20)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:697:24)
+searchapi analysis failed: Error: SearchAPI analysis failed: SearchAPI error: Unknown error
+    at SearchAPIService.analyzeImageFromUrl (/home/runner/workspace/server/api-services/searchapi.ts:119:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async MultiAPIAnalyzer.analyzeWithSearchAPI (/home/runner/workspace/server/multi-api-analyzer.ts:174:20)
+    at async MultiAPIAnalyzer.analyzeImage (/home/runner/workspace/server/multi-api-analyzer.ts:44:20)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:697:24)
+1:34:33 PM [express] POST /api/analyze/176 422 in 11325ms :: {"error":"api_failed","message":"search…
