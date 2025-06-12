@@ -147,13 +147,36 @@ export class SerpAPIService {
       productName = knowledgeGraph.title.trim();
       foundSource = 'knowledge_graph';
     }
-    // Try visual matches
+    // Try visual matches - look for product-related titles
     else if (visualMatches.length > 0) {
-      for (const match of visualMatches) {
-        if (match.title && match.title.trim() !== '') {
-          productName = match.title.trim();
-          foundSource = 'visual_matches';
-          break;
+      // Look for shopping/e-commerce related matches first
+      const shoppingMatch = visualMatches.find(match => 
+        match.title && 
+        match.source && 
+        (match.source.toLowerCase().includes('amazon') || 
+         match.source.toLowerCase().includes('ebay') ||
+         match.source.toLowerCase().includes('walmart') ||
+         match.source.toLowerCase().includes('target') ||
+         match.source.toLowerCase().includes('stockx') ||
+         match.source.toLowerCase().includes('nike') ||
+         match.source.toLowerCase().includes('adidas') ||
+         match.title.toLowerCase().includes('shoe') ||
+         match.title.toLowerCase().includes('sneaker') ||
+         match.title.toLowerCase().includes('boot') ||
+         match.title.toLowerCase().includes('product'))
+      );
+      
+      if (shoppingMatch && shoppingMatch.title) {
+        productName = shoppingMatch.title.trim();
+        foundSource = `visual_matches_shopping (${shoppingMatch.source})`;
+      } else {
+        // Fall back to first valid title
+        for (const match of visualMatches) {
+          if (match.title && match.title.trim() !== '' && !match.title.toLowerCase().includes('logo')) {
+            productName = match.title.trim();
+            foundSource = `visual_matches (${match.source})`;
+            break;
+          }
         }
       }
     }
@@ -185,7 +208,31 @@ export class SerpAPIService {
 
     const description = knowledgeGraph?.description || 
                        (visualMatches.length > 0 ? `Product identified through visual search with ${visualMatches.length} visual matches` : 'Product identified through visual search with SerpAPI');
-    const referenceImageUrl = knowledgeGraph?.thumbnail || visualMatches[0]?.thumbnail || shoppingResults[0]?.thumbnail || null;
+    
+    // Enhanced reference image selection - prioritize shopping/product images
+    let referenceImageUrl: string | null = null;
+    if (knowledgeGraph?.thumbnail) {
+      referenceImageUrl = knowledgeGraph.thumbnail;
+    } else if (visualMatches.length > 0) {
+      // Look for product images from shopping sites first
+      const productMatch = visualMatches.find(match => 
+        match.thumbnail && 
+        match.source && 
+        (match.source.toLowerCase().includes('amazon') ||
+         match.source.toLowerCase().includes('ebay') ||
+         match.source.toLowerCase().includes('stockx') ||
+         match.source.toLowerCase().includes('nike') ||
+         match.source.toLowerCase().includes('adidas'))
+      );
+      
+      if (productMatch?.thumbnail) {
+        referenceImageUrl = productMatch.thumbnail;
+      } else if (visualMatches[0]?.thumbnail) {
+        referenceImageUrl = visualMatches[0].thumbnail;
+      }
+    } else if (shoppingResults.length > 0 && shoppingResults[0]?.thumbnail) {
+      referenceImageUrl = shoppingResults[0].thumbnail;
+    }
 
     // Extract pricing information from multiple sources
     const visualPrices = visualMatches
@@ -236,7 +283,7 @@ export class SerpAPIService {
       resellPrice,
       marketDemand,
       profitMargin: allPrices.length > 0 ? '20-40%' : 'Unknown',
-      referenceImageUrl,
+      referenceImageUrl: referenceImageUrl ?? null,
       confidence,
       sources: ['SerpAPI', 'Google Lens'],
       thoughtProcess: `SerpAPI analysis found ${visualMatches.length} visual matches and ${shoppingResults.length} shopping results. ${knowledgeGraph ? 'Knowledge graph data available.' : 'No knowledge graph data.'} Price data extracted from ${allPrices.length} sources across visual and shopping results.`,

@@ -1,5 +1,5 @@
 // Test script to check API responses
-const fetch = require('node-fetch');
+import fetch from 'node-fetch';
 
 async function testSearchAPI() {
   const apiKey = process.env.SEARCHAPI_KEY || 'bGfCEz5mAFmEc6mMA4L6ptYP';
