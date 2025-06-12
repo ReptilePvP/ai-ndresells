@@ -80,7 +80,22 @@ export class SerpAPIService {
       }
 
       const data: SerpAPIResponse = await response.json();
-      console.log('SerpAPI response:', JSON.stringify(data, null, 2));
+      console.log('SerpAPI response keys:', Object.keys(data));
+      console.log('SerpAPI visual_matches count:', data.visual_matches?.length || 0);
+      console.log('SerpAPI shopping_results count:', data.shopping_results?.length || 0);
+      console.log('SerpAPI knowledge_graph exists:', !!data.knowledge_graph);
+      
+      // Log sample titles for debugging
+      if (data.visual_matches && data.visual_matches.length > 0) {
+        console.log('First visual match title:', data.visual_matches[0].title);
+      }
+      if (data.shopping_results && data.shopping_results.length > 0) {
+        console.log('First shopping result title:', data.shopping_results[0].title);
+      }
+      if (data.knowledge_graph?.title) {
+        console.log('Knowledge graph title:', data.knowledge_graph.title);
+      }
+      
       return this.parseResponse(data);
     } catch (error) {
       console.error('SerpAPI analysis error:', error);
@@ -117,13 +132,59 @@ export class SerpAPIService {
   }
 
   private parseResponse(data: SerpAPIResponse): ParsedAnalysisResult {
+    console.log('SerpAPI parsing response with keys:', Object.keys(data));
+    
     const visualMatches = data.visual_matches || [];
     const knowledgeGraph = data.knowledge_graph;
     const shoppingResults = data.shopping_results || [];
 
-    // Extract product information
-    const productName = knowledgeGraph?.title || visualMatches[0]?.title || shoppingResults[0]?.title || 'Unknown Product';
-    const description = knowledgeGraph?.description || 'Product identified through visual search with SerpAPI';
+    // Enhanced product name extraction with comprehensive fallbacks
+    let productName = 'Unknown Product';
+    let foundSource = 'none';
+    
+    // Try knowledge graph first
+    if (knowledgeGraph?.title && knowledgeGraph.title.trim() !== '') {
+      productName = knowledgeGraph.title.trim();
+      foundSource = 'knowledge_graph';
+    }
+    // Try visual matches
+    else if (visualMatches.length > 0) {
+      for (const match of visualMatches) {
+        if (match.title && match.title.trim() !== '') {
+          productName = match.title.trim();
+          foundSource = 'visual_matches';
+          break;
+        }
+      }
+    }
+    // Try shopping results
+    else if (shoppingResults.length > 0) {
+      for (const result of shoppingResults) {
+        if (result.title && result.title.trim() !== '') {
+          productName = result.title.trim();
+          foundSource = 'shopping_results';
+          break;
+        }
+      }
+    }
+    
+    // Try additional fields that might contain product info
+    if (productName === 'Unknown Product') {
+      const potentialFields = ['query', 'search_query', 'original_query', 'input'];
+      
+      for (const field of potentialFields) {
+        if ((data as any)[field] && typeof (data as any)[field] === 'string') {
+          productName = (data as any)[field];
+          foundSource = field;
+          break;
+        }
+      }
+    }
+    
+    console.log(`SerpAPI product name extracted: "${productName}" from ${foundSource}`);
+
+    const description = knowledgeGraph?.description || 
+                       (visualMatches.length > 0 ? `Product identified through visual search with ${visualMatches.length} visual matches` : 'Product identified through visual search with SerpAPI');
     const referenceImageUrl = knowledgeGraph?.thumbnail || visualMatches[0]?.thumbnail || shoppingResults[0]?.thumbnail || null;
 
     // Extract pricing information from multiple sources
