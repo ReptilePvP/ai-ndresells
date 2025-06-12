@@ -41,12 +41,6 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Add explicit API route protection middleware
-  app.use('/api/*', (req, res, next) => {
-    // Ensure API routes are handled by Express, not Vite
-    next();
-  });
-
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
