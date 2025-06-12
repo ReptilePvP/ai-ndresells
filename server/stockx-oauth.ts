@@ -1,3 +1,5 @@
+import * as crypto from 'crypto';
+
 interface StockXTokenResponse {
   access_token: string;
   token_type: string;
@@ -237,7 +239,6 @@ export class StockXOAuthService {
   }
 
   private generateCodeChallenge(verifier: string): string {
-    const crypto = require('crypto');
     return crypto.createHash('sha256').update(verifier).digest('base64url');
   }
 
@@ -247,12 +248,11 @@ export class StockXOAuthService {
     const maxAge = 10 * 60 * 1000; // 10 minutes
     
     const statesToDelete: string[] = [];
-    for (const state of this.authStates.keys()) {
-      const authState = this.authStates.get(state)!;
+    Array.from(this.authStates.entries()).forEach(([state, authState]) => {
       if (now - authState.timestamp > maxAge) {
         statesToDelete.push(state);
       }
-    }
+    });
     
     statesToDelete.forEach(state => this.authStates.delete(state));
   }

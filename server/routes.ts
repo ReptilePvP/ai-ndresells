@@ -105,22 +105,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/stockx/auth/status', async (req, res) => {
     try {
-      const { createStockXOAuthService } = await import('./stockx-oauth');
-      const oauthService = createStockXOAuthService();
+      const { createStockXProductionAPI } = await import('./stockx-production-api');
+      const stockxAPI = createStockXProductionAPI();
       
-      if (!oauthService) {
+      if (!stockxAPI) {
         return res.json({ 
           authenticated: false, 
           needsAuthorization: true,
-          error: 'OAuth service not configured'
+          error: 'StockX API not configured'
         });
       }
 
-      const status = oauthService.getAuthStatus();
-      res.json(status);
+      const authStatus = stockxAPI.getAuthenticationStatus();
+      
+      res.json({
+        authenticated: authStatus.authenticated,
+        needsAuthorization: !authStatus.available,
+        method: authStatus.method,
+        available: authStatus.available
+      });
     } catch (error) {
-      console.error('StockX OAuth status error:', error);
-      res.status(500).json({ error: 'Failed to check authorization status' });
+      console.error('StockX API status error:', error);
+      res.json({ 
+        authenticated: false, 
+        needsAuthorization: true,
+        error: 'Failed to check StockX status'
+      });
     }
   });
 
