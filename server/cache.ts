@@ -20,20 +20,39 @@ export function generateImageHash(imageBuffer: Buffer): string {
   return crypto.createHash('md5').update(imageBuffer).digest('hex');
 }
 
-export function getCachedAnalysis(imageHash: string): CachedAnalysis | undefined {
-  return analysisCache.get(imageHash);
+export function generateCacheKey(imageHash: string, apiProvider: string): string {
+  return `${imageHash}:${apiProvider}`;
 }
 
-export function setCachedAnalysis(imageHash: string, analysis: CachedAnalysis): void {
-  analysisCache.set(imageHash, analysis);
+export function getCachedAnalysis(imageHash: string, apiProvider?: string): CachedAnalysis | undefined {
+  const cacheKey = apiProvider ? generateCacheKey(imageHash, apiProvider) : imageHash;
+  return analysisCache.get(cacheKey);
+}
+
+export function setCachedAnalysis(imageHash: string, analysis: CachedAnalysis, apiProvider?: string): void {
+  const cacheKey = apiProvider ? generateCacheKey(imageHash, apiProvider) : imageHash;
+  analysisCache.set(cacheKey, analysis);
 }
 
 export function clearCache(): void {
   analysisCache.flushAll();
 }
 
-export function clearSpecificCache(imageHash: string): void {
-  analysisCache.del(imageHash);
+export function clearSpecificCache(imageHash: string, apiProvider?: string): void {
+  if (apiProvider) {
+    // Clear specific API provider cache
+    const cacheKey = generateCacheKey(imageHash, apiProvider);
+    analysisCache.del(cacheKey);
+  } else {
+    // Clear all API provider caches for this image
+    const allProviders = ['gemini', 'searchapi', 'serpapi'];
+    allProviders.forEach(provider => {
+      const cacheKey = generateCacheKey(imageHash, provider);
+      analysisCache.del(cacheKey);
+    });
+    // Also clear legacy cache key (without provider)
+    analysisCache.del(imageHash);
+  }
   negativeFeedbackHashes.add(imageHash);
 }
 

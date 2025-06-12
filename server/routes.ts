@@ -365,8 +365,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const imageBuffer = Buffer.from(base64Data, 'base64');
       const imageHash = generateImageHash(imageBuffer);
 
-      // Check cache with shorter TTL for live analysis
-      const cachedAnalysis = getCachedAnalysis(imageHash);
+      // Check cache with shorter TTL for live analysis (live analysis uses gemini)
+      const liveApiProvider = 'gemini';
+      const cachedAnalysis = getCachedAnalysis(imageHash, liveApiProvider);
       if (cachedAnalysis && (Date.now() - cachedAnalysis.timestamp) < 300000) { // 5 minutes TTL for live
         console.log('Using cached live analysis');
         return res.json(cachedAnalysis.analysisData);
@@ -610,12 +611,12 @@ If no clear product is visible, return: {"productName": "No product detected", "
       // Generate image hash for caching
       const imageHash = generateImageHash(imageBuffer);
 
-      // Check cache first, but also check if this image has received negative feedback before
-      const cachedAnalysis = getCachedAnalysis(imageHash);
+      // Check cache first with API provider, but also check if this image has received negative feedback before
+      const cachedAnalysis = getCachedAnalysis(imageHash, apiProvider);
       if (cachedAnalysis) {
         // Check if any previous analysis of this image hash received negative feedback
         if (!hasNegativeFeedback(imageHash)) {
-          console.log('Using cached analysis');
+          console.log(`Using cached analysis for ${apiProvider}`);
           return res.json(cachedAnalysis.analysisData);
         } else {
           console.log('Cache found but image has negative feedback history - performing fresh analysis');
@@ -838,13 +839,13 @@ If no clear product is visible, return: {"productName": "No product detected", "
       const validatedAnalysis = insertAnalysisSchema.parse(analysisInput);
       const analysis = await storage.createAnalysis(validatedAnalysis);
 
-      // After getting the analysis result, cache it
+      // After getting the analysis result, cache it with API provider
       const analysisToCache = {
         analysisData: analysis,
         timestamp: Date.now(),
         confidence: confidenceScore
       };
-      setCachedAnalysis(imageHash, analysisToCache);
+      setCachedAnalysis(imageHash, analysisToCache, apiProvider);
 
       res.json(analysis);
     } catch (error) {
