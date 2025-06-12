@@ -2,7 +2,7 @@ import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
+// import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Header } from "@/components/header";
 import { MobileNav } from "@/components/mobile-nav";
@@ -13,6 +13,7 @@ import Saved from "@/pages/saved";
 import Profile from "@/pages/profile";
 import AdminDiagnostics from "@/pages/admin";
 import NotFound from "@/pages/not-found";
+import { useEffect } from "react";
 
 function Router() {
   return (
@@ -29,19 +30,23 @@ function Router() {
 }
 
 function App() {
+  useEffect(() => {
+    // Force dark mode by adding dark class to document root
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('light');
+  }, []);
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <div className="min-h-screen bg-gray-900 text-gray-100 transition-colors duration-300">
-            <Header />
-            <main className="pb-16 md:pb-0">
-              <Router />
-            </main>
-            <MobileNav />
-            <Toaster />
-          </div>
-        </TooltipProvider>
+        <div className="min-h-screen bg-gray-900 dark:bg-gray-900 text-gray-100 dark:text-gray-100 transition-colors duration-300">
+          <Header />
+          <main className="pb-16 md:pb-0">
+            <Router />
+          </main>
+          <MobileNav />
+          <Toaster />
+        </div>
       </QueryClientProvider>
     </ErrorBoundary>
   );
