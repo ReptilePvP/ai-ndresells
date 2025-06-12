@@ -18,7 +18,7 @@ export function StockXAuth() {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch('/api/auth/stockx/status');
+      const response = await fetch('/api/stockx/auth/status');
       const status = await response.json();
       setAuthStatus(status);
     } catch (error) {

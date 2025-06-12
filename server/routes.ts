@@ -103,7 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/auth/stockx/status', async (req, res) => {
+  app.get('/api/stockx/auth/status', async (req, res) => {
     try {
       const { createStockXOAuthService } = await import('./stockx-oauth');
       const oauthService = createStockXOAuthService();
