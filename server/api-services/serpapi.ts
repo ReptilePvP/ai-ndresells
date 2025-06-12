@@ -283,7 +283,7 @@ export class SerpAPIService {
       resellPrice,
       marketDemand,
       profitMargin: allPrices.length > 0 ? '20-40%' : 'Unknown',
-      referenceImageUrl: referenceImageUrl ?? null,
+      referenceImageUrl,
       confidence,
       sources: ['SerpAPI', 'Google Lens'],
       thoughtProcess: `SerpAPI analysis found ${visualMatches.length} visual matches and ${shoppingResults.length} shopping results. ${knowledgeGraph ? 'Knowledge graph data available.' : 'No knowledge graph data.'} Price data extracted from ${allPrices.length} sources across visual and shopping results.`,

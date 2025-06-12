@@ -204,7 +204,7 @@ export class SearchAPIService {
                        (visualMatches.length > 0 ? `Product identified through visual search with ${visualMatches.length} visual matches` : 'Product identified through visual search');
     
     // Enhanced reference image selection - prioritize shopping/product images
-    let referenceImageUrl = null;
+    let referenceImageUrl: string | null = null;
     if (knowledgeGraph?.image?.url) {
       referenceImageUrl = knowledgeGraph.image.url;
     } else if (visualMatches.length > 0) {
@@ -219,7 +219,7 @@ export class SearchAPIService {
          match.source.toLowerCase().includes('adidas'))
       );
       
-      if (productMatch) {
+      if (productMatch?.thumbnail) {
         referenceImageUrl = productMatch.thumbnail;
       } else if (visualMatches[0]?.thumbnail) {
         referenceImageUrl = visualMatches[0].thumbnail;
@@ -289,7 +289,7 @@ export class SearchAPIService {
       resellPrice,
       marketDemand: totalResults > 10 ? 'High' : totalResults > 5 ? 'Medium' : 'Low',
       profitMargin: allPrices.length > 0 ? '15-30%' : 'Unknown',
-      referenceImageUrl: referenceImageUrl ?? null,
+      referenceImageUrl,
       confidence,
       sources: ['SearchAPI', 'Google Lens'],
       thoughtProcess: `SearchAPI Google Lens analysis found ${visualMatches.length} visual matches and ${shoppingResults.length} shopping results. ${knowledgeGraph ? 'Knowledge graph data available.' : 'No knowledge graph data.'} Price data extracted from ${allPrices.length} sources.`,
