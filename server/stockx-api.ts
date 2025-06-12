@@ -42,9 +42,9 @@ interface StockXPriceData {
 }
 
 export class StockXApiService {
-  private readonly baseUrl = 'https://gateway.stockx.com/public/v1';
-  private readonly searchUrl = 'https://gateway.stockx.com/public/v1/search';
-  private readonly tokenUrl = 'https://gateway.stockx.com/api/v3/oauth/token';
+  private readonly baseUrl = 'https://gateway.stockx.com/api/v3';
+  private readonly searchUrl = 'https://gateway.stockx.com/api/v3/search';
+  private readonly tokenUrl = 'https://gateway.stockx.com/api/oauth/token';
   private apiKey: string | null = null;
   private clientId: string | null = null;
   private clientSecret: string | null = null;
@@ -84,12 +84,11 @@ export class StockXApiService {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': this.userAgent,
+          'Authorization': `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`
         },
         body: new URLSearchParams({
           grant_type: 'client_credentials',
-          client_id: this.clientId,
-          client_secret: this.clientSecret,
-          scope: 'read'
+          scope: 'read_products'
         })
       });
 
@@ -121,6 +120,7 @@ export class StockXApiService {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
         'X-API-Key': this.apiKey || '',
+        'X-StockX-Platform': 'web',
         ...options.headers as Record<string, string>
       };
 
@@ -210,14 +210,14 @@ export class StockXApiService {
 
   private async searchViaPublicAPI(query: string): Promise<StockXSearchResult> {
     const searchQuery = encodeURIComponent(query);
-    const url = `${this.searchUrl}?query=${searchQuery}&limit=20`;
+    const url = `${this.baseUrl}/products/search?query=${searchQuery}&limit=20`;
     
     const data = await this.makeRequest(url);
     
-    if (data && data.results) {
+    if (data && data.data) {
       return {
-        products: data.results.map((product: any) => this.mapProduct(product)),
-        total: data.results.length,
+        products: data.data.map((product: any) => this.mapProduct(product)),
+        total: data.data.length,
         page: 1,
         limit: 20
       };
@@ -285,14 +285,14 @@ export class StockXApiService {
 
   private async searchViaBrowseAPI(query: string): Promise<StockXSearchResult> {
     const searchQuery = encodeURIComponent(query);
-    const url = `${this.baseUrl}/browse?_search=${searchQuery}&limit=20`;
+    const url = `${this.baseUrl}/products?search=${searchQuery}&limit=20`;
     
     const data = await this.makeRequest(url);
     
-    if (data && data.Products) {
+    if (data && data.data) {
       return {
-        products: data.Products.map((product: any) => this.mapProduct(product)),
-        total: data.Products.length,
+        products: data.data.map((product: any) => this.mapProduct(product)),
+        total: data.data.length,
         page: 1,
         limit: 20
       };
