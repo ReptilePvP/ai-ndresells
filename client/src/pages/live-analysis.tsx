@@ -105,3 +105,5 @@ export function LiveAnalysisPage() {
     </div>
   );
 }
+
+export default LiveAnalysisPage;
