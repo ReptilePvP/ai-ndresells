@@ -599,41 +599,76 @@ Return the complete JSON object with accurate market intelligence.` },
 
         console.log("Cleaned text for JSON parsing:", cleanText.substring(0, 500));
 
-        // Find the JSON object using multiple strategies
-        let jsonStr = cleanText;
+        // Multiple strategies for finding JSON
+        let jsonStr = '';
         
-        // Strategy 1: Look for complete JSON object
-        const jsonMatch = cleanText.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/);
-        if (jsonMatch) {
-          jsonStr = jsonMatch[0];
-          console.log("Found JSON using regex match");
+        // Strategy 1: Look for complete JSON object with nested braces
+        const complexJsonMatch = cleanText.match(/\{(?:[^{}]|\{[^{}]*\})*\}/);
+        if (complexJsonMatch) {
+          jsonStr = complexJsonMatch[0];
+          console.log("Found JSON using complex regex match");
         } else {
-          // Strategy 2: Find by braces
-          const jsonStart = cleanText.indexOf('{');
-          const jsonEnd = cleanText.lastIndexOf('}');
-          
-          if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-            jsonStr = cleanText.substring(jsonStart, jsonEnd + 1);
-            console.log("Found JSON using brace matching");
+          // Strategy 2: Find by counting braces
+          const firstBrace = cleanText.indexOf('{');
+          if (firstBrace !== -1) {
+            let braceCount = 0;
+            let lastBrace = firstBrace;
+            
+            for (let i = firstBrace; i < cleanText.length; i++) {
+              if (cleanText[i] === '{') braceCount++;
+              if (cleanText[i] === '}') {
+                braceCount--;
+                if (braceCount === 0) {
+                  lastBrace = i;
+                  break;
+                }
+              }
+            }
+            
+            if (braceCount === 0) {
+              jsonStr = cleanText.substring(firstBrace, lastBrace + 1);
+              console.log("Found JSON using brace counting");
+            }
           }
+        }
+
+        if (!jsonStr) {
+          throw new Error("No valid JSON structure found in response");
         }
 
         console.log("Attempting to parse JSON:", jsonStr.substring(0, 200));
 
-        // Handle potential trailing commas or incomplete JSON
-        try {
-          analysisData = JSON.parse(jsonStr);
-        } catch (e) {
-          console.log("Initial JSON parse failed, trying fixes...");
-          // Attempt to fix common JSON issues
-          let fixedJsonStr = jsonStr
-            .replace(/,\s*}/g, '}')          // Remove trailing commas in objects
-            .replace(/,\s*]/g, ']')          // Remove trailing commas in arrays
-            .replace(/([{,]\s*)(\w+):/g, '$1"$2":')  // Quote unquoted keys
-            .replace(/:\s*'([^']*)'/g, ': "$1"');    // Replace single quotes with double quotes
-          
-          analysisData = JSON.parse(fixedJsonStr);
-          console.log("JSON parse successful after fixes");
+        // Multiple parsing attempts with different fixes
+        let parseAttempts = [
+          // Original string
+          jsonStr,
+          // Fix trailing commas
+          jsonStr.replace(/,(\s*[}\]])/g, '$1'),
+          // Fix unquoted keys
+          jsonStr.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":'),
+          // Fix single quotes
+          jsonStr.replace(/:\s*'([^']*)'/g, ': "$1"'),
+          // Combination of all fixes
+          jsonStr
+            .replace(/,(\s*[}\]])/g, '$1')
+            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+            .replace(/:\s*'([^']*)'/g, ': "$1"')
+        ];
+
+        let parseSuccess = false;
+        for (let i = 0; i < parseAttempts.length; i++) {
+          try {
+            analysisData = JSON.parse(parseAttempts[i]);
+            parseSuccess = true;
+            console.log(`JSON parse successful on attempt ${i + 1}`);
+            break;
+          } catch (e) {
+            console.log(`Parse attempt ${i + 1} failed:`, e.message);
+          }
+        }
+
+        if (!parseSuccess) {
+          throw new Error("All JSON parsing attempts failed");
         }
 
         // Validate and ensure required fields exist
@@ -658,32 +693,82 @@ Return the complete JSON object with accurate market intelligence.` },
 
       } catch (parseError) {
         console.error("All JSON parsing strategies failed:", parseError);
-        console.error("Raw response (first 1000 chars):", text.substring(0, 1000));
+        console.error("Raw response (first 2000 chars):", text.substring(0, 2000));
         
-        // Enhanced fallback: try to extract basic information from the text
+        // Enhanced fallback: try to extract basic information from the text using multiple patterns
         let extractedProductName = "Unknown Product";
         let extractedDescription = "Analysis completed but response parsing failed";
+        let extractedRetailPrice = "Price analysis failed";
+        let extractedResellPrice = "Price analysis failed";
         
-        // Try to extract product name from common patterns
-        const productNameMatch = text.match(/(?:product[^:]*:|title[^:]*:|name[^:]*:)\s*["']?([^"',\n]+)["']?/i);
-        if (productNameMatch) {
-          extractedProductName = productNameMatch[1].trim();
+        // Try multiple patterns to extract product name
+        const productPatterns = [
+          /"productName":\s*"([^"]+)"/i,
+          /"title":\s*"([^"]+)"/i,
+          /product[^:]*:\s*["']?([^"',\n]+)["']?/i,
+          /analyzing[^:]*:\s*["']?([^"',\n]+)["']?/i
+        ];
+        
+        for (const pattern of productPatterns) {
+          const match = text.match(pattern);
+          if (match) {
+            extractedProductName = match[1].trim();
+            break;
+          }
+        }
+        
+        // Try to extract pricing information
+        const pricePatterns = [
+          /"averageSalePrice":\s*"([^"]+)"/i,
+          /"retail[^"]*":\s*"([^"]+)"/i,
+          /retail[^:]*:\s*\$?([0-9.,\-\s]+)/i
+        ];
+        
+        for (const pattern of pricePatterns) {
+          const match = text.match(pattern);
+          if (match) {
+            extractedRetailPrice = match[1].trim();
+            break;
+          }
+        }
+        
+        // Try to extract resell pricing
+        const resellPatterns = [
+          /"resellPrice":\s*"([^"]+)"/i,
+          /"resale[^"]*":\s*"([^"]+)"/i,
+          /resell[^:]*:\s*\$?([0-9.,\-\s]+)/i
+        ];
+        
+        for (const pattern of resellPatterns) {
+          const match = text.match(pattern);
+          if (match) {
+            extractedResellPrice = match[1].trim();
+            break;
+          }
         }
         
         // Try to extract description
-        const descriptionMatch = text.match(/(?:description[^:]*:|desc[^:]*:)\s*["']?([^"',\n]{20,})["']?/i);
-        if (descriptionMatch) {
-          extractedDescription = descriptionMatch[1].trim().substring(0, 200);
+        const descPatterns = [
+          /"description":\s*"([^"]+)"/i,
+          /description[^:]*:\s*["']?([^"',\n]{20,})["']?/i
+        ];
+        
+        for (const pattern of descPatterns) {
+          const match = text.match(pattern);
+          if (match) {
+            extractedDescription = match[1].trim().substring(0, 200);
+            break;
+          }
         }
         
         analysisData = {
           productName: extractedProductName,
           description: extractedDescription,
-          averageSalePrice: "Price analysis failed",
-          resellPrice: "Price analysis failed", 
+          averageSalePrice: extractedRetailPrice,
+          resellPrice: extractedResellPrice,
           referenceImageUrl: null,
           confidence: 0.3,
-          thoughtProcess: `Response parsing failed. Error: ${parseError.message}. Extracted what information was possible from the response.`
+          thoughtProcess: `Response parsing failed. Error: ${parseError.message}. Extracted available information using pattern matching.`
         };
         
         console.log("Using enhanced fallback data:", analysisData);
