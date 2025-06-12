@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "dark" | "light" | "system";
+type Theme = "dark" | "light";
 
 type ThemeProviderProps = {
   children: React.ReactNode;
@@ -13,44 +13,43 @@ type ThemeProviderState = {
   setTheme: (theme: Theme) => void;
 };
 
-const initialState: ThemeProviderState = {
-  theme: "system",
-  setTheme: () => null,
-};
-
-const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
+const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undefined);
 
 export function ThemeProvider({
   children,
-  defaultTheme = "system",
+  defaultTheme = "light",
   storageKey = "ui-theme",
-  ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-  );
+  const [theme, setTheme] = useState<Theme>(defaultTheme);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const root = window.document.documentElement;
-
-    root.classList.remove("light", "dark");
-
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-        ? "dark"
-        : "light";
-
-      root.classList.add(systemTheme);
-      return;
+    setMounted(true);
+    try {
+      const stored = localStorage.getItem(storageKey) as Theme;
+      if (stored === "light" || stored === "dark") {
+        setTheme(stored);
+      }
+    } catch (error) {
+      console.warn("Could not access localStorage:", error);
     }
+  }, [storageKey]);
 
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
     root.classList.add(theme);
-  }, [theme]);
+  }, [theme, mounted]);
 
   const updateTheme = (newTheme: Theme) => {
-    localStorage.setItem(storageKey, newTheme);
     setTheme(newTheme);
+    try {
+      localStorage.setItem(storageKey, newTheme);
+    } catch (error) {
+      console.warn("Could not save to localStorage:", error);
+    }
   };
 
   const value = {
@@ -59,7 +58,7 @@ export function ThemeProvider({
   };
 
   return (
-    <ThemeProviderContext.Provider {...props} value={value}>
+    <ThemeProviderContext.Provider value={value}>
       {children}
     </ThemeProviderContext.Provider>
   );
@@ -67,9 +66,8 @@ export function ThemeProvider({
 
 export const useTheme = () => {
   const context = useContext(ThemeProviderContext);
-
-  if (context === undefined)
+  if (context === undefined) {
     throw new Error("useTheme must be used within a ThemeProvider");
-
+  }
   return context;
 };
