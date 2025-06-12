@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ThemeToggle } from "./theme-provider";
+// import { ThemeToggle } from "./theme-provider";
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -106,7 +106,7 @@ export function Header() {
 
             </nav>
             
-            <ThemeToggle />
+            {/* <ThemeToggle /> */}
             
             <div className="relative" ref={menuRef}>
               {isLoading ? (

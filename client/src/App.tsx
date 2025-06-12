@@ -33,7 +33,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <div className="min-h-screen bg-slate-50 text-gray-900 transition-colors duration-300">
+          <div className="min-h-screen bg-gray-900 text-gray-100 transition-colors duration-300">
             <Header />
             <main className="pb-16 md:pb-0">
               <Router />
