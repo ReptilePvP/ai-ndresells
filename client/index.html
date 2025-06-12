@@ -55,10 +55,15 @@
                 Get instant pricing analysis and market insights from StockX and eBay
               </p>
               
-              <div style="border: 2px dashed #d1d5db; border-radius: 0.5rem; padding: 4rem 1rem; margin-bottom: 2rem; background-color: #f9fafb;">
-                <p style="color: #9ca3af; margin: 0;">
-                  Drag and drop an image or click to browse
-                </p>
+              <div id="dropZone" style="border: 2px dashed #d1d5db; border-radius: 0.5rem; padding: 4rem 1rem; margin-bottom: 2rem; background-color: #f9fafb; transition: all 0.3s;">
+                <div id="uploadContent">
+                  <p style="color: #9ca3af; margin: 0;">
+                    Drag and drop an image or click to browse
+                  </p>
+                </div>
+                <div id="analysisResults" style="display: none; text-align: left;">
+                  <div id="analysisContent"></div>
+                </div>
               </div>
               
               <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem;">
@@ -97,18 +102,218 @@
     </div>
     
     <script>
+      let analysisInProgress = false;
+      
+      function setupDropZone() {
+        const dropZone = document.getElementById('dropZone');
+        
+        dropZone.addEventListener('click', chooseFile);
+        dropZone.addEventListener('dragover', handleDragOver);
+        dropZone.addEventListener('drop', handleDrop);
+        dropZone.addEventListener('dragleave', handleDragLeave);
+      }
+      
+      function handleDragOver(e) {
+        e.preventDefault();
+        const dropZone = document.getElementById('dropZone');
+        dropZone.style.borderColor = '#2563eb';
+        dropZone.style.backgroundColor = '#eff6ff';
+      }
+      
+      function handleDragLeave(e) {
+        e.preventDefault();
+        const dropZone = document.getElementById('dropZone');
+        dropZone.style.borderColor = '#d1d5db';
+        dropZone.style.backgroundColor = '#f9fafb';
+      }
+      
+      function handleDrop(e) {
+        e.preventDefault();
+        const dropZone = document.getElementById('dropZone');
+        dropZone.style.borderColor = '#d1d5db';
+        dropZone.style.backgroundColor = '#f9fafb';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          analyzeImage(files[0]);
+        }
+      }
+      
       function chooseFile() {
+        if (analysisInProgress) return;
+        
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
         input.onchange = function(e) {
           const file = e.target.files[0];
           if (file) {
-            alert('File selected: ' + file.name + '. Analysis feature coming soon!');
+            analyzeImage(file);
           }
         };
         input.click();
       }
+      
+      async function analyzeImage(file) {
+        if (analysisInProgress) return;
+        
+        analysisInProgress = true;
+        const uploadContent = document.getElementById('uploadContent');
+        const analysisResults = document.getElementById('analysisResults');
+        const analysisContent = document.getElementById('analysisContent');
+        
+        // Show loading state
+        uploadContent.innerHTML = `
+          <div style="color: #2563eb; font-weight: 500;">
+            <div style="margin-bottom: 1rem;">📤 Uploading ${file.name}...</div>
+            <div style="font-size: 0.875rem; color: #6b7280;">Analyzing with AI and checking marketplace data</div>
+          </div>
+        `;
+        
+        try {
+          // Create form data for upload
+          const formData = new FormData();
+          formData.append('image', file);
+          
+          // Get session ID
+          let sessionId = localStorage.getItem('sessionId');
+          if (!sessionId) {
+            sessionId = Math.random().toString(36).substring(7);
+            localStorage.setItem('sessionId', sessionId);
+          }
+          formData.append('sessionId', sessionId);
+          
+          // Upload and analyze
+          const response = await fetch('/api/analyze', {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Analysis failed: ${response.status}`);
+          }
+          
+          const analysis = await response.json();
+          
+          // Hide upload content and show results
+          uploadContent.style.display = 'none';
+          analysisResults.style.display = 'block';
+          
+          // Display analysis results
+          analysisContent.innerHTML = `
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+              <h3 style="font-size: 1.25rem; font-weight: 600; margin: 0 0 0.5rem 0;">Product Analysis Complete</h3>
+              <p style="margin: 0; opacity: 0.9;">AI-powered pricing insights from real marketplace data</p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+              <div style="background-color: #f8fafc; padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #3b82f6;">
+                <div style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Product Name</div>
+                <div style="font-weight: 600; color: #111827;">${analysis.productName}</div>
+              </div>
+              <div style="background-color: #f0fdf4; padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #10b981;">
+                <div style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Recommended Price</div>
+                <div style="font-weight: 600; color: #059669; font-size: 1.125rem;">${analysis.resellPrice}</div>
+              </div>
+            </div>
+            
+            <div style="background-color: #fff7ed; padding: 1.5rem; border-radius: 0.5rem; border-left: 4px solid #f59e0b; margin-bottom: 1.5rem;">
+              <div style="font-size: 0.875rem; color: #92400e; font-weight: 600; margin-bottom: 0.5rem;">Market Analysis</div>
+              <div style="color: #92400e; font-size: 0.875rem; line-height: 1.5;">${analysis.description}</div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+              <div style="text-align: center; padding: 1rem; background-color: #fef2f2; border-radius: 0.5rem;">
+                <div style="font-size: 0.75rem; color: #991b1b; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Average Sale Price</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #dc2626;">${analysis.averageSalePrice}</div>
+              </div>
+              <div style="text-align: center; padding: 1rem; background-color: #f0f9ff; border-radius: 0.5rem;">
+                <div style="font-size: 0.75rem; color: #1e40af; text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Confidence</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: #2563eb;">${analysis.confidence || 'High'}</div>
+              </div>
+            </div>
+            
+            ${analysis.stockxData ? `
+              <div style="background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                <div style="font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">📊 StockX Market Data</div>
+                <div style="font-size: 0.75rem; color: #6b7280;">
+                  Last Sale: ${analysis.stockxData.lastSale || 'N/A'} | 
+                  Current Bid: ${analysis.stockxData.currentBid || 'N/A'} | 
+                  Current Ask: ${analysis.stockxData.currentAsk || 'N/A'}
+                </div>
+              </div>
+            ` : ''}
+            
+            ${analysis.ebayData ? `
+              <div style="background-color: #fef3c7; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                <div style="font-size: 0.875rem; font-weight: 600; color: #92400e; margin-bottom: 0.5rem;">🛍️ eBay Market Data</div>
+                <div style="font-size: 0.75rem; color: #92400e;">
+                  Average Price: ${analysis.ebayData.averagePrice || 'N/A'} | 
+                  Sample Size: ${analysis.ebayData.sampleSize || 'N/A'} listings
+                </div>
+              </div>
+            ` : ''}
+            
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+              <button onclick="saveAnalysis('${analysis.id}')" style="flex: 1; background-color: #3b82f6; color: white; padding: 0.75rem; border: none; border-radius: 0.5rem; font-weight: 500; cursor: pointer;">
+                Save Analysis
+              </button>
+              <button onclick="resetUpload()" style="flex: 1; background-color: #6b7280; color: white; padding: 0.75rem; border: none; border-radius: 0.5rem; font-weight: 500; cursor: pointer;">
+                Analyze Another
+              </button>
+            </div>
+          `;
+          
+        } catch (error) {
+          console.error('Analysis error:', error);
+          uploadContent.innerHTML = `
+            <div style="color: #dc2626; font-weight: 500;">
+              <div style="margin-bottom: 0.5rem;">❌ Analysis Failed</div>
+              <div style="font-size: 0.875rem; color: #6b7280;">${error.message}</div>
+              <button onclick="resetUpload()" style="margin-top: 1rem; background-color: #6b7280; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; font-size: 0.875rem; cursor: pointer;">
+                Try Again
+              </button>
+            </div>
+          `;
+        }
+        
+        analysisInProgress = false;
+      }
+      
+      function resetUpload() {
+        const uploadContent = document.getElementById('uploadContent');
+        const analysisResults = document.getElementById('analysisResults');
+        
+        uploadContent.style.display = 'block';
+        analysisResults.style.display = 'none';
+        
+        uploadContent.innerHTML = `
+          <p style="color: #9ca3af; margin: 0;">
+            Drag and drop an image or click to browse
+          </p>
+        `;
+        
+        analysisInProgress = false;
+      }
+      
+      async function saveAnalysis(analysisId) {
+        try {
+          const response = await fetch(`/api/save-analysis/${analysisId}`, {
+            method: 'POST'
+          });
+          
+          if (response.ok) {
+            alert('Analysis saved successfully!');
+          } else {
+            alert('Failed to save analysis. Please try again.');
+          }
+        } catch (error) {
+          alert('Failed to save analysis. Please try again.');
+        }
+      }
+      
+      // Initialize drop zone when page loads
+      document.addEventListener('DOMContentLoaded', setupDropZone);
       
       async function testAPIs() {
         const button = document.getElementById('testButton');
