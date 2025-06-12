@@ -9,8 +9,4 @@ if (!container) {
 }
 
 const root = createRoot(container);
-root.render(
-  <StrictMode>
-    <App />
-  </StrictMode>
-);
+root.render(<App />);

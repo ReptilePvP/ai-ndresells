@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { UserSettingsProvider } from "@/hooks/useUserSettings";
 import { Header } from "@/components/header";
 import { MobileNav } from "@/components/mobile-nav";
 import Analyzer from "@/pages/analyzer";
@@ -14,8 +13,6 @@ import History from "@/pages/history";
 import Saved from "@/pages/saved";
 import Profile from "@/pages/profile";
 import AdminDiagnostics from "@/pages/admin";
-
-
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -35,9 +32,9 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light" storageKey="ui-theme">
-        <QueryClientProvider client={queryClient}>
-          <UserSettingsProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="light" storageKey="ui-theme">
+          <TooltipProvider>
             <div className="min-h-screen bg-slate-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
               <Header />
               <main className="pb-16 md:pb-0">
@@ -46,9 +43,9 @@ function App() {
               <MobileNav />
               <Toaster />
             </div>
-          </UserSettingsProvider>
-        </QueryClientProvider>
-      </ThemeProvider>
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }
