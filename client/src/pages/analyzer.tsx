@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { UploadZone } from "@/components/upload-zone";
 import { ResultsPanel } from "@/components/results-panel";
-// import { CameraCapture } from "@/components/camera-capture";
+import { CameraCapture } from "@/components/camera-capture";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Analysis } from "@shared/schema";
 export default function Analyzer() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
-  // const [showQuickCamera, setShowQuickCamera] = useState(false);
+  const [showQuickCamera, setShowQuickCamera] = useState(false);
   const { toast } = useToast();
 
   // Get or create session ID
@@ -267,7 +267,40 @@ export default function Analyzer() {
 
         {/* Floating Action Button for Quick Camera Access */}
         <div className="fixed bottom-6 right-6 z-50">
-          {/* Camera functionality temporarily disabled */}
+          {!showQuickCamera ? (
+            <Button
+              onClick={() => setShowQuickCamera(true)}
+              className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-2xl hover:shadow-3xl transition-all duration-300 text-white transform hover:scale-110"
+              size="sm"
+              disabled={isLoading}
+            >
+              <Camera className="h-8 w-8" />
+            </Button>
+          ) : (
+            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/50 dark:border-gray-700/50 p-6 w-80 max-w-[calc(100vw-3rem)]">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100">Quick Camera</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowQuickCamera(false)}
+                  className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  ×
+                </Button>
+              </div>
+              <CameraCapture 
+                onCapture={(file) => {
+                  handleFileSelect(file);
+                  setShowQuickCamera(false);
+                  setTimeout(() => {
+                    uploadMutation.mutate(file);
+                  }, 100);
+                }} 
+                isAnalyzing={isLoading} 
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

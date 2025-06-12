@@ -1203,12 +1203,13 @@ Keep response concise for real-time display.`;
 
   const httpServer = createServer(app);
 
-  // WebSocket server disabled for debugging
-  // const wss = new WebSocketServer({ 
-  //   server: httpServer, 
-  //   path: '/api/live'
-  // });
-  // setupLiveAPI(wss);
+  // Setup WebSocket server for Live View
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/api/live'
+  });
+
+  setupLiveAPI(wss);
 
   return httpServer;
 }

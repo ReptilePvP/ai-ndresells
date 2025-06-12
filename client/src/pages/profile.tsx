@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/hooks/useAuth";
-// import { useUserSettings } from "@/hooks/useUserSettings";
+import { useUserSettings } from "@/hooks/useUserSettings";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -19,9 +19,7 @@ interface UpdateProfileData {
 
 export default function Profile() {
   const { user, isAuthenticated } = useAuth();
-  const [apiProvider, setApiProvider] = useState<"gemini" | "searchapi" | "serpapi">(
-    (user?.apiProvider as "gemini" | "searchapi" | "serpapi") || "gemini"
-  );
+  const { settings, updateApiProvider, isLoading: settingsLoading } = useUserSettings();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -101,39 +99,21 @@ export default function Profile() {
     }
   });
 
-  const updateApiProviderMutation = useMutation({
-    mutationFn: async (provider: "gemini" | "searchapi" | "serpapi") => {
-      const response = await fetch("/api/auth/update-api-provider", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiProvider: provider }),
-        credentials: "include"
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to update API provider");
-      }
-      return response.json();
-    },
-    onSuccess: (_, provider) => {
-      setApiProvider(provider);
+  const handleApiProviderChange = async (provider: "gemini" | "searchapi" | "serpapi") => {
+    try {
+      await updateApiProvider(provider);
       toast({
         title: "Success",
         description: `API provider updated to ${provider.charAt(0).toUpperCase() + provider.slice(1)}`
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-    },
-    onError: (error) => {
+    } catch (error) {
       toast({
         title: "Error",
         description: "Failed to update API provider",
         variant: "destructive"
       });
     }
-  });
-
-  const handleApiProviderChange = (provider: "gemini" | "searchapi" | "serpapi") => {
-    updateApiProviderMutation.mutate(provider);
   };
 
   const handleEmailSubmit = (e: React.FormEvent) => {
@@ -382,9 +362,9 @@ export default function Profile() {
                 Choose which AI service to use for analyzing your product images. Each service has different strengths and capabilities.
               </p>
               <RadioGroup
-                value={apiProvider}
+                value={settings.apiProvider}
                 onValueChange={handleApiProviderChange}
-                disabled={updateApiProviderMutation.isPending}
+                disabled={settingsLoading}
                 className="space-y-4"
               >
                 <div className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
@@ -424,7 +404,7 @@ export default function Profile() {
                   </div>
                 </div>
               </RadioGroup>
-              {updateApiProviderMutation.isPending && (
+              {settingsLoading && (
                 <div className="flex items-center justify-center py-2">
                   <i className="fas fa-spinner fa-spin mr-2"></i>
                   <span className="text-sm text-gray-600 dark:text-gray-400">Updating API provider...</span>
