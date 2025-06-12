@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
 
 export default function App() {
@@ -89,7 +89,8 @@ export default function App() {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
+    console.log('App component mounted');
     testAPIs();
   }, []);
 

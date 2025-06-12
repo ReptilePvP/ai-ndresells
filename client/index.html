@@ -35,6 +35,18 @@
   </head>
   <body>
     <div id="root">
+      <!-- Fallback content while React loads -->
+      <div style="min-height: 100vh; background-color: #f8fafc; font-family: system-ui, sans-serif;">
+        <div style="display: flex; align-items: center; justify-content: center; height: 100vh;">
+          <div style="text-align: center;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">⚡</div>
+            <div style="font-size: 1.25rem; color: #6b7280;">Loading ND Resells...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+    <noscript>
       <div style="min-height: 100vh; background-color: #f8fafc; font-family: system-ui, sans-serif;">
         <header style="background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-bottom: 1px solid #e5e7eb;">
           <div style="max-width: 1280px; margin: 0 auto; padding: 1rem;">
@@ -348,6 +360,7 @@
         button.disabled = false;
       }
     </script>
+    </noscript>
     <!-- PWA Service Worker -->
     <script>
       if ('serviceWorker' in navigator) {
