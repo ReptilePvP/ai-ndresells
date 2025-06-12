@@ -48,12 +48,14 @@ export function ThemeProvider({
     root.classList.add(theme);
   }, [theme]);
 
+  const updateTheme = (newTheme: Theme) => {
+    localStorage.setItem(storageKey, newTheme);
+    setTheme(newTheme);
+  };
+
   const value = {
     theme,
-    setTheme: (newTheme: Theme) => {
-      localStorage.setItem(storageKey, newTheme);
-      setTheme(newTheme);
-    },
+    setTheme: updateTheme,
   };
 
   return (
