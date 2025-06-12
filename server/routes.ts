@@ -547,6 +547,93 @@ If no clear product is visible, return: {"productName": "No product detected", "
     }
   });
 
+  // Fallback analysis endpoint when user chooses to retry with Gemini
+  app.post("/api/analyze/:uploadId/fallback", optionalAuth, async (req, res) => {
+    try {
+      const uploadId = parseInt(req.params.uploadId);
+      const { originalProvider } = req.body;
+      
+      if (!originalProvider || !['searchapi', 'serpapi'].includes(originalProvider)) {
+        return res.status(400).json({ message: "Valid original provider required for fallback" });
+      }
+
+      const upload = await storage.getUpload(uploadId);
+      if (!upload) {
+        return res.status(404).json({ message: "Upload not found" });
+      }
+
+      // Read image file
+      const imageBuffer = await fs.readFile(upload.filePath);
+      const base64Image = imageBuffer.toString('base64');
+
+      console.log(`Processing fallback analysis from ${originalProvider} to Gemini`);
+      
+      // Use fallback method
+      const analysisData = await multiAPIAnalyzer.analyzeImageWithFallback(
+        base64Image,
+        originalProvider,
+        upload.filename
+      );
+
+      console.log("Fallback analysis completed:", {
+        originalProvider,
+        fallbackProvider: 'gemini',
+        productName: analysisData.productName,
+        confidence: analysisData.confidence
+      });
+
+      // Continue with the same processing as regular analysis...
+      let localReferenceImageUrl: string | null = null;
+      let fallbackImageUrl: string | null = null;
+      let marketData: any = null;
+      let enhancedResellPrice = analysisData.resellPrice || "Resell price not available";
+      let enhancedAveragePrice = analysisData.averageSalePrice || "Price not available";
+
+      // Fetch market data if we have a product name
+      if (analysisData.productName) {
+        try {
+          console.log('Fetching market data for product:', analysisData.productName);
+          marketData = await marketDataService.getMarketData(
+            analysisData.productName,
+            analysisData.averageSalePrice || "",
+            analysisData.resellPrice || ""
+          );
+
+          // Update pricing based on market data
+          if (marketData.dataQuality === 'authenticated' && marketData.sources.length > 0) {
+            if (marketData.retailPrice) enhancedAveragePrice = marketData.retailPrice;
+            if (marketData.resellPrice) enhancedResellPrice = marketData.resellPrice;
+          }
+        } catch (error) {
+          console.error('Market data enhancement error:', error);
+        }
+      }
+
+      // Validate and create analysis
+      const analysisInput = {
+        uploadId,
+        productName: analysisData.productName || "Unknown Product",
+        description: analysisData.description || "No description available",
+        averageSalePrice: enhancedAveragePrice,
+        resellPrice: enhancedResellPrice,
+        referenceImageUrl: localReferenceImageUrl,
+        marketSummary: marketData?.marketSummary || "AI analysis based pricing",
+        confidence: analysisData.confidence || 0.7,
+        thoughtProcess: analysisData.thoughtProcess || "Fallback analysis completed."
+      };
+
+      const validatedAnalysis = insertAnalysisSchema.parse(analysisInput);
+      const analysis = await storage.createAnalysis(validatedAnalysis);
+
+      res.json(analysis);
+    } catch (error) {
+      console.error("Fallback analysis error:", error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to perform fallback analysis" 
+      });
+    }
+  });
+
   // Analyze product endpoint
   app.post("/api/analyze/:uploadId", optionalAuth, async (req, res) => {
     try {
@@ -605,17 +692,32 @@ If no clear product is visible, return: {"productName": "No product detected", "
       console.log(`Using ${apiProvider} for image analysis`);
       
       // Use the multi-API analyzer
-      const analysisData = await multiAPIAnalyzer.analyzeImage(
-        base64Image, 
-        apiProvider,
-        upload.filename
-      );
+      let analysisData;
+      try {
+        analysisData = await multiAPIAnalyzer.analyzeImage(
+          base64Image, 
+          apiProvider,
+          upload.filename
+        );
 
-      console.log("Multi-API analysis completed:", {
-        apiProvider: analysisData.apiProvider,
-        productName: analysisData.productName,
-        confidence: analysisData.confidence
-      });
+        console.log("Multi-API analysis completed:", {
+          apiProvider: analysisData.apiProvider,
+          productName: analysisData.productName,
+          confidence: analysisData.confidence
+        });
+      } catch (error: any) {
+        // Check if this is a fallback suggestion error
+        if (error.suggestFallback && apiProvider !== 'gemini') {
+          return res.status(422).json({
+            error: 'api_failed',
+            message: `${apiProvider} analysis failed. Would you like to try with Gemini instead?`,
+            suggestFallback: true,
+            failedProvider: apiProvider,
+            originalError: error.originalError?.message || error.message
+          });
+        }
+        throw error;
+      }
 
       // Initialize all variables at the start
       let localReferenceImageUrl: string | null = null;

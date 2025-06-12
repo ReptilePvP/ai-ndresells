@@ -7,12 +7,19 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Camera } from "lucide-react";
 import { Analysis } from "@shared/schema";
+import { FallbackDialog } from "@/components/fallback-dialog";
 
 export default function Analyzer() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [showQuickCamera, setShowQuickCamera] = useState(false);
   const { toast } = useToast();
+    const [currentUploadId, setCurrentUploadId] = useState<number | null>(null);
+    const [fallbackDialog, setFallbackDialog] = useState({
+        open: false,
+        uploadId: null as number | null,
+        failedProvider: ""
+    });
 
   // Get or create session ID
   const getSessionId = () => {
@@ -42,7 +49,7 @@ export default function Analyzer() {
       return response.json();
     },
     onSuccess: (upload) => {
-      // Start analysis immediately after upload
+          setCurrentUploadId(upload.id);
       analyzeMutation.mutate(upload.id);
     },
     onError: () => {
@@ -73,7 +80,18 @@ export default function Analyzer() {
         description: "Your product has been analyzed successfully!",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+        console.error("Analysis error:", error);
+
+        // Check if this is a fallback suggestion error
+        if (error.status === 422 && error.data?.suggestFallback) {
+            setFallbackDialog({
+                open: true,
+                uploadId: currentUploadId,
+                failedProvider: error.data.failedProvider
+            });
+            return;
+        }
       toast({
         title: "Analysis failed",
         description: "Failed to analyze image. Please try again.",
@@ -81,6 +99,41 @@ export default function Analyzer() {
       });
     },
   });
+
+    const fallbackMutation = useMutation({
+        mutationFn: async ({ uploadId, originalProvider }: { uploadId: number; originalProvider: string }) => {
+            const response = await fetch(`/api/analyze/${uploadId}/fallback`, {
+                method: 'POST',
+                body: JSON.stringify({ originalProvider }),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Fallback analysis failed');
+            }
+
+            return response.json();
+        },
+        onSuccess: (analysis) => {
+            setAnalysis(analysis);
+            setFallbackDialog({ open: false, uploadId: null, failedProvider: "" });
+            toast({
+                title: "Analysis complete",
+                description: "Your product has been analyzed successfully using Gemini AI.",
+            });
+        },
+        onError: (error: any) => {
+            console.error("Fallback analysis error:", error);
+            setFallbackDialog({ open: false, uploadId: null, failedProvider: "" });
+            toast({
+                title: "Fallback analysis failed",
+                description: error.message || "Failed to analyze with Gemini. Please try again.",
+                variant: "destructive",
+            });
+        },
+    });
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
@@ -93,7 +146,7 @@ export default function Analyzer() {
     }
   };
 
-  const isLoading = uploadMutation.isPending || analyzeMutation.isPending;
+  const isLoading = uploadMutation.isPending || analyzeMutation.isPending || fallbackMutation.isPending;
 
   // When analysis is in progress, show full-screen progress
   if (isLoading) {
@@ -302,6 +355,22 @@ export default function Analyzer() {
             </div>
           )}
         </div>
+          <FallbackDialog
+              open={fallbackDialog.open}
+              onOpenChange={(open) => setFallbackDialog(prev => ({ ...prev, open }))}
+              failedProvider={fallbackDialog.failedProvider}
+              onConfirm={() => {
+                  if (fallbackDialog.uploadId) {
+                      fallbackMutation.mutate({
+                          uploadId: fallbackDialog.uploadId,
+                          originalProvider: fallbackDialog.failedProvider
+                      });
+                  }
+              }}
+              onCancel={() => {
+                  setFallbackDialog({ open: false, uploadId: null, failedProvider: "" });
+              }}
+          />
       </div>
     </div>
   );

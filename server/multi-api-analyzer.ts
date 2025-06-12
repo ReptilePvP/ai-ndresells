@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { searchAPIService } from "./api-services/searchapi";
 import { serpAPIService } from "./api-services/serpapi";
@@ -55,17 +54,12 @@ export class MultiAPIAnalyzer {
       return result;
     } catch (error) {
       console.error(`${apiProvider} analysis failed:`, error);
-      
-      // Fallback to Gemini if other providers fail
-      if (apiProvider !== 'gemini') {
-        console.log('Falling back to Gemini analysis...');
-        const fallbackResult = await this.analyzeWithGemini(base64Image);
-        fallbackResult.apiProvider = 'gemini';
-        fallbackResult.thoughtProcess += ` (Fallback from ${apiProvider} due to error)`;
-        return fallbackResult;
-      }
-      
-      throw error;
+
+      // Instead of automatic fallback, throw error with fallback suggestion
+      const fallbackError = new Error(`${apiProvider} analysis failed. Would you like to try Gemini instead?`);
+      (fallbackError as any).suggestFallback = apiProvider !== 'gemini';
+      (fallbackError as any).originalError = error;
+      throw fallbackError;
     }
   }
 
@@ -123,9 +117,9 @@ Return ONLY a JSON object with this exact structure:
       if (!jsonMatch) {
         throw new Error("No JSON found in Gemini response");
       }
-      
+
       const analysisData = JSON.parse(jsonMatch[0]);
-      
+
       return {
         productName: analysisData.productName || "Unknown Product",
         description: analysisData.description || "AI-generated product analysis",
@@ -163,7 +157,7 @@ Return ONLY a JSON object with this exact structure:
   private async analyzeWithSerpAPI(base64Image: string, uploadPath?: string): Promise<UnifiedAnalysisResult> {
     // For SerpAPI, we also need to provide an image URL
     let imageUrl: string;
-    
+
     if (uploadPath) {
       // Use the upload path as URL (assuming it's accessible)
       imageUrl = `${process.env.PUBLIC_URL || 'http://localhost:5000'}/api/image/${uploadPath}`;
