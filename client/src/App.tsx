@@ -50,13 +50,13 @@ function AppContent() {
 function App() {
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider defaultTheme="light" storageKey="ui-theme">
+      <ThemeProvider defaultTheme="light" storageKey="ui-theme">
+        <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <AppContent />
           </TooltipProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }
