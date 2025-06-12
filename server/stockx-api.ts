@@ -112,7 +112,7 @@ export class StockXApiService {
       this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000) - 60000;
 
       console.log('StockX OAuth token generated successfully');
-      return this.accessToken;
+      return this.accessToken!;
     } catch (error) {
       console.error('StockX OAuth authentication failed:', error);
       throw error;
