@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "api_provider" text DEFAULT 'gemini' NOT NULL;

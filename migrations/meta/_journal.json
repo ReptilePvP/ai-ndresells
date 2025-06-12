@@ -8,6 +8,13 @@
       "when": 1749686091547,
       "tag": "0000_slippery_pet_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1749708090254,
+      "tag": "0001_nifty_chamber",
+      "breakpoints": true
     }
   ]
 }
