@@ -137,11 +137,14 @@ export class StockXApiService {
         ...options.headers as Record<string, string>
       };
 
-      // Use either Bearer token or API key authentication
-      if (token && token !== this.apiKey) {
-        headers['Authorization'] = `Bearer ${token}`;
-      } else if (this.apiKey) {
+      // StockX API authentication
+      if (token === this.apiKey && this.apiKey) {
+        // API key authentication
         headers['X-API-Key'] = this.apiKey;
+        headers['Authorization'] = `Bearer ${this.apiKey}`;
+      } else if (token) {
+        // OAuth token authentication
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
       const response = await fetch(url, {
@@ -230,14 +233,14 @@ export class StockXApiService {
 
   private async searchViaPublicAPI(query: string): Promise<StockXSearchResult> {
     const searchQuery = encodeURIComponent(query);
-    const url = `${this.baseUrl}/products/search?query=${searchQuery}&limit=20`;
+    const url = `${this.searchUrl}?query=${searchQuery}&limit=20`;
     
     const data = await this.makeRequest(url);
     
-    if (data && data.data) {
+    if (data && data.Products) {
       return {
-        products: data.data.map((product: any) => this.mapProduct(product)),
-        total: data.data.length,
+        products: data.Products.map((product: any) => this.mapProduct(product)),
+        total: data.Products.length,
         page: 1,
         limit: 20
       };
@@ -305,14 +308,14 @@ export class StockXApiService {
 
   private async searchViaBrowseAPI(query: string): Promise<StockXSearchResult> {
     const searchQuery = encodeURIComponent(query);
-    const url = `${this.baseUrl}/products?search=${searchQuery}&limit=20`;
+    const url = `${this.baseUrl}/browse?_search=${searchQuery}&limit=20`;
     
     const data = await this.makeRequest(url);
     
-    if (data && data.data) {
+    if (data && data.Products) {
       return {
-        products: data.data.map((product: any) => this.mapProduct(product)),
-        total: data.data.length,
+        products: data.Products.map((product: any) => this.mapProduct(product)),
+        total: data.Products.length,
         page: 1,
         limit: 20
       };
@@ -509,12 +512,18 @@ export class StockXApiService {
     };
   }
 
-  // Test API connectivity
+  // Test API connectivity with fallback handling
   async testConnection(): Promise<boolean> {
     try {
       const testResult = await this.searchProducts('jordan');
       console.log(`StockX API test: Found ${testResult.products.length} products`);
-      return testResult.products.length > 0;
+      if (testResult.products.length > 0) {
+        return true;
+      }
+      
+      // If API fails, indicate that StockX is having connectivity issues
+      console.log('StockX API experiencing access restrictions - authentic data unavailable');
+      return false;
     } catch (error) {
       console.error('StockX API test failed:', error);
       return false;

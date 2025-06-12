@@ -50,24 +50,24 @@ export class MarketDataService {
         console.log('Calling StockX marketplace search for:', productName);
         const stockxData = await this.stockxService.getProductPricing(productName);
         
-        if (stockxData) {
+        if (stockxData && stockxData.found) {
           console.log('StockX response:', stockxData);
-          if (stockxData.retailPrice > 0) {
-            retailPrices.push(stockxData.retailPrice);
+          if (stockxData.pricing.retailPrice > 0) {
+            retailPrices.push(stockxData.pricing.retailPrice);
           }
-          if (stockxData.averagePrice > 0) {
-            resellPrices.push(stockxData.averagePrice);
+          if (stockxData.pricing.averagePrice > 0) {
+            resellPrices.push(stockxData.pricing.averagePrice);
           }
-          sources.push(stockxData.dataSource);
-          console.log(`StockX success: Retail $${stockxData.retailPrice}, Resell $${stockxData.averagePrice}`);
+          sources.push(stockxData.pricing.dataSource);
+          console.log(`StockX success: Retail $${stockxData.pricing.retailPrice}, Resell $${stockxData.pricing.averagePrice}`);
         } else {
-          console.log('StockX returned no valid product data');
+          console.log('StockX API access restricted - authentic pricing data unavailable');
         }
       } catch (error) {
-        console.error('StockX marketplace error:', (error as Error).message || error);
+        console.error('StockX marketplace access error:', (error as Error).message || error);
       }
     } else {
-      console.log('StockX service not available');
+      console.log('StockX service not configured');
     }
 
     // Try eBay production marketplace data
