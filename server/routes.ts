@@ -461,28 +461,15 @@ Focus on identifying authentic products for resale market analysis.
 `;
 
       // Use multi-API analyzer for comprehensive product analysis
-      const analysisResult = await multiAPIAnalyzer.analyzeImage(base64Image, uploadPath);
-      const aiResponse = JSON.stringify(analysisResult);
-      let productAnalysis;
-      
-      try {
-        productAnalysis = JSON.parse(aiResponse.replace(/```json|```/g, '').trim());
-      } catch (parseError) {
-        console.error('Failed to parse AI response:', aiResponse);
-        productAnalysis = {
-          productName: "Product analysis failed",
-          description: "Unable to analyze product details",
-          confidence: "low"
-        };
-      }
+      const productAnalysis = await multiAPIAnalyzer.analyzeImage(base64Image, 'gemini');
 
-      // Get marketplace data using your authenticated APIs
+      // Get marketplace data using authenticated APIs
       let stockxData = null;
       let ebayData = null;
       let averagePrice = "Price analysis unavailable";
       let resellPrice = "Pricing unavailable";
 
-      if (productAnalysis.productName && productAnalysis.productName !== "Product analysis failed") {
+      if (productAnalysis && productAnalysis.productName && productAnalysis.productName !== "Product analysis failed") {
         // StockX marketplace data
         try {
           const { createStockXProductionAPI } = await import('./stockx-production-api');
@@ -527,7 +514,7 @@ Focus on identifying authentic products for resale market analysis.
         averageSalePrice: averagePrice,
         resellPrice: resellPrice,
         referenceImageUrl: null,
-        confidence: productAnalysis.confidence || "medium",
+        confidence: typeof productAnalysis.confidence === 'number' ? productAnalysis.confidence : 75,
         stockxData: stockxData,
         ebayData: ebayData,
         rawAnalysisData: JSON.stringify({
@@ -543,7 +530,7 @@ Focus on identifying authentic products for resale market analysis.
       const cacheData = {
         analysisData: { ...analysis, id: analysis.id },
         timestamp: Date.now(),
-        confidence: productAnalysis.confidence === 'high' ? 0.9 : productAnalysis.confidence === 'medium' ? 0.7 : 0.5
+        confidence: typeof productAnalysis.confidence === 'number' ? productAnalysis.confidence / 100 : 0.75
       };
       setCachedAnalysis(imageHash, cacheData);
 
