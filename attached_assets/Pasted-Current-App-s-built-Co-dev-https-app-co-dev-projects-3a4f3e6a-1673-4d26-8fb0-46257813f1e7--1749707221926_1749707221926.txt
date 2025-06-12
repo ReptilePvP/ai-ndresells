@@ -1,0 +1,67 @@
+Current App's built.
+
+Co.dev : https://app.co.dev/projects/3a4f3e6a-1673-4d26-8fb0-46257813f1e7 
+
+
+Now can you help me create a prompt that will add these new settings and feature. 
+I want to add the option for the user to be able to pick between which api search service they are using.
+On the users account setting page, I want them to be able to decide between using these api search services :
+
+* Gemini : Already setup 
+* Search API :( API = bGfCEz5mAFmEc6mMA4L6ptYP ) and here is the documents to set it up https://www.searchapi.io/docs/google-lens 
+* SerpAPI : ( API = 0df2fcc3b6090d2083f7e1840e585f994b0d0b5339a53c77c4d30a7760701e60 ) and here is the doucments to set it up https://serpapi.com/google-lens-api
+
+Also to note that only one can be selected to use at the time please have to set to pull a comparison photo beside the
+users uploaded image & all results to be formatted the same  
+
+
+
+I want to add a feature where users can choose which image analysis API to use (only one at a time) from their Account Settings page. The options are:
+
+Gemini (Already setup)
+
+SearchAPI (API Key: bGfCEz5mAFmEc6mMA4L6ptYP) [Docs: https://www.searchapi.io/docs/google-lens]
+
+SerpAPI (API Key: 0df2fcc3b6090d2083f7e1840e585f994b0d0b5339a53c77c4d30a7760701e60) [Docs: https://serpapi.com/google-lens-api]
+
+🔧 Functional Requirements:
+
+Add a user setting that stores their selected API provider.
+
+Update the Account Settings page UI to let users choose between “Gemini,” “SearchAPI,” or “SerpAPI.” Only one can be selected at a time.
+
+When an image is uploaded, the backend should:
+
+Detect the user’s selected API
+
+Call the correct image analysis API (Gemini, SearchAPI, or SerpAPI)
+
+
+On the results page, display:
+
+User’s uploaded image
+
+Comparison image (from the API result)
+
+Product title, price range, resell value, and description
+
+
+💡 Please generate:
+
+UserSettingsContext hook to read & update preferred API
+
+AccountSettings UI (React component with dropdown or radio buttons)
+
+Backend logic to route to the selected API with proper formatting
+
+Parsers for all three API responses (SearchAPI, SerpAPI, Gemini) into the same structure
+
+
+Bonus if you can include:
+
+Input validation (only 1 service selected)
+
+Fallback error handling for failed API calls
+
+Design suggestions for side-by-side comparison image layout
+
