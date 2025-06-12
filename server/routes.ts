@@ -168,7 +168,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update email
       const updatedUser = await storage.updateUserEmail(user.id, email);
-      const { password: _, ...userWithoutPassword } = updatedUser;
+      if (!updatedUser) {
+        return res.status(500).json({ message: "Failed to update user" });
+      }
+      const { password: _, ...userWithoutPassword } = updatedUser as any;
       
       res.json({ user: userWithoutPassword, message: "Email updated successfully" });
     } catch (error) {
@@ -220,7 +223,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update API provider
       const updatedUser = await storage.updateUserApiProvider(user.id, apiProvider);
-      const { password: _, ...userWithoutPassword } = updatedUser;
+      if (!updatedUser) {
+        return res.status(500).json({ message: "Failed to update user" });
+      }
+      const { password: _, ...userWithoutPassword } = updatedUser as any;
       
       res.json({ user: userWithoutPassword, message: "API provider updated successfully" });
     } catch (error) {
