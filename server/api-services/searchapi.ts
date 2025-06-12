@@ -67,20 +67,22 @@ export class SearchAPIService {
 
   async analyzeImageFromUrl(imageUrl: string, uploadId: string): Promise<ParsedAnalysisResult> {
     try {
-      const url = new URL(this.baseUrl);
-      url.searchParams.set('engine', 'google_lens');
-      url.searchParams.set('url', imageUrl);
-      url.searchParams.set('api_key', this.apiKey);
-      url.searchParams.set('hl', 'en');
-      url.searchParams.set('gl', 'us');
-      url.searchParams.set('no_cache', 'false');
+      const params = new URLSearchParams({
+        'engine': 'google_lens',
+        'search_type': 'all',
+        'url': imageUrl,
+        'api_key': this.apiKey,
+        'hl': 'en',
+        'gl': 'us',
+        'no_cache': 'false'
+      });
 
-      console.log('SearchAPI Google Lens request URL:', url.toString().replace(this.apiKey, '[API_KEY]'));
+      const requestUrl = `${this.baseUrl}?${params}`;
+      console.log('SearchAPI Google Lens request URL:', requestUrl.replace(this.apiKey, '[API_KEY]'));
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(requestUrl, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; Product-Analyzer/1.0)',
           'Accept': 'application/json',
         }
       });
@@ -130,21 +132,23 @@ export class SearchAPIService {
 
   async analyzeImage(imageUrl: string): Promise<ParsedAnalysisResult> {
     try {
-      // According to SearchAPI documentation, use GET request with query parameters
-      const url = new URL(this.baseUrl);
-      url.searchParams.set('engine', 'google_lens');
-      url.searchParams.set('url', imageUrl);
-      url.searchParams.set('api_key', this.apiKey);
-      url.searchParams.set('hl', 'en');
-      url.searchParams.set('gl', 'us');
-      url.searchParams.set('no_cache', 'false');
+      // Use SearchAPI format matching the working example
+      const params = new URLSearchParams({
+        'engine': 'google_lens',
+        'search_type': 'all',
+        'url': imageUrl,
+        'api_key': this.apiKey,
+        'hl': 'en',
+        'gl': 'us',
+        'no_cache': 'false'
+      });
 
-      console.log('SearchAPI Google Lens request URL:', url.toString().replace(this.apiKey, '[API_KEY]'));
+      const requestUrl = `${this.baseUrl}?${params}`;
+      console.log('SearchAPI Google Lens request URL:', requestUrl.replace(this.apiKey, '[API_KEY]'));
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(requestUrl, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; Product-Analyzer/1.0)',
           'Accept': 'application/json',
         }
       });
@@ -415,18 +419,20 @@ export class SearchAPIService {
   // Test method to verify API setup
   async testApiConnection(): Promise<boolean> {
     try {
-      const testUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Vd-Orig.png/256px-Vd-Orig.png';
-      const url = new URL(this.baseUrl);
-      url.searchParams.set('engine', 'google_lens');
-      url.searchParams.set('url', testUrl);
-      url.searchParams.set('api_key', this.apiKey);
-      url.searchParams.set('hl', 'en');
-      url.searchParams.set('gl', 'us');
+      const testUrl = 'https://upload.wikimedia.org/wikipedia/en/7/7a/Harry_Potter_and_the_Philosopher%27s_Stone_banner.jpg';
+      const params = new URLSearchParams({
+        'engine': 'google_lens',
+        'search_type': 'all',
+        'url': testUrl,
+        'api_key': this.apiKey,
+        'hl': 'en',
+        'gl': 'us'
+      });
 
-      const response = await fetch(url.toString(), {
+      const requestUrl = `${this.baseUrl}?${params}`;
+      const response = await fetch(requestUrl, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; Product-Analyzer/1.0)',
           'Accept': 'application/json',
         }
       });
