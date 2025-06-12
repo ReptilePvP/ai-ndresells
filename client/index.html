@@ -34,8 +34,115 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%233B82F6'/><text x='50' y='65' text-anchor='middle' font-size='60' fill='white'>🔍</text></svg>">
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div id="root">
+      <div style="min-height: 100vh; background-color: #f8fafc; font-family: system-ui, sans-serif;">
+        <header style="background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-bottom: 1px solid #e5e7eb;">
+          <div style="max-width: 1280px; margin: 0 auto; padding: 1rem;">
+            <h1 style="font-size: 1.5rem; font-weight: 700; color: #111827; margin: 0;">
+              ND Resells - AI Product Analysis
+            </h1>
+          </div>
+        </header>
+        
+        <main style="max-width: 1024px; margin: 0 auto; padding: 2rem;">
+          <div style="background-color: white; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 2rem;">
+            <div style="text-align: center;">
+              <div style="font-size: 4rem; margin-bottom: 1.5rem;">📱</div>
+              <h2 style="font-size: 1.875rem; font-weight: 700; color: #111827; margin-bottom: 1rem;">
+                Upload Product Image
+              </h2>
+              <p style="font-size: 1.125rem; color: #6b7280; margin-bottom: 2rem;">
+                Get instant pricing analysis and market insights from StockX and eBay
+              </p>
+              
+              <div style="border: 2px dashed #d1d5db; border-radius: 0.5rem; padding: 4rem 1rem; margin-bottom: 2rem; background-color: #f9fafb;">
+                <p style="color: #9ca3af; margin: 0;">
+                  Drag and drop an image or click to browse
+                </p>
+              </div>
+              
+              <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem;">
+                <button style="background-color: #2563eb; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; font-weight: 500; cursor: pointer;" onclick="chooseFile()">
+                  Choose File
+                </button>
+                <button id="testButton" style="background-color: #059669; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; font-weight: 500; cursor: pointer;" onclick="testAPIs()">
+                  Test APIs
+                </button>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <div style="background-color: #dbeafe; padding: 1.5rem; border-radius: 0.5rem;">
+                  <h3 style="font-weight: 600; color: #1e3a8a; margin-bottom: 0.5rem;">StockX Integration</h3>
+                  <p style="color: #1d4ed8; font-size: 0.875rem; margin-bottom: 0.5rem;">
+                    Real-time sneaker and streetwear pricing data
+                  </p>
+                  <div id="stockxStatus" style="font-size: 0.75rem; font-weight: 500; color: #6b7280;">
+                    Status: Not tested
+                  </div>
+                </div>
+                <div style="background-color: #d1fae5; padding: 1.5rem; border-radius: 0.5rem;">
+                  <h3 style="font-weight: 600; color: #064e3b; margin-bottom: 0.5rem;">eBay Integration</h3>
+                  <p style="color: #047857; font-size: 0.875rem; margin-bottom: 0.5rem;">
+                    Live marketplace pricing and sales data
+                  </p>
+                  <div id="ebayStatus" style="font-size: 0.75rem; font-weight: 500; color: #6b7280;">
+                    Status: Not tested
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+    
+    <script>
+      function chooseFile() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = function(e) {
+          const file = e.target.files[0];
+          if (file) {
+            alert('File selected: ' + file.name + '. Analysis feature coming soon!');
+          }
+        };
+        input.click();
+      }
+      
+      async function testAPIs() {
+        const button = document.getElementById('testButton');
+        const stockxStatus = document.getElementById('stockxStatus');
+        const ebayStatus = document.getElementById('ebayStatus');
+        
+        button.textContent = 'Testing...';
+        button.disabled = true;
+        
+        // Test StockX API
+        try {
+          const response = await fetch('/api/stockx/auth/status');
+          const data = await response.json();
+          stockxStatus.textContent = `Status: ${data.authenticated ? 'Connected' : 'Authentication required'}`;
+          stockxStatus.style.color = data.authenticated ? '#059669' : '#dc2626';
+        } catch (error) {
+          stockxStatus.textContent = 'Status: Connection failed';
+          stockxStatus.style.color = '#dc2626';
+        }
+        
+        // Test eBay/Server connectivity
+        try {
+          const response = await fetch('/api/auth/me');
+          ebayStatus.textContent = `Status: ${response.ok ? 'Connected' : 'Service unavailable'}`;
+          ebayStatus.style.color = response.ok ? '#059669' : '#dc2626';
+        } catch (error) {
+          ebayStatus.textContent = 'Status: Connection failed';
+          ebayStatus.style.color = '#dc2626';
+        }
+        
+        button.textContent = 'Test APIs';
+        button.disabled = false;
+      }
+    </script>
     <!-- PWA Service Worker -->
     <script>
       if ('serviceWorker' in navigator) {
