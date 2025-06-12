@@ -15,7 +15,7 @@ localPort = 5000
 externalPort = 80
 
 [workflows]
-runButton = "Start Server"
+runButton = "Start Development Server"
 
 [[workflows.workflow]]
 name = "Project"
@@ -43,6 +43,15 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "lsof -ti:5000 | xargs kill -9 2>/dev/null || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Start Development Server"
+author = 41181738
+mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
