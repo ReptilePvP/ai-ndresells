@@ -1,3 +1,4 @@
+// src/hooks/useUserSettings.tsx
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useAuth } from "./useAuth";
@@ -36,7 +37,7 @@ export function UserSettingsProvider({ children }: UserSettingsProviderProps) {
 
   const updateApiProvider = async (provider: "gemini" | "searchapi" | "serpapi") => {
     if (!isAuthenticated) return;
-    
+
     setIsLoading(true);
     try {
       const response = await fetch("/api/auth/update-api-provider", {
@@ -59,7 +60,11 @@ export function UserSettingsProvider({ children }: UserSettingsProviderProps) {
     }
   };
 
-  const contextValue = { settings, updateApiProvider, isLoading };
+  const contextValue: UserSettingsContextType = {
+    settings,
+    updateApiProvider,
+    isLoading
+  };
 
   return (
     <UserSettingsContext.Provider value={contextValue}>
