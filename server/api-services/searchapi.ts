@@ -1,4 +1,3 @@
-
 interface SearchAPIResponse {
   visual_matches?: Array<{
     title?: string;
@@ -59,7 +58,7 @@ export class SearchAPIService {
 
   constructor() {
     this.apiKey = process.env.SEARCHAPI_KEY || '';
-    
+
     if (!this.apiKey) {
       console.warn('SearchAPI key not found in environment variables. Please set SEARCHAPI_KEY.');
     }
@@ -69,7 +68,7 @@ export class SearchAPIService {
     try {
       const params = new URLSearchParams({
         'engine': 'google_lens',
-        'search_type': 'all',
+        'search_type': 'visual_matches',
         'url': imageUrl,
         'api_key': this.apiKey,
         'hl': 'en',
@@ -90,7 +89,7 @@ export class SearchAPIService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('SearchAPI error response:', response.status, errorText);
-        
+
         if (response.status === 401) {
           throw new Error('SearchAPI authentication failed. Please check your API key.');
         } else if (response.status === 403) {
@@ -98,18 +97,18 @@ export class SearchAPIService {
         } else if (response.status === 429) {
           throw new Error('SearchAPI rate limit exceeded. Please try again later.');
         }
-        
+
         throw new Error(`SearchAPI request failed: ${response.status} - ${errorText}`);
       }
 
       const data: SearchAPIResponse = await response.json();
-      
+
       // Check for SearchAPI-specific error in response
       if ((data as any).error) {
         console.error('SearchAPI returned error:', (data as any).error);
         throw new Error(`SearchAPI error: ${(data as any).error.message || 'Unknown error'}`);
       }
-      
+
       console.log('SearchAPI response keys:', Object.keys(data));
       console.log('SearchAPI visual_matches count:', data.visual_matches?.length || 0);
       console.log('SearchAPI shopping_results count:', data.shopping_results?.length || 0);
@@ -135,7 +134,7 @@ export class SearchAPIService {
       // Use SearchAPI format matching the working example
       const params = new URLSearchParams({
         'engine': 'google_lens',
-        'search_type': 'all',
+        'search_type': 'visual_matches',
         'url': imageUrl,
         'api_key': this.apiKey,
         'hl': 'en',
@@ -156,7 +155,7 @@ export class SearchAPIService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('SearchAPI error response:', response.status, errorText);
-        
+
         // Handle specific SearchAPI error codes
         if (response.status === 401) {
           throw new Error('SearchAPI authentication failed. Please check your API key.');
@@ -165,23 +164,23 @@ export class SearchAPIService {
         } else if (response.status === 429) {
           throw new Error('SearchAPI rate limit exceeded. Please try again later.');
         }
-        
+
         throw new Error(`SearchAPI request failed: ${response.status} - ${errorText}`);
       }
 
       const data: SearchAPIResponse = await response.json();
-      
+
       // Check for SearchAPI-specific error in response
       if ((data as any).error) {
         console.error('SearchAPI returned error:', (data as any).error);
         throw new Error(`SearchAPI error: ${(data as any).error.message || 'Unknown error'}`);
       }
-      
+
       console.log('SearchAPI response keys:', Object.keys(data));
       console.log('SearchAPI visual_matches count:', data.visual_matches?.length || 0);
       console.log('SearchAPI shopping_results count:', data.shopping_results?.length || 0);
       console.log('SearchAPI knowledge_graph exists:', !!data.knowledge_graph);
-      
+
       // Log sample titles for debugging
       if (data.visual_matches && data.visual_matches.length > 0) {
         console.log('First visual match title:', data.visual_matches[0].title);
@@ -192,7 +191,7 @@ export class SearchAPIService {
       if (data.knowledge_graph?.title) {
         console.log('Knowledge graph title:', data.knowledge_graph.title);
       }
-      
+
       return this.parseResponse(data);
     } catch (error) {
       console.error('SearchAPI analysis error:', error);
@@ -202,7 +201,7 @@ export class SearchAPIService {
 
   private parseResponse(data: SearchAPIResponse): ParsedAnalysisResult {
     console.log('SearchAPI parsing response with keys:', Object.keys(data));
-    
+
     const visualMatches = data.visual_matches || [];
     const shoppingResults = data.shopping_results || [];
     const knowledgeGraph = data.knowledge_graph;
@@ -210,7 +209,7 @@ export class SearchAPIService {
     // Enhanced product name extraction with comprehensive fallbacks
     let productName = 'Unknown Product';
     let foundSource = 'none';
-    
+
     // Try knowledge graph first
     if (knowledgeGraph?.title && knowledgeGraph.title.trim() !== '') {
       productName = knowledgeGraph.title.trim();
@@ -234,7 +233,7 @@ export class SearchAPIService {
          match.title.toLowerCase().includes('boot') ||
          match.title.toLowerCase().includes('product'))
       );
-      
+
       if (shoppingMatch && shoppingMatch.title) {
         productName = shoppingMatch.title.trim();
         foundSource = `visual_matches_shopping (${shoppingMatch.source})`;
@@ -259,13 +258,13 @@ export class SearchAPIService {
         }
       }
     }
-    
+
     // Try additional fields that might contain product info
     if (productName === 'Unknown Product') {
       // Check if there are any other fields in the response that might contain product info
       const responseStr = JSON.stringify(data);
       const potentialFields = ['query', 'search_query', 'original_query', 'input'];
-      
+
       for (const field of potentialFields) {
         if ((data as any)[field] && typeof (data as any)[field] === 'string') {
           productName = (data as any)[field];
@@ -274,18 +273,18 @@ export class SearchAPIService {
         }
       }
     }
-    
+
     // If still unknown, try to extract from search information
     if (productName === 'Unknown Product' && data.search_information?.query_displayed) {
       productName = data.search_information.query_displayed;
       foundSource = 'search_information';
     }
-    
+
     console.log(`SearchAPI product name extracted: "${productName}" from ${foundSource}`);
 
     const description = knowledgeGraph?.description || 
                        (visualMatches.length > 0 ? `Product identified through visual search with ${visualMatches.length} visual matches` : 'Product identified through visual search');
-    
+
     // Enhanced reference image selection - prioritize shopping/product images
     let referenceImageUrl: string | null = null;
     if (knowledgeGraph?.image?.url) {
@@ -301,7 +300,7 @@ export class SearchAPIService {
          match.source.toLowerCase().includes('nike') ||
          match.source.toLowerCase().includes('adidas'))
       );
-      
+
       if (productMatch?.thumbnail) {
         referenceImageUrl = productMatch.thumbnail;
       } else if (visualMatches[0]?.thumbnail) {
@@ -347,7 +346,7 @@ export class SearchAPIService {
       const avgPrice = allPrices.reduce((a, b) => a + b, 0) / allPrices.length;
       const minPrice = Math.min(...allPrices);
       const maxPrice = Math.max(...allPrices);
-      
+
       averageSalePrice = `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`;
       resellPrice = `$${(avgPrice * 0.7).toFixed(2)} - $${(avgPrice * 0.9).toFixed(2)}`;
     }
@@ -392,13 +391,13 @@ export class SearchAPIService {
   private extractBrand(productName: string): string {
     const brands = ['Nike', 'Adidas', 'Jordan', 'Apple', 'Samsung', 'Sony', 'Gucci', 'Louis Vuitton', 'Rolex'];
     const name = productName.toLowerCase();
-    
+
     for (const brand of brands) {
       if (name.includes(brand.toLowerCase())) {
         return brand;
       }
     }
-    
+
     // Try to extract first word as potential brand
     const words = productName.split(' ');
     return words[0] || 'Unknown';
@@ -406,13 +405,13 @@ export class SearchAPIService {
 
   private calculateConfidence(visualMatches: any[], shoppingResults: any[], knowledgeGraph: any): number {
     let confidence = 0.3; // Base confidence
-    
+
     if (knowledgeGraph?.title) confidence += 0.3;
     if (visualMatches.length > 0) confidence += 0.15;
     if (shoppingResults.length > 0) confidence += 0.15;
     if (visualMatches.length > 5 || shoppingResults.length > 5) confidence += 0.1;
     if (visualMatches.some(match => match.price) || shoppingResults.some(result => result.price)) confidence += 0.1;
-    
+
     return Math.min(confidence, 1.0);
   }
 
@@ -422,7 +421,7 @@ export class SearchAPIService {
       const testUrl = 'https://upload.wikimedia.org/wikipedia/en/7/7a/Harry_Potter_and_the_Philosopher%27s_Stone_banner.jpg';
       const params = new URLSearchParams({
         'engine': 'google_lens',
-        'search_type': 'all',
+        'search_type': 'visual_matches',
         'url': testUrl,
         'api_key': this.apiKey,
         'hl': 'en',
