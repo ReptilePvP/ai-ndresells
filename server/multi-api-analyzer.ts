@@ -134,7 +134,10 @@ Return ONLY a JSON object with this exact structure:
         throw new Error("No JSON found in Gemini response");
       }
 
-      const analysisData = JSON.parse(jsonMatch[0]);
+      // Sanitize the JSON string to remove control characters
+      const sanitizedJson = jsonMatch[0].replace(/[\x00-\x1F\x7F-\x9F]/g, "");
+
+      const analysisData = JSON.parse(sanitizedJson);
 
       return {
         productName: analysisData.productName || "Unknown Product",
