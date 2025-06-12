@@ -50,16 +50,16 @@ export class MarketDataService {
         console.log('Calling StockX marketplace search for:', productName);
         const stockxData = await this.stockxService.getProductPricing(productName);
         
-        if (stockxData && stockxData.found) {
+        if (stockxData) {
           console.log('StockX response:', stockxData);
-          if (stockxData.pricing.retailPrice > 0) {
-            retailPrices.push(stockxData.pricing.retailPrice);
+          if (stockxData.retailPrice > 0) {
+            retailPrices.push(stockxData.retailPrice);
           }
-          if (stockxData.pricing.averagePrice > 0) {
-            resellPrices.push(stockxData.pricing.averagePrice);
+          if (stockxData.averagePrice > 0) {
+            resellPrices.push(stockxData.averagePrice);
           }
-          sources.push(stockxData.pricing.dataSource);
-          console.log(`StockX success: Retail $${stockxData.pricing.retailPrice}, Resell $${stockxData.pricing.averagePrice}`);
+          sources.push(stockxData.dataSource);
+          console.log(`StockX success: Retail $${stockxData.retailPrice}, Resell $${stockxData.averagePrice}`);
         } else {
           console.log('StockX API access restricted - authentic pricing data unavailable');
         }

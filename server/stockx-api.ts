@@ -42,9 +42,9 @@ interface StockXPriceData {
 }
 
 export class StockXApiService {
-  private readonly baseUrl = 'https://gateway.stockx.com/api/v3';
-  private readonly searchUrl = 'https://gateway.stockx.com/api/v3/products';
-  private readonly tokenUrl = 'https://gateway.stockx.com/api/auth/token';
+  private readonly baseUrl = 'https://stockx.com/api/v3';
+  private readonly searchUrl = 'https://stockx.com/api/v3/browse';
+  private readonly tokenUrl = 'https://accounts.stockx.com/oauth/token';
   private apiKey: string | null = null;
   private clientId: string | null = null;
   private clientSecret: string | null = null;
@@ -67,41 +67,42 @@ export class StockXApiService {
   }
 
   private async getAccessToken(): Promise<string> {
-    // For StockX API, use API key authentication primarily
-    if (this.apiKey) {
-      console.log('Using StockX API key authentication');
-      return this.apiKey;
-    }
-
     // Check if current token is still valid
     if (this.accessToken && Date.now() < this.tokenExpiry) {
       return this.accessToken;
     }
 
     if (!this.clientId || !this.clientSecret) {
-      throw new Error('StockX authentication credentials not configured');
+      throw new Error('StockX OAuth credentials not configured');
     }
 
-    console.log('Attempting StockX OAuth authentication...');
+    console.log('Attempting StockX OAuth 2.0 authentication...');
 
     try {
-      const response = await fetch('https://accounts.stockx.com/oauth/token', {
+      // Use correct OAuth 2.0 endpoint and parameters according to StockX API docs
+      const response = await fetch(this.tokenUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+          'Authorization': `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`
         },
-        body: JSON.stringify({
-          client_id: this.clientId,
-          client_secret: this.clientSecret,
-          audience: 'gateway.stockx.com',
-          grant_type: 'client_credentials'
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          audience: 'gateway.stockx.com'
         })
       });
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`StockX OAuth error: ${response.status} ${response.statusText}`, errorText);
+        
+        // If OAuth fails due to grant type restrictions, try direct API key approach
+        if (this.apiKey && (response.status === 400 || response.status === 403)) {
+          console.log('OAuth failed, using API key authentication');
+          return this.apiKey;
+        }
+        
         throw new Error(`StockX OAuth failed: ${response.status} ${response.statusText}`);
       }
 
@@ -113,6 +114,13 @@ export class StockXApiService {
       return this.accessToken || '';
     } catch (error) {
       console.error('StockX OAuth token generation failed:', error);
+      
+      // Fallback to API key if available
+      if (this.apiKey) {
+        console.log('Using StockX API key as fallback');
+        return this.apiKey;
+      }
+      
       throw error;
     }
   }
