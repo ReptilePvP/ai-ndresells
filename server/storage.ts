@@ -5,7 +5,7 @@ import {
   type SavedAnalysis, type InsertSavedAnalysis
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, count, avg, sum, desc, gte, and } from "drizzle-orm";
+import { eq, count, avg, sum, desc, gte, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations

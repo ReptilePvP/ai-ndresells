@@ -7,6 +7,9 @@ const analysisCache = new NodeCache({
   checkperiod: 600 // Check for expired entries every 10 minutes
 });
 
+// Track image hashes that have received negative feedback
+const negativeFeedbackHashes = new Set<string>();
+
 export interface CachedAnalysis {
   analysisData: any;
   timestamp: number;
@@ -27,6 +30,19 @@ export function setCachedAnalysis(imageHash: string, analysis: CachedAnalysis): 
 
 export function clearCache(): void {
   analysisCache.flushAll();
+}
+
+export function clearSpecificCache(imageHash: string): void {
+  analysisCache.del(imageHash);
+  negativeFeedbackHashes.add(imageHash);
+}
+
+export function hasNegativeFeedback(imageHash: string): boolean {
+  return negativeFeedbackHashes.has(imageHash);
+}
+
+export function clearNegativeFeedback(imageHash: string): void {
+  negativeFeedbackHashes.delete(imageHash);
 }
 
 // Optional: Add cache statistics

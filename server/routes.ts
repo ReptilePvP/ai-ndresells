@@ -17,7 +17,7 @@ import { createPricingAggregator } from './pricing-aggregator';
 import { createMarketDataService } from './market-data-service';
 import { createIntelligentPricing } from './intelligent-pricing';
 import { accuracyValidator } from './accuracy-validator';
-import { generateImageHash, getCachedAnalysis, setCachedAnalysis } from './cache';
+import { generateImageHash, getCachedAnalysis, setCachedAnalysis, hasNegativeFeedback } from './cache';
 
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY || 
@@ -406,11 +406,16 @@ If no clear product is visible, return: {"productName": "No product detected", "
       // Generate image hash for caching
       const imageHash = generateImageHash(imageBuffer);
 
-      // Check cache first
+      // Check cache first, but also check if this image has received negative feedback before
       const cachedAnalysis = getCachedAnalysis(imageHash);
       if (cachedAnalysis) {
-        console.log('Using cached analysis');
-        return res.json(cachedAnalysis.analysisData);
+        // Check if any previous analysis of this image hash received negative feedback
+        if (!hasNegativeFeedback(imageHash)) {
+          console.log('Using cached analysis');
+          return res.json(cachedAnalysis.analysisData);
+        } else {
+          console.log('Cache found but image has negative feedback history - performing fresh analysis');
+        }
       }
 
       // Enhanced validation
@@ -981,6 +986,28 @@ Keep response concise for real-time display.`;
       }
 
       const feedback = await storage.createFeedback(validatedData);
+
+      // If feedback is negative (not accurate), invalidate cache for this analysis
+      if (!validatedData.isAccurate) {
+        try {
+          const analysis = await storage.getAnalysisWithUpload(validatedData.analysisId);
+          if (analysis && analysis.upload) {
+            // Read the original image to generate hash
+            const imageBuffer = await fs.readFile(analysis.upload.filePath);
+            const imageHash = generateImageHash(imageBuffer);
+            
+            // Remove from cache so future uploads get fresh analysis
+            const { clearSpecificCache } = await import('./cache');
+            clearSpecificCache(imageHash);
+            
+            console.log(`Cache invalidated for analysis ${validatedData.analysisId} due to negative feedback`);
+          }
+        } catch (cacheError) {
+          console.error("Failed to invalidate cache:", cacheError);
+          // Don't fail the feedback submission if cache invalidation fails
+        }
+      }
+
       res.json(feedback);
     } catch (error) {
       console.error("Feedback error:", error);
