@@ -1,5 +1,9 @@
 
-import { Pool } from '@neondatabase/serverless';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
+
+// Configure WebSocket for Neon connection
+neonConfig.webSocketConstructor = ws;
 
 async function applyMigration() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
