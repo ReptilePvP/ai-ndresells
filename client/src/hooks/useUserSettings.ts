@@ -59,8 +59,10 @@ export function UserSettingsProvider({ children }: UserSettingsProviderProps) {
     }
   };
 
+  const contextValue = { settings, updateApiProvider, isLoading };
+
   return (
-    <UserSettingsContext.Provider value={{ settings, updateApiProvider, isLoading }}>
+    <UserSettingsContext.Provider value={contextValue}>
       {children}
     </UserSettingsContext.Provider>
   );
