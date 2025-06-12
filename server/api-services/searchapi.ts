@@ -58,7 +58,11 @@ export class SearchAPIService {
   private baseUrl = 'https://www.searchapi.io/api/v1/search';
 
   constructor() {
-    this.apiKey = process.env.SEARCHAPI_KEY || 'bGfCEz5mAFmEc6mMA4L6ptYP';
+    this.apiKey = process.env.SEARCHAPI_KEY || '';
+    
+    if (!this.apiKey) {
+      console.warn('SearchAPI key not found in environment variables. Please set SEARCHAPI_KEY.');
+    }
   }
 
   async analyzeImageFromBase64(base64Image: string, uploadId: string): Promise<ParsedAnalysisResult> {
@@ -84,16 +88,34 @@ export class SearchAPIService {
         method: 'GET',
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; Product-Analyzer/1.0)',
+          'Accept': 'application/json',
         }
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('SearchAPI error response:', errorText);
+        console.error('SearchAPI error response:', response.status, errorText);
+        
+        // Handle specific SearchAPI error codes
+        if (response.status === 401) {
+          throw new Error('SearchAPI authentication failed. Please check your API key.');
+        } else if (response.status === 403) {
+          throw new Error('SearchAPI access forbidden. Please verify your subscription and permissions.');
+        } else if (response.status === 429) {
+          throw new Error('SearchAPI rate limit exceeded. Please try again later.');
+        }
+        
         throw new Error(`SearchAPI request failed: ${response.status} - ${errorText}`);
       }
 
       const data: SearchAPIResponse = await response.json();
+      
+      // Check for SearchAPI-specific error in response
+      if ((data as any).error) {
+        console.error('SearchAPI returned error:', (data as any).error);
+        throw new Error(`SearchAPI error: ${(data as any).error.message || 'Unknown error'}`);
+      }
+      
       console.log('SearchAPI response keys:', Object.keys(data));
       console.log('SearchAPI visual_matches count:', data.visual_matches?.length || 0);
       console.log('SearchAPI shopping_results count:', data.shopping_results?.length || 0);
@@ -331,6 +353,39 @@ export class SearchAPIService {
     if (visualMatches.some(match => match.price) || shoppingResults.some(result => result.price)) confidence += 0.1;
     
     return Math.min(confidence, 1.0);
+  }
+
+  // Test method to verify API setup
+  async testApiConnection(): Promise<boolean> {
+    try {
+      const testUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Vd-Orig.png/256px-Vd-Orig.png';
+      const url = new URL(this.baseUrl);
+      url.searchParams.set('engine', 'google_lens');
+      url.searchParams.set('url', testUrl);
+      url.searchParams.set('api_key', this.apiKey);
+      url.searchParams.set('hl', 'en');
+      url.searchParams.set('gl', 'us');
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Product-Analyzer/1.0)',
+          'Accept': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('SearchAPI test successful:', !!data);
+        return true;
+      } else {
+        console.error('SearchAPI test failed:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('SearchAPI test error:', error);
+      return false;
+    }
   }
 }
 
