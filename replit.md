@@ -75,6 +75,11 @@ The application is configured for Replit deployment with:
 
 ## Changelog
 - June 12, 2025. Initial setup
+- June 12, 2025. Fixed API provider caching bug and added public uploads route
+  - Created public/uploads directory for external API access
+  - Added /uploads static route to serve images publicly
+  - Updated SearchAPI and SerpAPI to use public URLs
+  - Fixed cache system to include API provider in cache keys
 
 ## User Preferences
 

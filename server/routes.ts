@@ -485,6 +485,11 @@ If no clear product is visible, return: {"productName": "No product detected", "
       }
 
       const user = (req as any).user;
+      
+      // Copy file to public directory for external API access
+      const publicFilePath = path.join(publicUploadDir, req.file.filename);
+      await fs.copyFile(req.file.path, publicFilePath);
+      
       const uploadData = {
         userId: user?.id || null,
         sessionId,

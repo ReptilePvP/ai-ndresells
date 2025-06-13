@@ -176,7 +176,7 @@ Return ONLY a JSON object with this exact structure:
       ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
       : process.env.PUBLIC_URL || 'http://localhost:5000';
     
-    const imageUrl = `${baseUrl}/api/image/${uploadPath}`;
+    const imageUrl = `${baseUrl}/uploads/${uploadPath}`;
     console.log('SearchAPI using image URL:', imageUrl);
 
     const result = await searchAPIService.analyzeImageFromUrl(imageUrl, uploadPath);
@@ -191,8 +191,11 @@ Return ONLY a JSON object with this exact structure:
     let imageUrl: string;
 
     if (uploadPath) {
-      // Use the upload path as URL (assuming it's accessible)
-      imageUrl = `${process.env.PUBLIC_URL || 'http://localhost:5000'}/api/image/${uploadPath}`;
+      // Use the public uploads route for external API access
+      const baseUrl = process.env.REPL_SLUG 
+        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+        : process.env.PUBLIC_URL || 'http://localhost:5000';
+      imageUrl = `${baseUrl}/uploads/${uploadPath}`;
     } else {
       // For live analysis or when upload path is not available, we need to handle this differently
       throw new Error("SerpAPI requires an accessible image URL. Upload the image first.");
