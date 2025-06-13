@@ -12,7 +12,7 @@ import fs from "fs/promises";
 import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
 import { Client } from "@replit/object-storage";
-import { objectStorageService } from './object-storage';
+
 import { createEbayService } from './ebay-api';
 import { createEbayProductionService } from './ebay-production-auth';
 import { createEcommerceService, createGoogleShoppingService, createAmazonService } from './ecommerce-platforms';
