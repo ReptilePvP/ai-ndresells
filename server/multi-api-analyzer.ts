@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { searchAPIService } from "./api-services/searchapi";
 import { serpAPIService } from "./api-services/serpapi";
+import type { Upload } from "@shared/schema";
 
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY || 
@@ -31,7 +32,7 @@ export class MultiAPIAnalyzer {
   async analyzeImage(
     base64Image: string, 
     apiProvider: 'gemini' | 'searchapi' | 'serpapi',
-    uploadPath?: string
+    upload?: Upload
   ): Promise<UnifiedAnalysisResult> {
     try {
       let result: UnifiedAnalysisResult;
@@ -41,10 +42,16 @@ export class MultiAPIAnalyzer {
           result = await this.analyzeWithGemini(base64Image);
           break;
         case 'searchapi':
-          result = await this.analyzeWithSearchAPI(base64Image, uploadPath);
+          if (!upload) {
+            throw new Error("Upload object is required for SearchAPI analysis.");
+          }
+          result = await this.analyzeWithSearchAPI(base64Image, upload);
           break;
         case 'serpapi':
-          result = await this.analyzeWithSerpAPI(base64Image, uploadPath);
+          if (!upload) {
+            throw new Error("Upload object is required for SerpAPI analysis.");
+          }
+          result = await this.analyzeWithSerpAPI(base64Image, upload);
           break;
         default:
           throw new Error(`Unsupported API provider: ${apiProvider}`);
@@ -71,7 +78,7 @@ export class MultiAPIAnalyzer {
   async analyzeImageWithFallback(
     base64Image: string, 
     originalProvider: 'searchapi' | 'serpapi',
-    uploadPath?: string
+    upload?: Upload
   ): Promise<UnifiedAnalysisResult> {
     console.log(`Performing fallback analysis from ${originalProvider} to Gemini`);
     
@@ -166,42 +173,26 @@ Return ONLY a JSON object with this exact structure:
     }
   }
 
-  private async analyzeWithSearchAPI(base64Image: string, uploadPath?: string): Promise<UnifiedAnalysisResult> {
-    if (!uploadPath) {
-      throw new Error("SearchAPI requires an uploaded image. Upload the image first to use Google Lens analysis.");
+  private async analyzeWithSearchAPI(base64Image: string, upload: Upload): Promise<UnifiedAnalysisResult> {
+    if (!upload.publicUrl) {
+      throw new Error("SearchAPI requires a public URL for the image.");
     }
 
-    // Construct proper public URL for the image
-    const baseUrl = process.env.REPL_SLUG 
-      ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-      : process.env.PUBLIC_URL || 'http://localhost:5000';
-    
-    const imageUrl = `${baseUrl}/uploads/${uploadPath}`;
-    console.log('SearchAPI using image URL:', imageUrl);
+    console.log('SearchAPI using image URL:', upload.publicUrl);
 
-    const result = await searchAPIService.analyzeImageFromUrl(imageUrl, uploadPath);
+    const result = await searchAPIService.analyzeImageFromUrl(upload.publicUrl, upload.filename);
     return {
       ...result,
       apiProvider: 'searchapi'
     };
   }
 
-  private async analyzeWithSerpAPI(base64Image: string, uploadPath?: string): Promise<UnifiedAnalysisResult> {
-    // For SerpAPI, we also need to provide an image URL
-    let imageUrl: string;
-
-    if (uploadPath) {
-      // Use the public uploads route for external API access
-      const baseUrl = process.env.REPL_SLUG 
-        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-        : process.env.PUBLIC_URL || 'http://localhost:5000';
-      imageUrl = `${baseUrl}/uploads/${uploadPath}`;
-    } else {
-      // For live analysis or when upload path is not available, we need to handle this differently
-      throw new Error("SerpAPI requires an accessible image URL. Upload the image first.");
+  private async analyzeWithSerpAPI(base64Image: string, upload: Upload): Promise<UnifiedAnalysisResult> {
+    if (!upload.publicUrl) {
+      throw new Error("SerpAPI requires a public URL for the image.");
     }
 
-    const result = await serpAPIService.analyzeImageWithParams(imageUrl);
+    const result = await serpAPIService.analyzeImageWithParams(upload.publicUrl);
     return {
       ...result,
       apiProvider: 'serpapi'

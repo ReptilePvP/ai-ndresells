@@ -149,9 +149,10 @@ export class SearchAPIService {
 
   async analyzeImageFromBase64(base64Image: string, uploadId: string): Promise<ParsedAnalysisResult> {
     // Convert base64 to publicly accessible URL
-    const baseUrl = process.env.REPL_SLUG 
-      ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-      : process.env.PUBLIC_URL || 'http://localhost:5000';
+    const baseUrl = process.env.PUBLIC_URL ||
+      (process.env.REPL_SLUG 
+        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+        : 'http://localhost:5000');
     const imageUrl = `${baseUrl}/uploads/${uploadId}`;
     return this.analyzeImage(imageUrl);
   }
