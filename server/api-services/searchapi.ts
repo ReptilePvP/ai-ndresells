@@ -65,6 +65,19 @@ export class SearchAPIService {
   }
 
   async analyzeImageFromUrl(imageUrl: string, uploadId: string): Promise<ParsedAnalysisResult> {
+    // First, test if the image URL is accessible
+    try {
+      console.log('Testing image URL accessibility:', imageUrl);
+      const imageResponse = await fetch(imageUrl, { method: 'HEAD' });
+      if (!imageResponse.ok) {
+        throw new Error(`Image URL not accessible: ${imageResponse.status} ${imageResponse.statusText}`);
+      }
+      console.log('Image URL is accessible, proceeding with SearchAPI analysis');
+    } catch (error) {
+      console.error('Image URL accessibility test failed:', error);
+      throw new Error(`Image URL is not publicly accessible: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
     let data = await this.performSearch(imageUrl, 'visual_matches');
 
     if (!data.visual_matches?.length && !data.shopping_results?.length && !data.knowledge_graph) {
@@ -73,7 +86,7 @@ export class SearchAPIService {
     }
 
     if (!data.visual_matches?.length && !data.shopping_results?.length && !data.knowledge_graph) {
-      throw new Error('SearchAPI did not return any results for any search type.');
+      throw new Error('SearchAPI did not return any results for any search type. The image may not contain recognizable products or brands.');
     }
 
     return this.parseResponse(data);
