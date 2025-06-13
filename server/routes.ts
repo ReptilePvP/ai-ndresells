@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import express from "express";
 import { WebSocketServer } from "ws";
 import { storage } from "./storage";
 import { insertUploadSchema, insertAnalysisSchema, insertFeedbackSchema, loginSchema, registerSchema } from "@shared/schema";
@@ -38,9 +39,11 @@ const intelligentPricing = createIntelligentPricing();
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
+const publicUploadDir = path.join(process.cwd(), "public", "uploads");
 
-// Ensure upload directory exists
+// Ensure upload directories exist
 fs.mkdir(uploadDir, { recursive: true }).catch(console.error);
+fs.mkdir(publicUploadDir, { recursive: true }).catch(console.error);
 
 const upload = multer({
   dest: uploadDir,
@@ -57,6 +60,9 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve public uploads as static files
+  app.use('/uploads', express.static(publicUploadDir));
+
   // StockX API routes disabled
   app.get('/api/auth/stockx/authorize', (req, res) => {
     res.status(503).json({ error: 'StockX API temporarily disabled' });
