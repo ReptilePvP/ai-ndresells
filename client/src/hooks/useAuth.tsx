@@ -16,11 +16,13 @@ interface AuthResult {
 }
 
 export function useAuth(): AuthResult {
-  const { data: user, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["/api/auth/me"],
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  const user = data?.user as User | undefined;
 
   return {
     user: user || null,
