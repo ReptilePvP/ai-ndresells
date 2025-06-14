@@ -11,7 +11,7 @@ The application follows a monolithic architecture with clear separation between 
 - **Frontend**: React SPA built with Vite, TypeScript, and Tailwind CSS
 - **Backend**: Express.js server with TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Session-based with bcrypt password hashing
+- **Authentication**: Replit Auth (OpenID Connect) with session storage
 - **External APIs**: Google Gemini, eBay API, SearchAPI, SerpAPI
 - **Real-time**: WebSocket implementation for live analysis
 
@@ -80,6 +80,12 @@ The application is configured for Replit deployment with:
   - Added /uploads static route to serve images publicly
   - Updated SearchAPI and SerpAPI to use public URLs
   - Fixed cache system to include API provider in cache keys
+- June 14, 2025. Migrated from custom authentication to Replit Auth
+  - Replaced email/password authentication with Replit OAuth system
+  - Updated database schema to use Replit user structure (string IDs, removed password fields)
+  - Implemented OpenID Connect integration with session storage
+  - Created landing page for unauthenticated users
+  - Updated frontend routing and authentication hooks
 
 ## User Preferences
 

@@ -62,16 +62,24 @@ export function setupLiveAPI(wss: any) {
 
     ws.on('message', async (data: Buffer) => {
       try {
+        // Check if data is valid before parsing
+        if (!data || data.length === 0) {
+          console.warn('Empty message received');
+          return;
+        }
+        
         const message = JSON.parse(data.toString());
         await handleClientMessage(sessionId, message);
       } catch (error) {
         console.error('Error processing client message:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to process message';
-        ws.send(JSON.stringify({
-          type: 'error',
-          message: errorMessage,
-          details: error instanceof Error ? error.stack : String(error)
-        }));
+        // Don't send error response if WebSocket is not in OPEN state
+        if (ws.readyState === ws.OPEN) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to process message';
+          ws.send(JSON.stringify({
+            type: 'error',
+            message: errorMessage
+          }));
+        }
       }
     });
 

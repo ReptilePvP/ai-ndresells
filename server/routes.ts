@@ -334,9 +334,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // WebSocket server setup
+  // WebSocket server setup with path separation
   const httpServer = createServer(app);
-  const wss = new WebSocketServer({ server: httpServer });
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/ws/live-api'
+  });
 
   // Setup live API
   setupLiveAPI(wss);
