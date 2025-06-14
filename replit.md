@@ -93,6 +93,12 @@ The application is configured for Replit deployment with:
   - Added admin promotion system with secure endpoint
   - Enhanced admin panel with user management interface
   - Added ability to promote/demote users between admin and user roles
+- June 14, 2025. Fixed history tab functionality
+  - Added unified `/api/analyses` endpoint for both authenticated and guest users
+  - Implemented history clearing functionality with timeframe options
+  - Added `clearUserHistory` method to storage interface
+  - Fixed Drizzle ORM imports for database operations
+  - History tab now properly updates and displays user analysis history
 
 ## User Preferences
 
