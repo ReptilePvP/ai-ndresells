@@ -1,0 +1,42 @@
+5:26:13 AM [express] serving on port 5000
+Error:   Failed to scan for dependencies from entries:
+  /home/runner/workspace/client/index.html
+
+  ✘ [ERROR] No matching export in "client/src/hooks/useAuth.ts" for import "useLogin"
+
+    client/src/components/auth-dialog.tsx:10:9:
+      10 │ import { useLogin, useRegister } from "@/hooks/useAuth";
+         ╵          ~~~~~~~~
+
+
+✘ [ERROR] No matching export in "client/src/hooks/useAuth.ts" for import "useRegister"
+
+    client/src/components/auth-dialog.tsx:10:19:
+      10 │ import { useLogin, useRegister } from "@/hooks/useAuth";
+         ╵                    ~~~~~~~~~~~
+
+
+✘ [ERROR] No matching export in "shared/schema.ts" for import "loginSchema"
+
+    client/src/components/auth-dialog.tsx:11:9:
+      11 │ import { loginSchema, registerSchema, type LoginCredentials, type ...
+         ╵          ~~~~~~~~~~~
+
+
+✘ [ERROR] No matching export in "shared/schema.ts" for import "registerSchema"
+
+    client/src/components/auth-dialog.tsx:11:22:
+      11 │ import { loginSchema, registerSchema, type LoginCredentials, type ...
+         ╵                       ~~~~~~~~~~~~~~
+
+
+    at failureErrorWithLog (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:1472:15)
+    at /home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:945:25
+    at runOnEndCallbacks (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:1315:45)
+    at buildResponseToResult (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:943:7)
+    at /home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:955:9
+    at new Promise (<anonymous>)
+    at requestCallbacks.on-end (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:954:54)
+    at handleRequest (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:647:17)
+    at handleIncomingPacket (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:672:7)
+    at Socket.readFromStdout (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:600:7)

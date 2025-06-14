@@ -34,4 +34,7 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
+  optimizeDeps: {
+    exclude: ["@radix-ui/react-tooltip"],
+  },
 });
