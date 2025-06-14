@@ -49,8 +49,8 @@ export default function Analyzer() {
       return response.json();
     },
     onSuccess: (upload) => {
-          setCurrentUploadId(upload.id);
-      analyzeMutation.mutate(upload.id);
+          setCurrentUploadId(upload.uploadId);
+      analyzeMutation.mutate(upload.uploadId);
     },
     onError: () => {
       toast({
