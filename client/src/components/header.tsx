@@ -29,7 +29,7 @@ export function Header() {
   }, []);
 
   const handleLogout = () => {
-    logoutMutation.mutate();
+    window.location.href = "/api/logout";
     setShowUserMenu(false);
   };
 
@@ -131,7 +131,7 @@ export function Header() {
                     <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
                       <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {user?.firstName || user?.username}
+                          {user?.firstName || user?.email?.split('@')[0] || 'User'}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
                       </div>
@@ -144,7 +144,7 @@ export function Header() {
                           Profile Settings
                         </button>
                       </Link>
-                      {isAdmin && (
+                      {user?.role === 'admin' && (
                         <Link href="/admin">
                           <button 
                             onClick={() => setShowUserMenu(false)}
@@ -157,11 +157,10 @@ export function Header() {
                       )}
                       <button 
                         onClick={handleLogout}
-                        disabled={logoutMutation.isPending}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         <i className="fas fa-sign-out-alt mr-2"></i>
-                        {logoutMutation.isPending ? 'Signing out...' : 'Sign Out'}
+                        Sign Out
                       </button>
                     </div>
                   )}

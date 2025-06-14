@@ -8,6 +8,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { UserSettingsProvider } from "@/hooks/useUserSettings";
 import { Header } from "@/components/header";
 import { MobileNav } from "@/components/mobile-nav";
+import { useAuth } from "@/hooks/useAuth";
 import Analyzer from "@/pages/analyzer";
 import Dashboard from "@/pages/dashboard";
 import History from "@/pages/history";
@@ -15,19 +16,28 @@ import Saved from "@/pages/saved";
 import Profile from "@/pages/profile";
 import AdminDiagnostics from "@/pages/admin";
 import LiveAnalysis from "@/pages/live-analysis";
+import Landing from "@/pages/landing";
 
 import NotFound from "@/pages/not-found";
 
 function Router() {
+  const { isAuthenticated, isLoading } = useAuth();
+
   return (
     <Switch>
-      <Route path="/" component={Analyzer} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/live" component={LiveAnalysis} />
-      <Route path="/history" component={History} />
-      <Route path="/saved" component={Saved} />
-      <Route path="/profile" component={Profile} />
-      <Route path="/admin" component={AdminDiagnostics} />
+      {isLoading || !isAuthenticated ? (
+        <Route path="/" component={Landing} />
+      ) : (
+        <>
+          <Route path="/" component={Analyzer} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/live" component={LiveAnalysis} />
+          <Route path="/history" component={History} />
+          <Route path="/saved" component={Saved} />
+          <Route path="/profile" component={Profile} />
+          <Route path="/admin" component={AdminDiagnostics} />
+        </>
+      )}
       <Route component={NotFound} />
     </Switch>
   );
