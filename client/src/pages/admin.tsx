@@ -55,8 +55,13 @@ interface UploadWithAnalyses {
 }
 
 export default function AdminDiagnostics() {
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [promoteEmail, setPromoteEmail] = useState("");
+  const [adminSecret, setAdminSecret] = useState("");
+
+  const isAdmin = user?.role === 'admin';
 
   const { data: stats, isLoading: statsLoading } = useQuery<SystemStats>({
     queryKey: ["/api/admin/stats"],
@@ -66,6 +71,65 @@ export default function AdminDiagnostics() {
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
     enabled: isAdmin,
+  });
+
+  // Mutation for updating user role
+  const updateUserRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: 'user' | 'admin' }) => {
+      const response = await fetch(`/api/admin/users/${userId}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      });
+      if (!response.ok) throw new Error('Failed to update user role');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "Success",
+        description: "User role updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user role",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation for promoting user to admin by email
+  const promoteUserMutation = useMutation({
+    mutationFn: async ({ email, adminSecret }: { email: string; adminSecret: string }) => {
+      const response = await fetch('/api/admin/promote-by-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, adminSecret })
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to promote user');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setPromoteEmail("");
+      setAdminSecret("");
+      toast({
+        title: "Success",
+        description: "User promoted to admin successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to promote user",
+        variant: "destructive",
+      });
+    },
   });
 
   const { data: uploads, isLoading: uploadsLoading } = useQuery<UploadWithAnalyses[]>({
@@ -472,7 +536,7 @@ export default function AdminDiagnostics() {
                             <div className="font-medium text-sm">
                               {user.firstName || user.lastName 
                                 ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
-                                : user.username
+                                : user.email?.split('@')[0] || 'User'
                               }
                             </div>
                             <div className="text-gray-500 text-xs">{user.email}</div>
@@ -518,7 +582,7 @@ export default function AdminDiagnostics() {
                         <div className="font-medium text-sm">{upload.originalName}</div>
                         <div className="text-xs text-gray-500">
                           {upload.user ? (
-                            `${upload.user.firstName || upload.user.username} • ${new Date(upload.uploadedAt).toLocaleDateString()}`
+                            `${upload.user.firstName || upload.user.email?.split('@')[0] || 'User'} • ${new Date(upload.uploadedAt).toLocaleDateString()}`
                           ) : (
                             `Guest • ${new Date(upload.uploadedAt).toLocaleDateString()}`
                           )}
@@ -579,7 +643,7 @@ export default function AdminDiagnostics() {
                             <div className="font-medium">
                               {upload.user.firstName || upload.user.lastName 
                                 ? `${upload.user.firstName || ''} ${upload.user.lastName || ''}`.trim()
-                                : upload.user.username
+                                : upload.user.email?.split('@')[0] || 'User'
                               }
                             </div>
                             <div className="text-gray-500 text-xs">{upload.user.email}</div>
