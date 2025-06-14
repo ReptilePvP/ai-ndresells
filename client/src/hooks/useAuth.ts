@@ -1,88 +1,19 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import type { User, LoginCredentials, RegisterData } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 
 export function useAuth() {
-  const { data, isLoading, error } = useQuery<{ user: User }>({
-    queryKey: ["/api/auth/me"],
+  const { data: user, isLoading } = useQuery({
+    queryKey: ["/api/auth/user"],
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    queryFn: async () => {
-      try {
-        const response = await fetch("/api/auth/me", {
-          credentials: "include",
-        });
-        
-        if (response.status === 401) {
-          return { user: null };
-        }
-        
-        if (!response.ok) {
-          throw new Error(`Authentication check failed: ${response.status}`);
-        }
-        
-        return await response.json();
-      } catch (error) {
-        console.error('Auth check error:', error);
-        return { user: null };
-      }
-    },
   });
-
-  const user = data?.user;
 
   return {
     user,
     isLoading,
     isAuthenticated: !!user,
-    isAdmin: user?.role === 'admin',
-    error,
   };
 }
 
-export function useLogin() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (credentials: LoginCredentials) => {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Login failed");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-    },
-  });
-}
 
-export function useRegister() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (userData: RegisterData) => {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Registration failed");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-    },
-  });
-}
 
 export function useLogout() {
   const queryClient = useQueryClient();
