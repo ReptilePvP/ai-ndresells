@@ -1,6 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import { searchAPIService } from "./api-services/searchapi";
 import { serpAPIService } from "./api-services/serpapi";
+import { createEbayProductionService } from "./ebay-production-auth";
+import fs from "fs/promises";
+import path from "path";
+import crypto from "crypto";
 
 // Initialize Gemini AI
 const apiKey = process.env.GEMINI_API_KEY || 
@@ -65,6 +69,71 @@ export class MultiAPIAnalyzer {
       const result = await this.analyzeWithGemini(base64Image);
       result.thoughtProcess = `Analysis with ${apiProvider} failed. ${error instanceof Error ? error.message : 'Unknown error'}. Falling back to Gemini. ${result.thoughtProcess}`;
       return result;
+    }
+  }
+
+  private async findReferenceImage(productName: string): Promise<string | null> {
+    try {
+      // Use eBay to find reference images from actual marketplace listings
+      const ebayService = createEbayProductionService();
+      if (!ebayService) {
+        console.log('eBay service not available for reference images');
+        return null;
+      }
+
+      const marketData = await ebayService.searchMarketplace(productName);
+      
+      if (marketData.recentSales && marketData.recentSales.length > 0) {
+        // Find first listing with an image
+        for (const sale of marketData.recentSales) {
+          if (sale.image?.imageUrl) {
+            // Download and store the reference image locally
+            const referenceUrl = await this.downloadReferenceImage(sale.image.imageUrl, productName);
+            return referenceUrl;
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Reference image search failed:', error);
+      return null;
+    }
+  }
+
+  private async downloadReferenceImage(imageUrl: string, productName: string): Promise<string | null> {
+    try {
+      console.log('Downloading reference image from eBay:', imageUrl);
+      
+      const response = await fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+
+      if (!response.ok) {
+        console.log('Failed to download reference image:', response.status);
+        return null;
+      }
+
+      const imageBuffer = await response.arrayBuffer();
+      const imageHash = crypto.createHash('md5').update(Buffer.from(imageBuffer)).digest('hex');
+      const extension = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+      const filename = `ref_${imageHash}.${extension}`;
+      const uploadDir = path.join(process.cwd(), "uploads");
+      const referenceImagePath = path.join(uploadDir, filename);
+
+      // Ensure the upload directory exists
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      // Write the file
+      await fs.writeFile(referenceImagePath, Buffer.from(imageBuffer));
+      console.log('Reference image downloaded and stored:', filename);
+      
+      return filename;
+    } catch (error) {
+      console.error('Error downloading reference image:', error);
+      return null;
     }
   }
 
@@ -144,6 +213,18 @@ Return ONLY a JSON object with this exact structure:
 
       const analysisData = JSON.parse(sanitizedJson);
 
+      // Try to find a reference image for the identified product
+      let referenceImageUrl = null;
+      const productName = analysisData.productName || "Unknown Product";
+      
+      if (productName !== "Unknown Product") {
+        try {
+          referenceImageUrl = await this.findReferenceImage(productName);
+        } catch (error) {
+          console.log("Could not find reference image:", error instanceof Error ? error.message : 'Unknown error');
+        }
+      }
+
       return {
         productName: analysisData.productName || "Unknown Product",
         description: analysisData.description || "AI-generated product analysis",
@@ -155,7 +236,7 @@ Return ONLY a JSON object with this exact structure:
         resellPrice: analysisData.resellPrice || "Price not available",
         marketDemand: analysisData.marketDemand || "Medium",
         profitMargin: analysisData.profitMargin || "Unknown",
-        referenceImageUrl: null,
+        referenceImageUrl,
         confidence: analysisData.confidence || 0.7,
         sources: ["Gemini AI"],
         thoughtProcess: analysisData.thoughtProcess || "Gemini AI analysis completed",

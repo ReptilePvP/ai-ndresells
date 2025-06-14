@@ -394,6 +394,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Serve uploaded images by filename or upload ID
+  app.get("/api/image/:identifier", async (req, res) => {
+    try {
+      const { identifier } = req.params;
+      let imagePath: string;
+
+      // Check if identifier is a number (upload ID) or filename
+      if (/^\d+$/.test(identifier)) {
+        // It's an upload ID, get the filename from database
+        const uploadId = parseInt(identifier);
+        const upload = await storage.getUpload(uploadId);
+
+        if (!upload) {
+          return res.status(404).json({ message: "Upload not found" });
+        }
+
+        imagePath = path.join(process.cwd(), upload.filePath);
+      } else {
+        // It's a filename - handle both regular uploads and reference images
+        if (identifier.startsWith('ref_') || identifier.startsWith('ebay_')) {
+          // Reference image
+          imagePath = path.join(process.cwd(), "uploads", identifier);
+        } else {
+          // Regular upload
+          imagePath = path.join(process.cwd(), "uploads", identifier);
+        }
+      }
+
+      // Check if file exists
+      try {
+        await fs.access(imagePath);
+      } catch (error) {
+        console.error('Image file not found:', imagePath);
+        return res.status(404).json({ message: "Image not found" });
+      }
+
+      // Set appropriate content type based on file extension
+      const ext = path.extname(imagePath).toLowerCase();
+      const contentType = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif'
+      }[ext] || 'application/octet-stream';
+
+      res.setHeader('Content-Type', contentType);
+      res.sendFile(path.resolve(imagePath));
+    } catch (error) {
+      console.error('Image serve error:', error);
+      res.status(500).json({ message: "Failed to serve image" });
+    }
+  });
+
   // WebSocket server setup with path separation
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ 
