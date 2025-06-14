@@ -63,8 +63,15 @@ export default function Analyzer() {
 
   const analyzeMutation = useMutation({
     mutationFn: async (uploadId: number) => {
-      const response = await fetch(`/api/analyze/${uploadId}`, {
+      const response = await fetch('/api/analyze', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uploadId,
+          sessionId: getSessionId(),
+        }),
       });
 
       if (!response.ok) {

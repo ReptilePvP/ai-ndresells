@@ -181,7 +181,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No image file provided" });
       }
 
-      const sessionId = req.sessionID || `session_${Date.now()}`;
+      const customSessionId = req.body.sessionId;
+      const sessionId = customSessionId || req.sessionID || `session_${Date.now()}`;
       const userId = (req as any).user?.claims?.sub || null;
 
       // Validate upload data
