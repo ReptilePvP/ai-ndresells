@@ -1,13 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { sessionMiddleware } from "./auth";
+import { getSession } from "./replitAuth";
 import { searchAPIService } from './api-services/searchapi';
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
-app.use(sessionMiddleware);
+app.use(getSession());
 
 app.use((req, res, next) => {
   const start = Date.now();

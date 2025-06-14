@@ -3,14 +3,12 @@ import { ThemeToggle } from "./theme-provider";
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AuthDialog } from "./auth-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import ndLogoPath from "@assets/nd logo.png";
 
 export function Header() {
   const [location] = useLocation();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showAuthDialog, setShowAuthDialog] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -167,7 +165,7 @@ export function Header() {
                 </>
               ) : (
                 <Button
-                  onClick={() => setShowAuthDialog(true)}
+                  onClick={() => window.location.href = "/api/login"}
                   className="bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-500 hover:to-cyan-500 text-white"
                 >
                   <i className="fas fa-user mr-2"></i>
@@ -178,10 +176,6 @@ export function Header() {
           </div>
         </div>
       </div>
-      <AuthDialog 
-        open={showAuthDialog} 
-        onOpenChange={setShowAuthDialog} 
-      />
     </header>
   );
 }
