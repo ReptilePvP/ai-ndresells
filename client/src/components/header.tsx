@@ -1,189 +1,160 @@
 import { Link, useLocation } from "wouter";
-import { ThemeToggle } from "./theme-provider";
-import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { AuthDialog } from "./auth-dialog";
-import { useAuth, useLogout } from "@/hooks/useAuth";
-import ndLogoPath from "@assets/nd logo.png";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Moon, Sun, User, LogOut, Settings, Camera, BarChart3 } from "lucide-react";
 
 export function Header() {
   const [location] = useLocation();
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showAuthDialog, setShowAuthDialog] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  const { user, isAuthenticated, isAdmin, isLoading } = useAuth();
-  const logoutMutation = useLogout();
+  const { user, isAuthenticated, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   const isActive = (path: string) => location === path;
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowUserMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    logoutMutation.mutate();
-    setShowUserMenu(false);
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center">
+        <div className="mr-4 hidden md:flex">
           <Link href="/">
-            <div className="flex items-center space-x-2 cursor-pointer">
-              <img 
-                src={ndLogoPath} 
-                alt="ND Resells Logo" 
-                className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
-              />
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
-                  ND Resells
-                </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">AI Product Analysis & Pricing</p>
-              </div>
-            </div>
+            <a className="mr-6 flex items-center space-x-2">
+              <Camera className="h-6 w-6" />
+              <span className="hidden font-bold sm:inline-block">
+                Product Analysis
+              </span>
+            </a>
           </Link>
-          
-          <div className="flex items-center space-x-4">
-            <nav className="hidden md:flex space-x-6">
-              <Link href="/">
-                <button className={`font-medium transition-colors ${
-                  isActive("/") 
-                    ? "text-blue-600 dark:text-blue-400" 
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                }`}>
-                  Analyzer
-                </button>
-              </Link>
-              <Link href="/live">
-                <button className={`font-medium transition-colors ${
-                  isActive("/live") 
-                    ? "text-blue-600 dark:text-blue-400" 
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                }`}>
-                  Live Analysis
-                </button>
-              </Link>
-              <Link href="/dashboard">
-                <button className={`font-medium transition-colors ${
-                  isActive("/dashboard") 
-                    ? "text-blue-600 dark:text-blue-400" 
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                }`}>
-                  Dashboard
-                </button>
-              </Link>
-              <Link href="/history">
-                <button className={`font-medium transition-colors ${
-                  isActive("/history") 
-                    ? "text-blue-600 dark:text-blue-400" 
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                }`}>
-                  History
-                </button>
-              </Link>
-              {isAuthenticated && (
-                <Link href="/saved">
-                  <button className={`font-medium transition-colors ${
-                    isActive("/saved") 
-                      ? "text-blue-600 dark:text-blue-400" 
-                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                  }`}>
-                    Saved
-                  </button>
-                </Link>
-              )}
+          <nav className="flex items-center space-x-6 text-sm font-medium">
+            <Link href="/">
+              <a className={`transition-colors hover:text-foreground/80 ${
+                isActive("/") ? "text-foreground" : "text-foreground/60"
+              }`}>
+                Analyzer
+              </a>
+            </Link>
+            <Link href="/dashboard">
+              <a className={`transition-colors hover:text-foreground/80 ${
+                isActive("/dashboard") ? "text-foreground" : "text-foreground/60"
+              }`}>
+                Dashboard
+              </a>
+            </Link>
+            <Link href="/live">
+              <a className={`transition-colors hover:text-foreground/80 ${
+                isActive("/live") ? "text-foreground" : "text-foreground/60"
+              }`}>
+                Live Analysis
+              </a>
+            </Link>
+            <Link href="/history">
+              <a className={`transition-colors hover:text-foreground/80 ${
+                isActive("/history") ? "text-foreground" : "text-foreground/60"
+              }`}>
+                History
+              </a>
+            </Link>
+            <Link href="/saved">
+              <a className={`transition-colors hover:text-foreground/80 ${
+                isActive("/saved") ? "text-foreground" : "text-foreground/60"
+              }`}>
+                Saved
+              </a>
+            </Link>
+          </nav>
+        </div>
 
-            </nav>
-            
-            <ThemeToggle />
-            
-            <div className="relative" ref={menuRef}>
-              {isLoading ? (
-                <div className="w-8 h-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
-              ) : isAuthenticated ? (
-                <>
-                  <button 
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-lg hover:from-emerald-500 hover:to-cyan-500 transition-colors cursor-pointer"
-                  >
-                    <i className="fas fa-user text-white text-sm"></i>
-                    <span className="text-white text-sm max-w-20 truncate">
-                      {user?.firstName || user?.username || 'User'}
-                    </span>
-                    {isAdmin && (
-                      <Badge variant="destructive" className="text-xs">
-                        Admin
-                      </Badge>
-                    )}
-                  </button>
-                  
-                  {showUserMenu && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
-                      <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {user?.firstName || user?.username}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
-                      </div>
-                      <Link href="/profile">
-                        <button 
-                          onClick={() => setShowUserMenu(false)}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <i className="fas fa-user-cog mr-2"></i>
-                          Profile Settings
-                        </button>
-                      </Link>
-                      {isAdmin && (
-                        <Link href="/admin">
-                          <button 
-                            onClick={() => setShowUserMenu(false)}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                          >
-                            <i className="fas fa-cog mr-2"></i>
-                            Admin Panel
-                          </button>
-                        </Link>
+        <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+          <div className="w-full flex-1 md:w-auto md:flex-none">
+            <Link href="/" className="md:hidden">
+              <Button variant="ghost" className="mr-2 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0">
+                <Camera className="h-6 w-6 mr-2" />
+                <span className="font-bold">Product Analysis</span>
+              </Button>
+            </Link>
+          </div>
+
+          <nav className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            >
+              <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <span className="sr-only">Toggle theme</span>
+            </Button>
+
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>
+                        {user?.username?.charAt(0).toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      {user?.username && (
+                        <p className="font-medium">{user.username}</p>
                       )}
-                      <button 
-                        onClick={handleLogout}
-                        disabled={logoutMutation.isPending}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        <i className="fas fa-sign-out-alt mr-2"></i>
-                        {logoutMutation.isPending ? 'Signing out...' : 'Sign Out'}
-                      </button>
+                      {user?.email && (
+                        <p className="w-[200px] truncate text-sm text-muted-foreground">
+                          {user.email}
+                        </p>
+                      )}
                     </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <Link href="/profile">
+                    <DropdownMenuItem>
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </DropdownMenuItem>
+                  </Link>
+                  {user?.role === "admin" && (
+                    <Link href="/admin">
+                      <DropdownMenuItem>
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Admin</span>
+                      </DropdownMenuItem>
+                    </Link>
                   )}
-                </>
-              ) : (
-                <Button
-                  onClick={() => setShowAuthDialog(true)}
-                  className="bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-500 hover:to-cyan-500 text-white"
-                >
-                  <i className="fas fa-user mr-2"></i>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link href="/profile">
+                <Button variant="default" size="sm">
                   Sign In
                 </Button>
-              )}
-            </div>
-          </div>
+              </Link>
+            )}
+          </nav>
         </div>
       </div>
-      <AuthDialog 
-        open={showAuthDialog} 
-        onOpenChange={setShowAuthDialog} 
-      />
     </header>
   );
 }
