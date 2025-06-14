@@ -211,7 +211,7 @@ export class DatabaseStorage implements IStorage {
           eq(savedAnalyses.analysisId, analysisId)
         )
       );
-    return result.rowCount > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   async getSavedAnalyses(userId: string): Promise<AnalysisWithUpload[]> {

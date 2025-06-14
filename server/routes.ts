@@ -10,7 +10,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
 import { multiAPIAnalyzer } from "./multi-api-analyzer";
-import { analyzeImageContent, analyzeImageBase64 } from "./gemini-service";
+
 import { accuracyValidator } from "./accuracy-validator";
 import { createMarketDataService } from "./market-data-service";
 
@@ -124,7 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const sessionId = req.sessionID || `session_${Date.now()}`;
-      const userId = req.user?.claims?.sub || null;
+      const userId = (req as any).user?.claims?.sub || null;
 
       // Validate upload data
       const uploadData = insertUploadSchema.parse({
@@ -182,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const publicUrl = `/uploads/${publicFilename}`;
 
       // Get user's preferred API provider
-      const userId = req.user?.claims?.sub;
+      const userId = (req as any).user?.claims?.sub;
       let apiProvider = "gemini";
       if (userId) {
         const user = await storage.getUser(userId);

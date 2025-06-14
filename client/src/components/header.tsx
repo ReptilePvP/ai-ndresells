@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AuthDialog } from "./auth-dialog";
-import { useAuth, useLogout } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import ndLogoPath from "@assets/nd logo.png";
 
 export function Header() {
@@ -13,8 +13,7 @@ export function Header() {
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const { user, isAuthenticated, isAdmin, isLoading } = useAuth();
-  const logoutMutation = useLogout();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   const isActive = (path: string) => location === path;
 
@@ -119,9 +118,9 @@ export function Header() {
                   >
                     <i className="fas fa-user text-white text-sm"></i>
                     <span className="text-white text-sm max-w-20 truncate">
-                      {user?.firstName || user?.username || 'User'}
+                      {user?.firstName || user?.email?.split('@')[0] || 'User'}
                     </span>
-                    {isAdmin && (
+                    {user?.role === 'admin' && (
                       <Badge variant="destructive" className="text-xs">
                         Admin
                       </Badge>
