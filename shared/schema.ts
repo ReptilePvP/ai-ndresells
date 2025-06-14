@@ -1,36 +1,37 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real, varchar, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, varchar, index, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table for authentication
+// Session storage table.
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const sessions = pgTable(
   "sessions",
   {
     sid: varchar("sid").primaryKey(),
-    sess: text("sess").notNull(),
+    sess: jsonb("sess").notNull(),
     expire: timestamp("expire").notNull(),
   },
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User accounts with role-based access
+// User storage table.
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: varchar("username", { length: 50 }).notNull().unique(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  password: text("password").notNull(),
-  firstName: varchar("first_name", { length: 100 }),
-  lastName: varchar("last_name", { length: 100 }),
+  id: varchar("id").primaryKey().notNull(),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
   role: varchar("role", { length: 20 }).notNull().default("user"), // 'user' or 'admin'
   isActive: boolean("is_active").notNull().default(true),
   apiProvider: text("api_provider", { enum: ["gemini", "searchapi", "serpapi"] }).default("gemini").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const uploads = pgTable("uploads", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
+  userId: varchar("user_id").references(() => users.id),
   sessionId: text("session_id").notNull(),
   filename: text("filename").notNull(),
   originalName: text("original_name").notNull(),
@@ -63,30 +64,13 @@ export const feedback = pgTable("feedback", {
 
 export const savedAnalyses = pgTable("saved_analyses", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   analysisId: integer("analysis_id").references(() => analyses.id).notNull(),
   savedAt: timestamp("saved_at").defaultNow().notNull(),
 });
 
-// Schema validation for user registration and authentication
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-});
-
-export const registerSchema = z.object({
-  email: z.string().email(),
-  username: z.string().min(3).max(50),
-  password: z.string().min(6),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-});
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
 
 export const insertUploadSchema = createInsertSchema(uploads).omit({
   id: true,
@@ -108,11 +92,6 @@ export const insertSavedAnalysisSchema = createInsertSchema(savedAnalyses).omit(
   savedAt: true,
 });
 
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type LoginCredentials = z.infer<typeof loginSchema>;
-export type RegisterData = z.infer<typeof registerSchema>;
-
 export type InsertUpload = z.infer<typeof insertUploadSchema>;
 export type Upload = typeof uploads.$inferSelect;
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;
@@ -128,5 +107,3 @@ export type AnalysisWithUpload = Analysis & {
   feedback?: Feedback;
   isSaved?: boolean;
 };
-
-export type UserWithoutPassword = Omit<User, 'password'>;

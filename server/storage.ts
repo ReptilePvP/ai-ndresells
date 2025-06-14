@@ -1,7 +1,7 @@
 import { 
   uploads, analyses, feedback, users, savedAnalyses,
-  type Upload, type Analysis, type Feedback, type User, type UserWithoutPassword, type AnalysisWithUpload,
-  type InsertUpload, type InsertAnalysis, type InsertFeedback, type InsertUser, type RegisterData,
+  type Upload, type Analysis, type Feedback, type User, type AnalysisWithUpload,
+  type InsertUpload, type InsertAnalysis, type InsertFeedback, type UpsertUser,
   type SavedAnalysis, type InsertSavedAnalysis
 } from "@shared/schema";
 import { db } from "./db";
@@ -9,18 +9,18 @@ import { eq, count, avg, sum, desc, gte, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
-  getUserById(id: number): Promise<User | undefined>;
+  // (IMPORTANT) these user operations are mandatory for Replit Auth.
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(userData: RegisterData & { password: string }): Promise<UserWithoutPassword>;
-  updateUser(id: number, userData: Partial<InsertUser>): Promise<UserWithoutPassword | undefined>;
-  getAllUsers(): Promise<UserWithoutPassword[]>;
+  updateUser(id: string, userData: Partial<UpsertUser>): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
 
   // Upload operations
   createUpload(upload: InsertUpload): Promise<Upload>;
   getUpload(id: number): Promise<Upload | undefined>;
   getUploadsBySession(sessionId: string): Promise<Upload[]>;
-  getUploadsByUser(userId: number): Promise<Upload[]>;
+  getUploadsByUser(userId: string): Promise<Upload[]>;
 
   // Analysis operations
   createAnalysis(analysis: InsertAnalysis): Promise<Analysis>;
