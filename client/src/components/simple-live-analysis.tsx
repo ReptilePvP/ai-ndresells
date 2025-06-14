@@ -25,7 +25,7 @@ export function SimpleLiveAnalysis() {
     setIsConnecting(true);
     
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.host}/api/live`;
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws/live-api`;
     
     console.log('Connecting to WebSocket:', wsUrl);
     
