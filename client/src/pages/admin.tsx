@@ -526,10 +526,11 @@ export default function AdminDiagnostics() {
                       <th className="text-left py-2">User</th>
                       <th className="text-left py-2">Role</th>
                       <th className="text-left py-2">Status</th>
+                      <th className="text-left py-2">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users?.slice(0, 5).map((user) => (
+                    {users?.slice(0, 10).map((user) => (
                       <tr key={user.id} className="border-b">
                         <td className="py-2">
                           <div>
@@ -544,7 +545,14 @@ export default function AdminDiagnostics() {
                         </td>
                         <td className="py-2">
                           <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className="text-xs">
-                            {user.role}
+                            {user.role === 'admin' ? (
+                              <>
+                                <Crown className="w-3 h-3 mr-1" />
+                                Admin
+                              </>
+                            ) : (
+                              'User'
+                            )}
                           </Badge>
                         </td>
                         <td className="py-2">
@@ -552,13 +560,40 @@ export default function AdminDiagnostics() {
                             {user.isActive ? 'Active' : 'Inactive'}
                           </Badge>
                         </td>
+                        <td className="py-2">
+                          <div className="flex gap-1">
+                            {user.role === 'admin' ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateUserRoleMutation.mutate({ userId: user.id, role: 'user' })}
+                                disabled={updateUserRoleMutation.isPending}
+                                className="text-xs h-6"
+                              >
+                                <UserX className="w-3 h-3 mr-1" />
+                                Remove Admin
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateUserRoleMutation.mutate({ userId: user.id, role: 'admin' })}
+                                disabled={updateUserRoleMutation.isPending}
+                                className="text-xs h-6"
+                              >
+                                <UserCheck className="w-3 h-3 mr-1" />
+                                Make Admin
+                              </Button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {users && users.length > 5 && (
+                {users && users.length > 10 && (
                   <div className="text-center text-sm text-gray-500 mt-2">
-                    and {users.length - 5} more users...
+                    and {users.length - 10} more users...
                   </div>
                 )}
               </div>
@@ -603,6 +638,56 @@ export default function AdminDiagnostics() {
                 )}
               </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Admin Promotion */}
+      <div className="mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Promote User to Admin</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="email">User Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={promoteEmail}
+                  onChange={(e) => setPromoteEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="adminSecret">Admin Secret</Label>
+                <Input
+                  id="adminSecret"
+                  type="password"
+                  placeholder="make-me-admin-2025"
+                  value={adminSecret}
+                  onChange={(e) => setAdminSecret(e.target.value)}
+                />
+              </div>
+              <Button
+                onClick={() => promoteUserMutation.mutate({ email: promoteEmail, adminSecret })}
+                disabled={promoteUserMutation.isPending || !promoteEmail || !adminSecret}
+                className="w-full sm:w-auto"
+              >
+                {promoteUserMutation.isPending ? (
+                  <>Loading...</>
+                ) : (
+                  <>
+                    <Crown className="mr-2 h-4 w-4" />
+                    Promote to Admin
+                  </>
+                )}
+              </Button>
+              <p className="text-sm text-gray-500">
+                Use this to promote the first admin user. The admin secret is: <code>make-me-admin-2025</code>
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
