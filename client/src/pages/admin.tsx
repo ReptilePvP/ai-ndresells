@@ -1,14 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Database, Activity, Crown, UserCheck, UserX, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Users, Database, Activity, CheckCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
 
 interface SystemStats {
   totalUsers: number;
@@ -55,10 +50,6 @@ interface UploadWithAnalyses {
 
 export default function AdminDashboard() {
   const { user, isLoading: authLoading } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [promoteEmail, setPromoteEmail] = useState("");
-  const [adminSecret, setAdminSecret] = useState("");
 
   const isAdmin = user?.role === 'admin';
 
@@ -68,73 +59,9 @@ export default function AdminDashboard() {
     enabled: isAdmin,
   });
 
-  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
-    queryKey: ["/api/admin/users"],
-    enabled: isAdmin,
-  });
-
   const { data: uploads, isLoading: uploadsLoading } = useQuery<UploadWithAnalyses[]>({
     queryKey: ["/api/admin/uploads"],
     enabled: isAdmin,
-  });
-
-  // Mutation for updating user role
-  const updateUserRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: 'user' | 'admin' }) => {
-      const response = await fetch(`/api/admin/users/${userId}/role`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role })
-      });
-      if (!response.ok) throw new Error('Failed to update user role');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({
-        title: "Success",
-        description: "User role updated successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update user role",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Mutation for promoting user to admin by email
-  const promoteUserMutation = useMutation({
-    mutationFn: async ({ email, adminSecret }: { email: string; adminSecret: string }) => {
-      const response = await fetch('/api/admin/promote-by-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, adminSecret })
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to promote user');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      setPromoteEmail("");
-      setAdminSecret("");
-      toast({
-        title: "Success",
-        description: "User promoted to admin successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to promote user",
-        variant: "destructive",
-      });
-    },
   });
 
   if (authLoading) {
@@ -223,137 +150,11 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="users">User Management</TabsTrigger>
+      <Tabs defaultValue="activity" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="activity">Recent Activity</TabsTrigger>
-          <TabsTrigger value="system">System Tools</TabsTrigger>
+          <TabsTrigger value="system">System Status</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="users" className="space-y-6">
-          {/* Admin Promotion */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Crown className="h-5 w-5" />
-                Promote User to Admin
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                <div>
-                  <Label htmlFor="email">User Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="user@example.com"
-                    value={promoteEmail}
-                    onChange={(e) => setPromoteEmail(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="adminSecret">Admin Secret</Label>
-                  <Input
-                    id="adminSecret"
-                    type="password"
-                    placeholder="make-me-admin-2025"
-                    value={adminSecret}
-                    onChange={(e) => setAdminSecret(e.target.value)}
-                  />
-                </div>
-                <Button
-                  onClick={() => promoteUserMutation.mutate({ email: promoteEmail, adminSecret })}
-                  disabled={promoteUserMutation.isPending || !promoteEmail || !adminSecret}
-                  className="w-full"
-                >
-                  {promoteUserMutation.isPending ? "Promoting..." : "Promote to Admin"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Users Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>All Users</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {usersLoading ? (
-                <div className="text-center py-8">Loading users...</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-3 font-medium">User</th>
-                        <th className="text-left py-3 font-medium">Role</th>
-                        <th className="text-left py-3 font-medium">Status</th>
-                        <th className="text-left py-3 font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users?.map((user) => (
-                        <tr key={user.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
-                          <td className="py-4">
-                            <div>
-                              <div className="font-medium">
-                                {user.firstName || user.lastName 
-                                  ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
-                                  : user.email?.split('@')[0] || 'User'
-                                }
-                              </div>
-                              <div className="text-sm text-gray-500">{user.email}</div>
-                            </div>
-                          </td>
-                          <td className="py-4">
-                            <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
-                              {user.role === 'admin' ? (
-                                <>
-                                  <Crown className="w-3 h-3 mr-1" />
-                                  Admin
-                                </>
-                              ) : (
-                                'User'
-                              )}
-                            </Badge>
-                          </td>
-                          <td className="py-4">
-                            <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                              {user.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </td>
-                          <td className="py-4">
-                            {user.role === 'admin' ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateUserRoleMutation.mutate({ userId: user.id, role: 'user' })}
-                                disabled={updateUserRoleMutation.isPending}
-                              >
-                                <UserX className="w-4 h-4 mr-1" />
-                                Remove Admin
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateUserRoleMutation.mutate({ userId: user.id, role: 'admin' })}
-                                disabled={updateUserRoleMutation.isPending}
-                              >
-                                <UserCheck className="w-4 h-4 mr-1" />
-                                Make Admin
-                              </Button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="activity" className="space-y-6">
           <Card>
