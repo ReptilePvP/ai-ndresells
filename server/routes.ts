@@ -319,6 +319,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get analyses (unified endpoint for both authenticated and guest users)
+  app.get("/api/analyses", async (req, res) => {
+    try {
+      const userId = (req as any).user?.claims?.sub;
+      const { sessionId } = req.query;
+
+      if (userId) {
+        // Authenticated user - get their analyses
+        const analyses = await storage.getAnalysesByUser(userId);
+        res.json(analyses);
+      } else if (sessionId) {
+        // Guest user - get session-based analyses
+        const analyses = await storage.getAnalysesBySession(sessionId as string);
+        res.json(analyses);
+      } else {
+        res.status(400).json({ error: "Session ID required for guest users" });
+      }
+    } catch (error) {
+      console.error("Error fetching analyses:", error);
+      res.status(500).json({ error: "Failed to fetch analyses" });
+    }
+  });
+
   // Get user's uploads and analyses
   app.get("/api/my-analyses", isAuthenticated, async (req: any, res) => {
     try {
@@ -391,6 +414,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Feedback error:", error);
       res.status(500).json({ error: "Failed to submit feedback" });
+    }
+  });
+
+  // Clear user history with time-based options
+  app.delete("/api/history/clear", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { timeframe } = req.body;
+
+      if (!timeframe) {
+        return res.status(400).json({ error: "Timeframe is required" });
+      }
+
+      const deletedCount = await storage.clearUserHistory(userId, timeframe);
+
+      res.json({ 
+        message: "History cleared successfully",
+        deletedCount 
+      });
+    } catch (error) {
+      console.error("Clear history error:", error);
+      res.status(500).json({ error: "Failed to clear history" });
     }
   });
 

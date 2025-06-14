@@ -17,7 +17,7 @@ import {
   type InsertSavedAnalysis,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, inArray, lt } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -52,6 +52,9 @@ export interface IStorage {
   unsaveAnalysis(userId: string, analysisId: number): Promise<boolean>;
   getSavedAnalyses(userId: string): Promise<AnalysisWithUpload[]>;
   isAnalysisSaved(userId: string, analysisId: number): Promise<boolean>;
+
+  // History management
+  clearUserHistory(userId: string, timeframe: string): Promise<number>;
 
   // Admin analytics
   getAnalyticsData(): Promise<any>;
@@ -251,6 +254,66 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return !!result;
+  }
+
+  // Clear user history with timeframe options
+  async clearUserHistory(userId: string, timeframe: string): Promise<number> {
+    let cutoffDate: Date;
+    const now = new Date();
+    
+    switch (timeframe) {
+      case '1day':
+        cutoffDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case '1week':
+        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '1month':
+        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'all':
+        // Delete all user's analyses
+        const userUploads = await db
+          .select({ id: uploads.id })
+          .from(uploads)
+          .where(eq(uploads.userId, userId));
+        
+        const uploadIds = userUploads.map(u => u.id);
+        
+        if (uploadIds.length === 0) {
+          return 0;
+        }
+        
+        // Delete analyses for user's uploads
+        const deleteResult = await db
+          .delete(analyses)
+          .where(inArray(analyses.uploadId, uploadIds));
+        
+        return deleteResult.rowCount || 0;
+      default:
+        throw new Error('Invalid timeframe specified');
+    }
+    
+    // For time-based clearing, delete analyses older than cutoff date
+    const userUploads = await db
+      .select({ id: uploads.id })
+      .from(uploads)
+      .where(and(
+        eq(uploads.userId, userId),
+        lt(uploads.uploadedAt, cutoffDate)
+      ));
+    
+    const uploadIds = userUploads.map(u => u.id);
+    
+    if (uploadIds.length === 0) {
+      return 0;
+    }
+    
+    const deleteResult = await db
+      .delete(analyses)
+      .where(inArray(analyses.uploadId, uploadIds));
+    
+    return deleteResult.rowCount || 0;
   }
 
   // Admin analytics
