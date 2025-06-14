@@ -155,3 +155,21 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return;
   }
 };
+
+export const isAdmin: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+
+  if (!req.isAuthenticated() || !user.expires_at) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // Get user from database to check role
+  const userId = user.claims.sub;
+  const dbUser = await storage.getUser(userId);
+  
+  if (!dbUser || dbUser.role !== 'admin') {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+
+  return next();
+};

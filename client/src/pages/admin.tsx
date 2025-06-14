@@ -1,10 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Users, Database, Activity, TrendingUp, CheckCircle, XCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertCircle, Users, Database, Activity, TrendingUp, CheckCircle, XCircle, UserCheck, UserX, Crown } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useState } from "react";
 
 interface SystemStats {
   totalUsers: number;
@@ -24,14 +29,15 @@ interface SystemStats {
 }
 
 interface User {
-  id: number;
+  id: string;
   email: string;
-  username: string;
   firstName?: string;
   lastName?: string;
+  profileImageUrl?: string;
   role: string;
   isActive: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
 interface UploadWithAnalyses {

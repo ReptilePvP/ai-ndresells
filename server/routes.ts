@@ -4,7 +4,7 @@ import express from "express";
 import { WebSocketServer } from "ws";
 import { storage } from "./storage";
 import { insertUploadSchema, insertAnalysisSchema, insertFeedbackSchema } from "@shared/schema";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import { setupLiveAPI } from "./live-api";
 import multer from "multer";
 import path from "path";
@@ -101,18 +101,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin routes
-  app.get("/api/admin/analytics", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/analytics", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (!user || user.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
       const analytics = await storage.getAnalyticsData();
       res.json(analytics);
     } catch (error) {
       console.error("Analytics error:", error);
       res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Get all users (admin only)
+  app.get("/api/admin/users", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Update user role (admin only)
+  app.put("/api/admin/users/:userId/role", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { role } = req.body;
+
+      if (!role || !['user', 'admin'].includes(role)) {
+        return res.status(400).json({ message: "Valid role (user or admin) is required" });
+      }
+
+      const updatedUser = await storage.updateUserRole(userId, role);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({ user: updatedUser, message: `User role updated to ${role}` });
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  // Promote user to admin by email (special endpoint for initial setup)
+  app.post("/api/admin/promote-by-email", async (req, res) => {
+    try {
+      const { email, adminSecret } = req.body;
+      
+      // Simple protection - you can change this secret
+      if (adminSecret !== "make-me-admin-2025") {
+        return res.status(403).json({ message: "Invalid admin secret" });
+      }
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User not found with that email" });
+      }
+
+      const updatedUser = await storage.updateUserRole(user.id, 'admin');
+      res.json({ 
+        user: updatedUser, 
+        message: `User ${email} promoted to admin successfully` 
+      });
+    } catch (error) {
+      console.error("Error promoting user to admin:", error);
+      res.status(500).json({ message: "Failed to promote user to admin" });
     }
   });
 
