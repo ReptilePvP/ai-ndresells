@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { useTheme } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { 
   DropdownMenu, 
@@ -14,14 +13,13 @@ import { Moon, Sun, User, LogOut, Settings, Camera, BarChart3 } from "lucide-rea
 
 export function Header() {
   const [location] = useLocation();
-  const { user, isAuthenticated, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { user, isAuthenticated } = useAuth();
 
   const isActive = (path: string) => location === path;
 
   const handleLogout = async () => {
     try {
-      await logout();
+      // await logout();
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -92,10 +90,9 @@ export function Header() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+              onClick={() => console.log('Theme toggle disabled')}
             >
-              <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <Sun className="h-[1.2rem] w-[1.2rem]" />
               <span className="sr-only">Toggle theme</span>
             </Button>
 
