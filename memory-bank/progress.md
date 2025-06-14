@@ -27,5 +27,5 @@ The project is in a stable, production-ready state. The current focus is on moni
 
 ## Known Issues
 
-- **[Resolved]** `searchapi` and `serpapi` services were failing due to incorrect URL construction for image analysis. This has been fixed by prioritizing the `PUBLIC_URL` environment variable.
+- No critical bugs are currently known.
 - The system's reliance on external APIs means that it is vulnerable to their outages, which should be monitored.

@@ -11,8 +11,6 @@ import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
-import { Client } from "@replit/object-storage";
-
 import { createEbayService } from './ebay-api';
 import { createEbayProductionService } from './ebay-production-auth';
 import { createEcommerceService, createGoogleShoppingService, createAmazonService } from './ecommerce-platforms';
@@ -38,13 +36,14 @@ const amazonService = createAmazonService();
 const pricingAggregator = createPricingAggregator();
 const marketDataService = createMarketDataService();
 const intelligentPricing = createIntelligentPricing();
-const client = new Client();
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "uploads");
+const publicUploadDir = path.join(process.cwd(), "public", "uploads");
 
 // Ensure upload directories exist
 fs.mkdir(uploadDir, { recursive: true }).catch(console.error);
+fs.mkdir(publicUploadDir, { recursive: true }).catch(console.error);
 
 const upload = multer({
   dest: uploadDir,
@@ -61,6 +60,9 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve public uploads as static files
+  app.use('/uploads', express.static(publicUploadDir));
+
   // StockX API routes disabled
   app.get('/api/auth/stockx/authorize', (req, res) => {
     res.status(503).json({ error: 'StockX API temporarily disabled' });
@@ -484,39 +486,22 @@ If no clear product is visible, return: {"productName": "No product detected", "
 
       const user = (req as any).user;
       
-      // Read the uploaded file into a buffer
-      const fileBuffer = await fs.readFile(req.file.path);
-
-      // Upload to Replit Bucket
-      const { ok, error } = await client.uploadFromBytes(
-        req.file.filename, 
-        fileBuffer
-      );
-
-      if (!ok) {
-        throw new Error(`Failed to upload to bucket: ${error}`);
-      }
-
-      // TODO: Get public URL. This is not in the provided documentation.
-      // For now, we will construct a placeholder URL.
-      const publicUrl = `https://replit.com/data/buckets/${process.env.REPL_ID}/${req.file.filename}`;
+      // Copy file to public directory for external API access
+      const publicFilePath = path.join(publicUploadDir, req.file.filename);
+      await fs.copyFile(req.file.path, publicFilePath);
       
       const uploadData = {
         userId: user?.id || null,
         sessionId,
         filename: req.file.filename,
         originalName: req.file.originalname,
-        filePath: req.file.path, // Keep original path for reference
-        publicUrl: publicUrl,
+        filePath: req.file.path,
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
       };
 
       const validatedData = insertUploadSchema.parse(uploadData);
       const upload = await storage.createUpload(validatedData);
-
-      // Clean up the temporary file
-      await fs.unlink(req.file.path);
 
       res.json(upload);
     } catch (error) {
@@ -550,7 +535,7 @@ If no clear product is visible, return: {"productName": "No product detected", "
       const analysisData = await multiAPIAnalyzer.analyzeImageWithFallback(
         base64Image,
         originalProvider,
-        upload
+        upload.filename
       );
 
       console.log("Fallback analysis completed:", {
@@ -675,7 +660,7 @@ If no clear product is visible, return: {"productName": "No product detected", "
         analysisData = await multiAPIAnalyzer.analyzeImage(
           base64Image, 
           apiProvider,
-          upload
+          upload.filename
         );
 
         console.log("Multi-API analysis completed:", {

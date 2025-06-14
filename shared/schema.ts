@@ -35,7 +35,6 @@ export const uploads = pgTable("uploads", {
   filename: text("filename").notNull(),
   originalName: text("original_name").notNull(),
   filePath: text("file_path").notNull(),
-  publicUrl: text("public_url"),
   mimeType: text("mime_type").notNull(),
   fileSize: integer("file_size").notNull(),
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
