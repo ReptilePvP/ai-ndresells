@@ -299,6 +299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Analysis completed for upload ${uploadId}`);
 
       res.json({
+        id: analysis.id,
         analysisId: analysis.id,
         ...analysisResult,
         retailPrice: marketData.retailPrice,
